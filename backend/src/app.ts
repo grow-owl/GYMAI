@@ -92,7 +92,7 @@ if (env.NODE_ENV === 'development') {
   );
 }
 
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'GYM AI Backend is running' });
 });
 
