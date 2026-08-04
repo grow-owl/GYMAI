@@ -48,7 +48,8 @@ export default function Equipment() {
   const fetchEquipment = async () => {
     try {
       const targetGymId = user?.gymId || "65a000000000000000000001";
-      const res = await equipmentApi.list(targetGymId);
+      const targetBranchId = user?.branchId || "65a000000000000000000002";
+      const res = await equipmentApi.list(targetGymId, targetBranchId);
       const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
       if (list && list.length > 0) {
         setEquipmentList(list);
@@ -76,7 +77,8 @@ export default function Equipment() {
 
     try {
       if (user?.gymId) {
-        await equipmentApi.add({ ...newEquipment, gymId: user.gymId });
+        const branchId = user?.branchId || "65a000000000000000000002";
+        await equipmentApi.add(user.gymId, branchId, newEquipment);
       }
     } catch {}
   };

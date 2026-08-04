@@ -152,23 +152,35 @@ export const workoutApi = {
 
   createExercise: (data: any) => api.post<any>("/exercises", data),
 
-  listPlans: () => api.get<any[]>("/workout-plans"),
+  listPlans: (memberId: string) => api.get<any[]>(`/members/${memberId}/workout-plans`),
 
-  createPlan: (data: any) => api.post<any>("/workout-plans", data),
+  getActivePlan: (memberId: string) => api.get<any>(`/members/${memberId}/workout-plans/active`),
 
-  logWorkout: (data: any) => api.post<any>("/workout-logs", data),
+  createPlan: (memberId: string, data: any) => api.post<any>(`/members/${memberId}/workout-plans`, data),
+
+  updatePlan: (planId: string, data: any) => api.patch<any>(`/workout-plans/${planId}`, data),
+
+  archivePlan: (planId: string) => api.patch<any>(`/workout-plans/${planId}/archive`),
+
+  duplicatePlan: (planId: string) => api.post<any>(`/workout-plans/${planId}/duplicate`),
+
+  logWorkout: (data: any) => api.post<any>("/workout-logs/start", data),
 };
 
 export const dietApi = {
-  listPlans: () => api.get<any[]>("/diet-plans"),
+  listPlans: (memberId: string) => api.get<any[]>(`/members/${memberId}/diet-plans`),
 
-  createPlan: (data: any) => api.post<any>("/diet-plans", data),
+  createPlan: (memberId: string, data: any) => api.post<any>(`/members/${memberId}/diet-plans`, data),
 
-  getActive: () => api.get<any>("/diet-plans/active"),
+  getActive: (memberId: string) => api.get<any>(`/members/${memberId}/diet-plans/active`),
+
+  updatePlan: (planId: string, data: any) => api.patch<any>(`/diet-plans/${planId}`, data),
+
+  archivePlan: (planId: string) => api.patch<any>(`/diet-plans/${planId}/archive`),
 };
 
 export const progressApi = {
-  getHistory: (memberId?: string) => api.get<any>(`/progress${memberId ? `?memberId=${memberId}` : ""}`),
+  getHistory: (memberId?: string) => api.get<any>(`/progress/weight/history${memberId ? `?memberId=${memberId}` : ""}`),
 
   logWeight: (weightKg: number, notes?: string) => api.post<any>("/progress/weight", { weightKg, notes }),
 };
@@ -192,7 +204,7 @@ export const paymentApi = {
 
   getMyPayments: (gymId: string) => api.get<any>(`/gyms/${gymId}/payments/me`),
 
-  getPlatformBilling: () => api.get<any>("/billing/platform/subscription"),
+  getPlatformBilling: () => api.get<any>("/billing/platform/invoices"),
 
   upgradePlatformTier: (planId: string) => api.post<any>("/billing/platform/upgrade", { planId }),
 
@@ -239,9 +251,9 @@ export const productApi = {
 };
 
 export const expenseApi = {
-  list: (gymId?: string) => api.get<any[]>(`/expenses${gymId ? `?gymId=${gymId}` : ""}`),
+  list: (gymId: string) => api.get<any[]>(`/gyms/${gymId}/expenses`),
 
-  add: (data: any) => api.post<any>("/expenses", data),
+  add: (gymId: string, data: any) => api.post<any>(`/gyms/${gymId}/expenses`, data),
 };
 
 export const leadApi = {
@@ -254,9 +266,11 @@ export const leadApi = {
 };
 
 export const equipmentApi = {
-  list: (gymId?: string) => api.get<any[]>(`/equipment${gymId ? `?gymId=${gymId}` : ""}`),
+  list: (gymId: string, branchId: string) =>
+    api.get<any[]>(`/gyms/${gymId}/branches/${branchId}/equipment`),
 
-  add: (data: any) => api.post<any>("/equipment", data),
+  add: (gymId: string, branchId: string, data: any) =>
+    api.post<any>(`/gyms/${gymId}/branches/${branchId}/equipment`, data),
 
   updateStatus: (id: string, status: string) => api.patch<any>(`/equipment/${id}`, { status }),
 };

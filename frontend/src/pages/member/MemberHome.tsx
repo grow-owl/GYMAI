@@ -18,23 +18,29 @@ export default function MemberHome() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      memberApi.getSelfProfile().catch(() => null),
-      workoutApi.listPlans().catch(() => null),
-      gamificationApi.getMyProfile().catch(() => null),
-    ])
-      .then(([profRes, plansRes, gameRes]) => {
-        if (profRes?.member) {
-          setMemberProfile(profRes.member);
-        }
-        const planList = Array.isArray(plansRes) ? plansRes : [];
-        if (planList.length > 0) {
-          setActivePlan(planList[0]);
+    memberApi
+      .getSelfProfile()
+      .then((profRes) => {
+        const m = profRes?.member;
+        if (m) setMemberProfile(m);
+        const memberId = m?._id;
+        return Promise.all([
+          memberId ? workoutApi.listPlans(memberId).catch(() => null) : null,
+          gamificationApi.getMyProfile().catch(() => null),
+        ]);
+      })
+      .then(([plansRes, gameRes]) => {
+        if (plansRes) {
+          const planList = Array.isArray(plansRes) ? plansRes : (plansRes as any)?.plans || [];
+          if (planList.length > 0) {
+            setActivePlan(planList[0]);
+          }
         }
         if (gameRes) {
           setGameProfile(gameRes);
         }
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 

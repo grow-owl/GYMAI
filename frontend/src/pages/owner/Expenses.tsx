@@ -49,7 +49,7 @@ export default function Expenses() {
     e.preventDefault();
     try {
       if (user?.gymId) {
-        await expenseApi.add({ ...newExpense, gymId: user.gymId });
+        await expenseApi.add(user.gymId, newExpense);
       }
       toast.success(`Expense ₹${newExpense.amount} added!`);
       setShowAddModal(false);
