@@ -86,7 +86,7 @@ export default function Settings() {
       const [bRes, gRes, waRes] = await Promise.all([
         gymApi.listBranches(activeGymId).catch(() => null),
         gymApi.getGymById(activeGymId).catch(() => null),
-        notificationApi.getWhatsAppLogs(activeGymId).catch(() => null),
+        notificationApi.getWhatsAppLog(activeGymId).catch(() => notificationApi.getWhatsAppLogs(activeGymId).catch(() => null)),
       ]);
 
       const bList = Array.isArray(bRes) ? bRes : bRes?.branches || [];
@@ -365,22 +365,35 @@ export default function Settings() {
                   <p className="text-xs text-(--color-text-faint) py-3 text-center">No WhatsApp messages dispatched yet.</p>
                 ) : (
                   <div className="divide-y divide-(--color-border-soft) text-xs">
-                    {waLogs.map((log: any, idx: number) => (
-                      <div key={log._id || idx} className="py-2.5 flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-(--color-text)">{log.templateName || "Template Message"}</span>
-                            <span className="font-mono text-(--color-text-faint)">({log.phone})</span>
+                    {waLogs.map((log: any, idx: number) => {
+                      const memberName = log.memberId?.userId?.fullName || log.memberId?.name || log.phone || "Member";
+                      const errorMsg = log.status === "FAILED" ? (log.errorMessage || log.errorReason) : null;
+
+                      return (
+                        <div key={log._id || idx} className="py-2.5 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-(--color-text)">{log.templateName || "Template Message"}</span>
+                                <span className="text-(--color-text-muted)">· {memberName}</span>
+                                <span className="font-mono text-(--color-text-faint)">({log.phone})</span>
+                              </div>
+                              <p className="text-[11px] text-(--color-text-faint) mt-0.5">
+                                {new Date(log.sentAt || log.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <Badge tone={log.status === "SENT" ? "good" : log.status === "FAILED" ? "danger" : "warn"}>
+                              {log.status}
+                            </Badge>
                           </div>
-                          <p className="text-[11px] text-(--color-text-faint) mt-0.5">
-                            {new Date(log.sentAt || log.createdAt).toLocaleString()}
-                          </p>
+                          {errorMsg && (
+                            <p className="text-[11px] text-rose-400 bg-rose-500/10 p-1.5 rounded-lg">
+                              Error: {errorMsg}
+                            </p>
+                          )}
                         </div>
-                        <Badge tone={log.status === "SENT" ? "good" : log.status === "FAILED" ? "danger" : "warn"}>
-                          {log.status}
-                        </Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

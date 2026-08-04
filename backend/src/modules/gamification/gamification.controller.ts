@@ -30,8 +30,9 @@ export class GamificationController {
   });
 
   public static listChallenges = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = (req.query.gymId as string) || req.user?.gymId;
-    const challenges = await GamificationService.listChallenges(gymId?.toString());
+    const gymId = (req.query.gymId as string) || (req.params as any)?.gymId || req.user?.gymId;
+    const memberUserId = req.user?.id;
+    const challenges = await GamificationService.listActiveChallenges(gymId?.toString(), memberUserId);
     return sendSuccess(res, { challenges });
   });
 

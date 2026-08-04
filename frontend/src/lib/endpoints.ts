@@ -127,6 +127,8 @@ export const memberApi = {
     api.patch<any>(`/gyms/${gymId}/members/${memberId}/renew`, data),
 
   getSelfProfile: () => api.get<{ member: any }>("/members/me"),
+
+  getMyReferralStats: () => api.get<any>("/members/me/referral-stats"),
 };
 
 export const attendanceApi = {
@@ -198,6 +200,11 @@ export const paymentApi = {
 
   recordManualPlatformPayment: (gymId: string, data: any) =>
     api.post<any>(`/billing/platform/gyms/${gymId}/manual-payment`, data),
+
+  requestUpgrade: (gymId: string, data: { requestedPlan: string; billingCycle?: string; notes?: string }) =>
+    api.post<any>(`/billing/platform/gyms/${gymId}/upgrade-request`, data),
+
+  listUpgradeRequests: () => api.get<any>("/billing/platform/upgrade-requests"),
 };
 
 export const aiApi = {
@@ -300,6 +307,8 @@ export const notificationApi = {
 
   getWhatsAppLogs: (gymId?: string) =>
     api.get<any>(`/notifications/whatsapp-logs${gymId ? `?gymId=${gymId}` : ""}`),
+
+  getWhatsAppLog: (gymId: string) => api.get<any>(`/gyms/${gymId}/whatsapp-log`),
 };
 
 export const privacyApi = {
@@ -308,8 +317,13 @@ export const privacyApi = {
 };
 
 export const feedbackApi = {
+  create: (memberId: string, data: { note: string; rating?: number; workoutLogId?: string }) =>
+    api.post<any>(`/members/${memberId}/feedback`, { memberId, ...data }),
+
   submitFeedback: (memberId: string, data: { note: string; rating?: number; workoutLogId?: string }) =>
     api.post<any>(`/members/${memberId}/feedback`, { memberId, ...data }),
 
-  listFeedback: (memberId: string) => api.get<any[]>(`/members/${memberId}/feedback`),
+  list: (memberId: string) => api.get<any>(`/members/${memberId}/feedback`),
+
+  listFeedback: (memberId: string) => api.get<any>(`/members/${memberId}/feedback`),
 };

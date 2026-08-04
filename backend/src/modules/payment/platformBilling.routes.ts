@@ -35,10 +35,16 @@ router.get(
   PlatformBillingController.getPlatformRevenueOverview
 );
 
+router.post(
+  '/gyms/:gymId/upgrade-request',
+  authorize(Role.GYM_OWNER),
+  PlatformBillingController.createUpgradeRequest
+);
+
 router.get(
-  '/analytics/revenue-trends',
+  '/upgrade-requests',
   authorize(Role.SUPER_ADMIN),
-  PlatformBillingController.getPlatformRevenueTrends
+  PlatformBillingController.listUpgradeRequests
 );
 
 export default router;

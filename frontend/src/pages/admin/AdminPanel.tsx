@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { ShieldCheck, Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp } from "lucide-react";
+import { ShieldCheck, Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import { paymentApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<any | null>(null);
+  const [upgradeRequests, setUpgradeRequests] = useState<any[]>([]);
 
   // Manual Platform Payment Modal
   const [showRecordModal, setShowRecordModal] = useState(false);
@@ -23,12 +25,17 @@ export default function AdminPanel() {
     notes: "",
   });
 
-  const fetchAnalytics = async () => {
+  const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await paymentApi.getPlatformAnalyticsOverview();
-      setAnalytics(res);
+      const [analyticsRes, reqsRes] = await Promise.all([
+        paymentApi.getPlatformAnalyticsOverview().catch(() => null),
+        paymentApi.listUpgradeRequests().catch(() => null),
+      ]);
+      setAnalytics(analyticsRes);
+      const reqList = Array.isArray(reqsRes) ? reqsRes : reqsRes?.upgradeRequests || [];
+      setUpgradeRequests(reqList);
     } catch {
       setError("Failed to load platform analytics overview.");
     } finally {
@@ -37,7 +44,7 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
-    fetchAnalytics();
+    fetchData();
   }, []);
 
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -58,12 +65,22 @@ export default function AdminPanel() {
       });
       toast.success("Manual platform payment recorded successfully! Gym plan updated.");
       setShowRecordModal(false);
-      fetchAnalytics();
+      fetchData();
     } catch {
       toast.error("Failed to record manual platform payment.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFulfillRequest = (reqItem: any) => {
+    const targetGymId = reqItem.gymId?._id || reqItem.gymId || "";
+    setFormData({
+      ...formData,
+      gymId: String(targetGymId),
+      targetPlan: reqItem.requestedPlan || "PRO",
+    });
+    setShowRecordModal(true);
   };
 
   return (
@@ -89,7 +106,7 @@ export default function AdminPanel() {
         <Card className="text-center py-8">
           <p className="text-sm text-(--color-danger) mb-3">{error}</p>
           <button
-            onClick={fetchAnalytics}
+            onClick={fetchData}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-full bg-(--color-surface-3) text-(--color-text)"
           >
             <RefreshCw size={14} /> Retry
@@ -128,6 +145,52 @@ export default function AdminPanel() {
               </p>
             </Card>
           </div>
+
+          {/* Pending Upgrade Requests Section */}
+          <Card className="space-y-3">
+            <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-2">
+              <div className="flex items-center gap-2">
+                <Zap size={16} className="text-(--color-accent)" />
+                <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-faint)">
+                  Pending Upgrade Requests ({upgradeRequests.length})
+                </p>
+              </div>
+            </div>
+
+            {upgradeRequests.length === 0 ? (
+              <p className="text-xs text-(--color-text-faint) py-4 text-center">No pending gym upgrade requests.</p>
+            ) : (
+              <div className="divide-y divide-(--color-border-soft) text-xs">
+                {upgradeRequests.map((reqItem: any, idx: number) => {
+                  const gymName = reqItem.gymId?.name || "Gym Organization";
+                  const reqUser = reqItem.requestedByUserId?.fullName || reqItem.requestedByUserId?.email || "Gym Owner";
+                  return (
+                    <div key={reqItem._id || idx} className="py-3 flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-(--color-text)">{gymName}</span>
+                          <Badge tone={reqItem.status === "PENDING" ? "warn" : "good"}>{reqItem.status}</Badge>
+                        </div>
+                        <p className="text-(--color-text-muted)">
+                          Requested Plan: <strong className="text-(--color-text)">{reqItem.requestedPlan}</strong> (from {reqItem.currentPlan})
+                        </p>
+                        <p className="text-[11px] text-(--color-text-faint)">
+                          Requested by {reqUser} · {new Date(reqItem.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleFulfillRequest(reqItem)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-full bg-(--color-accent) text-white hover:opacity-90"
+                      >
+                        Record Payment
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
 
           <div className="grid sm:grid-cols-2 gap-4">
             <Card className="space-y-3">

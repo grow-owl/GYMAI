@@ -4,6 +4,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { paymentApi } from "@/lib/endpoints";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 const plans = [
@@ -44,16 +45,36 @@ const plans = [
   },
 ];
 
+const CARD_ID_TO_GYM_PLAN: Record<string, string> = {
+  starter: "BASIC",
+  pro: "PRO",
+  enterprise: "ENTERPRISE",
+};
+
+const GYM_PLAN_TO_CARD_ID: Record<string, string> = {
+  TRIAL: "starter",
+  BASIC: "starter",
+  PRO: "pro",
+  ENTERPRISE: "enterprise",
+};
+
 export default function Billing() {
-  const [currentPlan, setCurrentPlan] = useState("pro");
+  const user = useAuthStore((s) => s.user);
+  const [currentPlanCardId, setCurrentPlanCardId] = useState("pro");
+  const [currentPlanRaw, setCurrentPlanRaw] = useState("PRO");
   const [selectedPlanForUpgrade, setSelectedPlanForUpgrade] = useState<any | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [pendingDowngrade, setPendingDowngrade] = useState<string | null>(null);
 
   useEffect(() => {
     paymentApi
       .getPlatformBilling()
       .then((res) => {
-        if (res?.plan) setCurrentPlan(res.plan.toLowerCase());
+        if (res?.plan) {
+          const raw = String(res.plan).toUpperCase();
+          setCurrentPlanRaw(raw);
+          setCurrentPlanCardId(GYM_PLAN_TO_CARD_ID[raw] || raw.toLowerCase());
+        }
       })
       .catch(() => {});
   }, []);
@@ -62,14 +83,31 @@ export default function Billing() {
     setSelectedPlanForUpgrade(plan);
   };
 
-  const handleConfirmRequest = () => {
-    if (selectedPlanForUpgrade?.id === "starter" && currentPlan !== "starter") {
-      setPendingDowngrade(selectedPlanForUpgrade.name);
-      toast.success(`Downgrade request for ${selectedPlanForUpgrade.name} submitted to Super Admin.`);
-    } else {
-      toast.success(`Upgrade request for ${selectedPlanForUpgrade?.name} submitted! Super Admin (support@gymai.com) will process your tier change.`);
+  const handleConfirmRequest = async () => {
+    if (!selectedPlanForUpgrade) return;
+    const gymId = user?.gymId;
+    const requestedPlanEnum = CARD_ID_TO_GYM_PLAN[selectedPlanForUpgrade.id] || selectedPlanForUpgrade.id.toUpperCase();
+
+    setSubmitting(true);
+    try {
+      if (gymId) {
+        await paymentApi.requestUpgrade(gymId, {
+          requestedPlan: requestedPlanEnum,
+          billingCycle: "MONTHLY",
+        });
+      }
+      if (selectedPlanForUpgrade.id === "starter" && currentPlanCardId !== "starter") {
+        setPendingDowngrade(selectedPlanForUpgrade.name);
+        toast.success(`Downgrade request for ${selectedPlanForUpgrade.name} submitted to Super Admin.`);
+      } else {
+        toast.success(`Upgrade request for ${selectedPlanForUpgrade.name} submitted! Super Admin will process your tier change.`);
+      }
+    } catch {
+      toast.error("Failed to submit plan change request. Please try again.");
+    } finally {
+      setSubmitting(false);
+      setSelectedPlanForUpgrade(null);
     }
-    setSelectedPlanForUpgrade(null);
   };
 
   const handleRevokeDowngrade = () => {
@@ -90,7 +128,7 @@ export default function Billing() {
           <div>
             <p className="text-xs text-(--color-text-muted) mb-1">Active SaaS Plan</p>
             <p className="text-2xl font-bold text-(--color-text) capitalize flex items-center gap-2">
-              {currentPlan} Plan <Badge tone="good">Active</Badge>
+              {currentPlanRaw} Plan <Badge tone="good">Active</Badge>
             </p>
             {pendingDowngrade && (
               <div className="mt-2 flex items-center gap-2">
@@ -141,15 +179,15 @@ export default function Billing() {
             </div>
 
             <button
-              disabled={currentPlan === p.id}
+              disabled={currentPlanCardId === p.id}
               onClick={() => handleOpenUpgradeModal(p)}
               className={`mt-6 w-full py-2.5 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                currentPlan === p.id
+                currentPlanCardId === p.id
                   ? "bg-(--color-surface-3) text-(--color-text-muted) cursor-default"
                   : "bg-(--color-accent) text-white hover:opacity-90 shadow-md"
               }`}
             >
-              {currentPlan === p.id ? (
+              {currentPlanCardId === p.id ? (
                 "Current Active Plan"
               ) : (
                 <>
@@ -198,10 +236,11 @@ export default function Billing() {
               </button>
               <button
                 type="button"
+                disabled={submitting}
                 onClick={handleConfirmRequest}
-                className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white"
+                className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
               >
-                Submit Request
+                {submitting ? "Submitting..." : "Submit Request"}
               </button>
             </div>
           </div>

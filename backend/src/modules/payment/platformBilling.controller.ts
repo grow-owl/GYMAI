@@ -3,6 +3,7 @@ import { PlatformBillingService } from './platformBilling.service';
 import { PlatformInvoice } from './platformInvoice.model';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { assertTenantMatch } from '../../common/middlewares/tenant.middleware';
 
 export class PlatformBillingController {
   public static initiatePlanUpgrade = asyncHandler(async (req: Request, res: Response) => {
@@ -75,5 +76,26 @@ export class PlatformBillingController {
       endDate ? new Date(endDate as string) : undefined
     );
     return sendSuccess(res, { trends }, 'Platform revenue trends retrieved successfully');
+  });
+
+  public static createUpgradeRequest = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    if (!gymId) {
+      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+    }
+    assertTenantMatch(gymId, req);
+
+    const upgradeRequest = await PlatformBillingService.createUpgradeRequest(
+      gymId.toString(),
+      req.user!.id,
+      req.body
+    );
+
+    return sendSuccess(res, { upgradeRequest }, 'Upgrade request submitted successfully', 201);
+  });
+
+  public static listUpgradeRequests = asyncHandler(async (_req: Request, res: Response) => {
+    const upgradeRequests = await PlatformBillingService.listUpgradeRequests();
+    return sendSuccess(res, { upgradeRequests }, 'Upgrade requests retrieved successfully');
   });
 }

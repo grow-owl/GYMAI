@@ -456,14 +456,57 @@ export class GamificationService {
   }
 
   /**
-   * List active gym challenges.
+   * List active gym challenges (endDate >= now, sorted by endDate ascending)
    */
-  public static async listChallenges(gymId?: string): Promise<any[]> {
-    const filter: any = { isDeleted: { $ne: true } };
+  public static async listActiveChallenges(gymId?: string, memberUserIdOrId?: string): Promise<any[]> {
+    const now = new Date();
+    const filter: any = {
+      isDeleted: { $ne: true },
+      endDate: { $gte: now },
+    };
     if (gymId && mongoose.Types.ObjectId.isValid(gymId)) {
       filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
-    return Challenge.find(filter).sort({ startDate: -1 });
+
+    const challenges = await Challenge.find(filter).sort({ endDate: 1 });
+
+    let memberIdStr: string | null = null;
+    if (memberUserIdOrId) {
+      const member = await Member.findOne({
+        $or: [
+          { _id: mongoose.Types.ObjectId.isValid(memberUserIdOrId) ? memberUserIdOrId : null },
+          { userId: mongoose.Types.ObjectId.isValid(memberUserIdOrId) ? memberUserIdOrId : null },
+        ],
+        isDeleted: false,
+      });
+      if (member) {
+        memberIdStr = member._id.toString();
+      }
+    }
+
+    return challenges.map((c) => {
+      const obj = c.toObject();
+      let hasJoined = false;
+      let userProgress = 0;
+
+      if (memberIdStr && Array.isArray(obj.participants)) {
+        const p = obj.participants.find((part: any) => part.memberId?.toString() === memberIdStr);
+        if (p) {
+          hasJoined = true;
+          userProgress = p.progress || 0;
+        }
+      }
+
+      return {
+        ...obj,
+        hasJoined,
+        userProgress,
+      };
+    });
+  }
+
+  public static async listChallenges(gymId?: string, memberUserIdOrId?: string): Promise<any[]> {
+    return this.listActiveChallenges(gymId, memberUserIdOrId);
   }
 
   /**

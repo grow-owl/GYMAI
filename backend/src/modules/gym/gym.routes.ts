@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { GymController } from './gym.controller';
 import { PlatformBillingController } from '../payment/platformBilling.controller';
+import { NotificationController } from '../notification/notification.controller';
 import { recordManualPlatformPaymentSchema } from '../payment/payment.validation';
 import { authenticate } from '../../common/middlewares/auth.middleware';
 import { authorize } from '../../common/middlewares/authorize.middleware';
@@ -67,6 +68,12 @@ router.post(
   authorize(Role.SUPER_ADMIN),
   validate(recordManualPlatformPaymentSchema, 'body'),
   PlatformBillingController.recordManualPlatformPayment
+);
+
+router.get(
+  '/:gymId/whatsapp-log',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  NotificationController.getWhatsAppLog
 );
 
 // Branch Routes

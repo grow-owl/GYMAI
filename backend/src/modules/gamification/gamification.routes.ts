@@ -30,8 +30,18 @@ gamificationRouter.post(
   GamificationController.joinChallenge
 );
 
-// Staff Challenge Authoring (/api/v1/gyms/:gymId/challenges)
+// Staff Challenge Authoring & Listing (/api/v1/gyms/:gymId/challenges)
 gymChallengeRouter.use(authenticate);
+gymChallengeRouter.get(
+  '/:gymId/challenges',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  GamificationController.listChallenges
+);
+gymChallengeRouter.get(
+  '/',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  GamificationController.listChallenges
+);
 gymChallengeRouter.post(
   '/:gymId/challenges',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),

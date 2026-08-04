@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { MemberService } from './member.service';
+import { ReferralService } from './referral.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
 import { Role } from '../../common/constants/roles.enum';
@@ -37,6 +38,11 @@ export class MemberController {
   public static getMe = asyncHandler(async (req: Request, res: Response) => {
     const member = await MemberService.getMemberByUserId(req.user!.id);
     return sendSuccess(res, { member }, 'Member profile retrieved successfully');
+  });
+
+  public static getMyReferralStats = asyncHandler(async (req: Request, res: Response) => {
+    const stats = await ReferralService.getMyReferralStats(req.user!.id);
+    return sendSuccess(res, stats, 'Referral stats retrieved successfully');
   });
 
   public static updateMe = asyncHandler(async (req: Request, res: Response) => {

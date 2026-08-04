@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { DeviceTokenService } from './deviceToken.service';
 import { NotificationService } from './notification.service';
 import { WhatsAppMessageLog } from './whatsapp/whatsAppMessageLog.model';
+import { WhatsAppNotificationService } from './whatsapp/whatsappNotification.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
 
@@ -42,6 +43,20 @@ export class NotificationController {
     }
 
     return sendSuccess(res, { logs }, 'WhatsApp message delivery logs retrieved successfully');
+  });
+
+  public static getWhatsAppLog = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    if (!gymId) {
+      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+    }
+
+    const logs = await WhatsAppNotificationService.listMessageLog(gymId.toString(), {
+      status: req.query.status as string,
+      memberId: req.query.memberId as string,
+    });
+
+    return sendSuccess(res, { logs }, 'WhatsApp message log retrieved successfully');
   });
 
   public static registerDeviceToken = asyncHandler(async (req: Request, res: Response) => {

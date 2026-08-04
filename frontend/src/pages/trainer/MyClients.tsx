@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Loader2, RefreshCw, Users } from "lucide-react";
+import { Loader2, RefreshCw, Users, Star, MessageSquare } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { trainerApi } from "@/lib/endpoints";
+import { trainerApi, feedbackApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 
 export default function MyClients() {
@@ -11,6 +11,7 @@ export default function MyClients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<any[]>([]);
+  const [clientFeedbacks, setClientFeedbacks] = useState<Record<string, any[]>>({});
 
   const fetchClients = async () => {
     if (!user?.gymId) return;
@@ -20,6 +21,24 @@ export default function MyClients() {
       const res = await trainerApi.getMyClients(user.gymId);
       const list = Array.isArray(res) ? res : res?.clients || [];
       setClients(list);
+
+      // Fetch feedback for each client
+      const feedbackMap: Record<string, any[]> = {};
+      await Promise.all(
+        list.map(async (c: any) => {
+          const clientId = c._id || c.id;
+          if (clientId) {
+            try {
+              const fbRes = await feedbackApi.list(clientId);
+              const fbList = Array.isArray(fbRes) ? fbRes : fbRes?.feedback || fbRes?.data || [];
+              feedbackMap[clientId] = fbList;
+            } catch {
+              feedbackMap[clientId] = [];
+            }
+          }
+        })
+      );
+      setClientFeedbacks(feedbackMap);
     } catch {
       setError("Failed to load assigned clients.");
       setClients([]);
@@ -33,7 +52,7 @@ export default function MyClients() {
   }, [user]);
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader title="My Clients" subtitle={`${clients.length} assigned`} backTo="/trainer" />
 
       {loading ? (
@@ -59,8 +78,9 @@ export default function MyClients() {
           </p>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {clients.map((c) => {
+            const clientId = c._id || c.id;
             const name = c.userId?.fullName || c.name || "Client";
             const plan = c.planName || c.plan || "Membership";
             const status = c.membershipStatus || c.status || "ACTIVE";
@@ -70,22 +90,63 @@ export default function MyClients() {
               .join("")
               .slice(0, 2);
 
+            const feedbacks = clientFeedbacks[clientId] || [];
+
             return (
-              <Card key={c._id || c.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--color-surface-3) text-sm font-semibold text-(--color-text)">
-                    {initials}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-(--color-text)">{name}</p>
-                    <p className="text-xs text-(--color-text-faint)">{plan}</p>
+              <Card key={clientId} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--color-surface-3) text-sm font-semibold text-(--color-text)">
+                      {initials}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-(--color-text)">{name}</p>
+                      <p className="text-xs text-(--color-text-faint)">{plan}</p>
+                    </div>
                   </div>
+                  {status === "FROZEN" || c.churnRisk === "high" ? (
+                    <Badge tone="danger">Needs attention</Badge>
+                  ) : (
+                    <Badge tone="good">On track</Badge>
+                  )}
                 </div>
-                {status === "FROZEN" || c.churnRisk === "high" ? (
-                  <Badge tone="danger">Needs attention</Badge>
-                ) : (
-                  <Badge tone="good">On track</Badge>
-                )}
+
+                {/* Feedback section */}
+                <div className="pt-2 border-t border-(--color-border-soft) space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs text-(--color-text-muted) font-medium">
+                    <MessageSquare size={13} className="text-(--color-accent)" />
+                    <span>Client Feedback ({feedbacks.length})</span>
+                  </div>
+
+                  {feedbacks.length === 0 ? (
+                    <p className="text-xs text-(--color-text-faint) italic">No feedback submitted yet.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {feedbacks.map((fb: any, idx: number) => (
+                        <div key={fb._id || idx} className="p-2.5 rounded-xl bg-(--color-surface-2) text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1 text-amber-400">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  size={12}
+                                  fill={star <= (fb.rating || 5) ? "currentColor" : "none"}
+                                />
+                              ))}
+                              <span className="text-[11px] font-semibold text-(--color-text) ml-1">
+                                {fb.rating || 5}/5
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-(--color-text-faint)">
+                              {new Date(fb.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-(--color-text) text-xs leading-relaxed">{fb.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Card>
             );
           })}

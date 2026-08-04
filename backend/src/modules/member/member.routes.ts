@@ -22,6 +22,7 @@ const selfMemberRouter = Router();
 // 1. Logged-in Member Self-Access & Referral Trigger Routes (/members/me, /members/:memberId/referral-ask)
 selfMemberRouter.use(authenticate);
 selfMemberRouter.get('/me', authorize(Role.MEMBER), MemberController.getMe);
+selfMemberRouter.get('/me/referral-stats', authorize(Role.MEMBER), MemberController.getMyReferralStats);
 selfMemberRouter.patch(
   '/me',
   authorize(Role.MEMBER),

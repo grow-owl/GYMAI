@@ -111,6 +111,11 @@ export const notificationTemplates = {
     body: `${memberName} has been assigned to you as a new member. Check their profile and set up their first workout plan!`,
   }),
 
+  [NotificationType.PLATFORM_UPGRADE_REQUESTED]: (gymName: string, currentPlan: string, requestedPlan: string): NotificationContent => ({
+    title: '🚀 Platform Plan Upgrade Requested',
+    body: `${gymName} requested a plan change from ${currentPlan} to ${requestedPlan}.`,
+  }),
+
   [NotificationType.GENERIC]: (title: string, body: string): NotificationContent => ({
     title,
     body,

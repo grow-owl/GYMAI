@@ -3,6 +3,9 @@ import { Gym } from '../gym/gym.model';
 import { GymPlan, GymStatus } from '../gym/gym.types';
 import { PlatformSubscription } from './platformSubscription.model';
 import { PlatformInvoice } from './platformInvoice.model';
+import { PlatformUpgradeRequest } from './platformUpgradeRequest.model';
+import { User } from '../user/user.model';
+import { Role } from '../../common/constants/roles.enum';
 import { generatePlatformInvoiceNumber } from './invoiceCounter.model';
 import { getPaymentGateway } from './gateway/paymentGateway.factory';
 import { PLATFORM_PLAN_PRICING } from '../../common/constants/pricing';
@@ -327,5 +330,55 @@ export class PlatformBillingService {
     }
 
     return count;
+  }
+
+  public static async createUpgradeRequest(
+    gymId: string,
+    requestedByUserId: string,
+    data: { requestedPlan: string; billingCycle?: string; notes?: string }
+  ) {
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false });
+    if (!gym) {
+      throw AppError.notFound('Gym organization not found');
+    }
+
+    const upgradeReq = await PlatformUpgradeRequest.create({
+      gymId: gym._id,
+      requestedByUserId: new Types.ObjectId(requestedByUserId),
+      currentPlan: gym.plan || GymPlan.TRIAL,
+      requestedPlan: data.requestedPlan,
+      billingCycle: data.billingCycle || 'MONTHLY',
+      notes: data.notes,
+      status: 'PENDING',
+    });
+
+    const superAdmins = await User.find({ role: Role.SUPER_ADMIN });
+    const template = notificationTemplates[NotificationType.PLATFORM_UPGRADE_REQUESTED](
+      gym.name,
+      gym.plan || 'TRIAL',
+      data.requestedPlan
+    );
+
+    for (const admin of superAdmins) {
+      await NotificationService.sendToUser(
+        admin._id.toString(),
+        gym._id.toString(),
+        NotificationType.PLATFORM_UPGRADE_REQUESTED,
+        template.title,
+        template.body,
+        { gymId: gym._id.toString(), requestedPlan: data.requestedPlan }
+      );
+    }
+
+    return upgradeReq;
+  }
+
+  public static async listUpgradeRequests() {
+    const requests = await PlatformUpgradeRequest.find()
+      .populate('gymId', 'name email')
+      .populate('requestedByUserId', 'fullName email')
+      .sort({ status: 1, createdAt: -1 });
+
+    return requests;
   }
 }

@@ -54,4 +54,60 @@ export class ReferralService {
       whatsappSent,
     };
   }
+
+  /**
+   * Get member's own referral code and list of referred members
+   */
+  public static async getMyReferralStats(
+    memberIdOrUserId: string
+  ): Promise<{
+    referralCode: string;
+    referralLink: string;
+    totalReferred: number;
+    referredMembers: Array<{
+      _id: string;
+      fullName: string;
+      email?: string;
+      joinedAt: Date;
+    }>;
+  }> {
+    const member = await Member.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberIdOrUserId) ? memberIdOrUserId : undefined },
+        { userId: mongoose.Types.ObjectId.isValid(memberIdOrUserId) ? memberIdOrUserId : undefined },
+      ],
+      isDeleted: false,
+    });
+
+    if (!member) {
+      throw AppError.notFound('Member profile not found');
+    }
+
+    if (!member.referralCode) {
+      member.referralCode = `REF-${member.userId.toString().slice(-6).toUpperCase()}`;
+      await member.save();
+    }
+
+    const baseUrl = env.CLIENT_URL || 'https://gym.app';
+    const referralLink = `${baseUrl}/join?ref=${member.referralCode}`;
+
+    const referredDocs = await Member.find({
+      referredByMemberId: member._id,
+      isDeleted: false,
+    }).populate('userId', 'fullName email createdAt');
+
+    const referredMembers = referredDocs.map((doc: any) => ({
+      _id: doc._id.toString(),
+      fullName: doc.userId?.fullName || 'Referred Member',
+      email: doc.userId?.email,
+      joinedAt: doc.membershipStartDate || doc.createdAt,
+    }));
+
+    return {
+      referralCode: member.referralCode,
+      referralLink,
+      totalReferred: referredMembers.length,
+      referredMembers,
+    };
+  }
 }

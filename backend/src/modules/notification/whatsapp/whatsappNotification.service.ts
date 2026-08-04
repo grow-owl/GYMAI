@@ -84,4 +84,31 @@ export class WhatsAppNotificationService {
       return false;
     }
   }
+
+  /**
+   * List WhatsApp message logs for a gym (newest first)
+   */
+  public static async listMessageLog(
+    gymId: string,
+    filters?: { status?: string; memberId?: string }
+  ) {
+    const filter: any = { gymId: new mongoose.Types.ObjectId(gymId) };
+    if (filters?.status) {
+      filter.status = filters.status;
+    }
+    if (filters?.memberId && mongoose.Types.ObjectId.isValid(filters.memberId)) {
+      filter.memberId = new mongoose.Types.ObjectId(filters.memberId);
+    }
+
+    const logs = await WhatsAppMessageLog.find(filter)
+      .populate({
+        path: 'memberId',
+        select: 'userId phone name',
+        populate: { path: 'userId', select: 'fullName email' },
+      })
+      .sort({ sentAt: -1, createdAt: -1 })
+      .limit(100);
+
+    return logs;
+  }
 }

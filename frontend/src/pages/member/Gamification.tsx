@@ -121,20 +121,41 @@ export default function Gamification() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {challenges.map((c) => (
-                  <Card key={c._id || c.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-(--color-text)">{c.title || c.name}</p>
-                      <p className="text-xs text-(--color-text-faint) mt-0.5">{c.description || "Gym fitness challenge"}</p>
-                    </div>
-                    <button
-                      onClick={() => handleJoinChallenge(c._id || c.id)}
-                      className="px-3.5 py-1.5 text-xs font-medium rounded-full bg-(--color-accent) text-white hover:opacity-90"
-                    >
-                      Join Challenge
-                    </button>
-                  </Card>
-                ))}
+                {challenges.map((c) => {
+                  const daysLeft = c.endDate
+                    ? Math.max(0, Math.ceil((new Date(c.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                    : 0;
+                  const hasJoined = Boolean(c.hasJoined);
+
+                  return (
+                    <Card key={c._id || c.id} className="flex items-center justify-between p-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-(--color-text)">{c.title || c.name}</p>
+                        <p className="text-xs text-(--color-text-faint)">{c.description || "Gym fitness challenge"}</p>
+                        <div className="flex items-center gap-3 pt-1 text-[11px] text-(--color-text-muted)">
+                          <span>Target: <strong>{c.targetValue || 1}</strong> {c.metric ? c.metric.replace("_", " ") : ""}</span>
+                          <span>Reward: <strong className="text-amber-400">+{c.rewardXp || 500} XP</strong></span>
+                          <span>{daysLeft} days remaining</span>
+                        </div>
+                      </div>
+
+                      {hasJoined ? (
+                        <div className="text-right">
+                          <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-(--color-surface-3) text-(--color-text-muted) inline-block">
+                            Joined ({c.userProgress || 0}/{c.targetValue || 1})
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleJoinChallenge(c._id || c.id)}
+                          className="px-3.5 py-1.5 text-xs font-medium rounded-full bg-(--color-accent) text-white hover:opacity-90 shrink-0"
+                        >
+                          Join Challenge
+                        </button>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

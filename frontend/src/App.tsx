@@ -45,6 +45,7 @@ import MemberProgress from "@/pages/member/Progress";
 import Gamification from "@/pages/member/Gamification";
 import MemberPayments from "@/pages/member/Payments";
 import Profile from "@/pages/member/Profile";
+import Referral from "@/pages/member/Referral";
 
 import ReceptionDashboard from "@/pages/reception/ReceptionDashboard";
 import MemberSearch from "@/pages/reception/MemberSearch";
@@ -178,6 +179,7 @@ export default function App() {
             <Route path="rewards" element={<Gamification />} />
             <Route path="payments" element={<MemberPayments />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="referral" element={<Referral />} />
             <Route path="notifications" element={<Notifications />} />
           </Route>
         </Route>
