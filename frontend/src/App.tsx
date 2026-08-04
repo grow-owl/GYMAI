@@ -1,0 +1,153 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import RoleSelect from "@/pages/RoleSelect";
+import DashboardShell from "@/components/layout/DashboardShell";
+import MobileShell from "@/components/layout/MobileShell";
+import { ownerNav, ownerNavSecondary, trainerNav, receptionNav } from "@/data/nav";
+import { gym } from "@/data/mock";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import Login from "@/pages/auth/Login";
+import Register from "@/pages/auth/Register";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import AnimatedBackground from "@/components/ui/AnimatedBackground";
+
+import OwnerDashboard from "@/pages/owner/OwnerDashboard";
+import Members from "@/pages/owner/Members";
+import Trainers from "@/pages/owner/Trainers";
+import OwnerAttendance from "@/pages/owner/Attendance";
+import OwnerPayments from "@/pages/owner/Payments";
+import OwnerLeads from "@/pages/owner/Leads";
+import Reports from "@/pages/owner/Reports";
+import AIInsights from "@/pages/owner/AIInsights";
+import Settings from "@/pages/owner/Settings";
+import Inventory from "@/pages/owner/Inventory";
+import Expenses from "@/pages/owner/Expenses";
+
+import TrainerDashboard from "@/pages/trainer/TrainerDashboard";
+import MyClients from "@/pages/trainer/MyClients";
+import Sessions from "@/pages/trainer/Sessions";
+import WorkoutPlans from "@/pages/trainer/WorkoutPlans";
+import DietPlans from "@/pages/trainer/DietPlans";
+import TrainerProgress from "@/pages/trainer/Progress";
+import RecoveryAlerts from "@/pages/trainer/RecoveryAlerts";
+
+import MemberHome from "@/pages/member/MemberHome";
+import WorkoutPlan from "@/pages/member/WorkoutPlan";
+import WorkoutTracking from "@/pages/member/WorkoutTracking";
+import DietPlan from "@/pages/member/DietPlan";
+import AICoach from "@/pages/member/AICoach";
+import MemberAttendance from "@/pages/member/Attendance";
+import MemberProgress from "@/pages/member/Progress";
+import Gamification from "@/pages/member/Gamification";
+import MemberPayments from "@/pages/member/Payments";
+import Profile from "@/pages/member/Profile";
+
+import ReceptionDashboard from "@/pages/reception/ReceptionDashboard";
+import MemberSearch from "@/pages/reception/MemberSearch";
+import CheckIn from "@/pages/reception/CheckIn";
+import ReceptionLeads from "@/pages/reception/Leads";
+import ReceptionPayments from "@/pages/reception/Payments";
+
+function OwnerShell() {
+  const { user } = useAuth();
+  const firstName = user?.fullName?.split(" ")[0] ?? gym.ownerName;
+  const initial = (user?.fullName?.[0] ?? "D").toUpperCase();
+  return (
+    <DashboardShell
+      primary={ownerNav}
+      secondary={ownerNavSecondary}
+      roleLabel="Owner / Admin"
+      greeting={`Good Morning, ${firstName} 👋`}
+      subtitle={`${user?.gymName || gym.name} · ${gym.branch}`}
+      avatarInitial={initial}
+    />
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AnimatedBackground />
+      <div className="content-layer">
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/roles" element={<RoleSelect />} />
+
+          <Route element={<ProtectedRoute />}>
+            <Route path="/owner" element={<OwnerShell />}>
+              <Route index element={<OwnerDashboard />} />
+              <Route path="members" element={<Members />} />
+              <Route path="trainers" element={<Trainers />} />
+              <Route path="attendance" element={<OwnerAttendance />} />
+              <Route path="payments" element={<OwnerPayments />} />
+              <Route path="leads" element={<OwnerLeads />} />
+              <Route path="inventory" element={<Inventory />} />
+              <Route path="expenses" element={<Expenses />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="ai-insights" element={<AIInsights />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Route>
+
+        <Route
+          path="/trainer"
+          element={
+            <DashboardShell
+              primary={trainerNav}
+              roleLabel="Trainer"
+              greeting={`Good Morning, ${gym.trainerName} 👋`}
+              subtitle="You have 4 sessions today"
+              avatarInitial="R"
+            />
+          }
+        >
+          <Route index element={<TrainerDashboard />} />
+          <Route path="clients" element={<MyClients />} />
+          <Route path="sessions" element={<Sessions />} />
+          <Route path="workout-plans" element={<WorkoutPlans />} />
+          <Route path="diet-plans" element={<DietPlans />} />
+          <Route path="progress" element={<TrainerProgress />} />
+          <Route path="recovery-alerts" element={<RecoveryAlerts />} />
+        </Route>
+
+        <Route
+          path="/reception"
+          element={
+            <DashboardShell
+              primary={receptionNav}
+              roleLabel="Reception / Staff"
+              greeting="Front Desk"
+              subtitle={`${gym.name} · ${gym.branch}`}
+              avatarInitial="S"
+            />
+          }
+        >
+          <Route index element={<ReceptionDashboard />} />
+          <Route path="search" element={<MemberSearch />} />
+          <Route path="check-in" element={<CheckIn />} />
+          <Route path="leads" element={<ReceptionLeads />} />
+          <Route path="payments" element={<ReceptionPayments />} />
+        </Route>
+
+        <Route path="/member" element={<MobileShell />}>
+          <Route index element={<MemberHome />} />
+          <Route path="workout-plan" element={<WorkoutPlan />} />
+          <Route path="workout-tracking" element={<WorkoutTracking />} />
+          <Route path="diet-plan" element={<DietPlan />} />
+          <Route path="ai-coach" element={<AICoach />} />
+          <Route path="attendance" element={<MemberAttendance />} />
+          <Route path="progress" element={<MemberProgress />} />
+          <Route path="rewards" element={<Gamification />} />
+          <Route path="payments" element={<MemberPayments />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
+        </Routes>
+      </BrowserRouter>
+      </div>
+    </AuthProvider>
+  );
+}

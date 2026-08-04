@@ -1,0 +1,111 @@
+// Core API client for the GYMAI backend.
+// Base URL comes from VITE_API_BASE_URL (see .env.example); falls back to local dev backend.
+export const API_BASE_URL: string =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) || "http://localhost:5000/api/v1";
+
+const ACCESS_TOKEN_KEY = "gymai.accessToken";
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+export function setAccessToken(token: string | null) {
+  if (token) localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  else localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
+
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+interface RequestOptions extends Omit<RequestInit, "body"> {
+  body?: unknown;
+  /** Skip the automatic 401 -> refresh-token -> retry flow (used by the refresh call itself). */
+  skipAuthRetry?: boolean;
+}
+
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  // De-dupe concurrent refresh attempts triggered by parallel requests.
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        const token = json?.data?.accessToken as string | undefined;
+        if (token) setAccessToken(token);
+        return token ?? null;
+      } catch {
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+}
+
+/**
+ * Low-level fetch wrapper: attaches the bearer token, sends the refresh-token
+ * cookie, unwraps the {success, data, message} envelope used by every
+ * backend route, and transparently retries once after a token refresh on 401.
+ */
+export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { body, skipAuthRetry, headers, ...rest } = options;
+  const token = getAccessToken();
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...rest,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  // Access token expired — try one silent refresh, then retry the original call.
+  if (res.status === 401 && !skipAuthRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      return apiFetch<T>(path, { ...options, skipAuthRetry: true });
+    }
+  }
+
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    // No JSON body (e.g. 204)
+  }
+
+  if (!res.ok || json?.success === false) {
+    const message = json?.error?.message || json?.message || `Request failed (${res.status})`;
+    throw new ApiError(message, res.status, json?.error?.code);
+  }
+
+  return (json?.data ?? json) as T;
+}
+
+export const api = {
+  get: <T>(path: string, options?: RequestOptions) => apiFetch<T>(path, { ...options, method: "GET" }),
+  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    apiFetch<T>(path, { ...options, method: "POST", body }),
+  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    apiFetch<T>(path, { ...options, method: "PATCH", body }),
+  delete: <T>(path: string, options?: RequestOptions) => apiFetch<T>(path, { ...options, method: "DELETE" }),
+};

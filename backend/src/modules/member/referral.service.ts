@@ -1,0 +1,57 @@
+import mongoose from 'mongoose';
+import { Member } from './member.model';
+import { User } from '../user/user.model';
+import { WhatsAppNotificationService } from '../notification/whatsapp/whatsappNotification.service';
+import { NotificationType } from '../notification/notification.types';
+import { env } from '../../config/env';
+import { AppError } from '../../common/utils/AppError';
+import { logger } from '../../config/logger';
+
+export class ReferralService {
+  /**
+   * Trigger manual referral ask WhatsApp message for a member
+   */
+  public static async sendReferralAsk(
+    memberId: string,
+    gymId: string
+  ): Promise<{ memberId: string; referralCode: string; referralLink: string; whatsappSent: boolean }> {
+    const member = await Member.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+        { userId: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+      ],
+      gymId: new mongoose.Types.ObjectId(gymId),
+      isDeleted: false,
+    });
+
+    if (!member) {
+      throw AppError.notFound('Member profile not found in your gym');
+    }
+
+    if (!member.referralCode) {
+      member.referralCode = `REF-${member.userId.toString().slice(-6).toUpperCase()}`;
+      await member.save();
+    }
+
+    const user = await User.findById(member.userId);
+    const memberName = user?.fullName || 'Valued Member';
+    const baseUrl = env.CLIENT_URL || 'https://gym.app';
+    const referralLink = `${baseUrl}/join?ref=${member.referralCode}`;
+
+    const whatsappSent = await WhatsAppNotificationService.sendWhatsApp(
+      member._id.toString(),
+      gymId,
+      NotificationType.REFERRAL_ASK,
+      [memberName, member.referralCode]
+    );
+
+    logger.info(`📢 Referral ask triggered for member [${member._id}]: [Code: ${member.referralCode}]`);
+
+    return {
+      memberId: member._id.toString(),
+      referralCode: member.referralCode,
+      referralLink,
+      whatsappSent,
+    };
+  }
+}
