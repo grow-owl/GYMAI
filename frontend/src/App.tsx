@@ -68,7 +68,7 @@ function OwnerShell() {
       secondary={ownerNavSecondary}
       roleLabel="Owner / Admin"
       greeting={`Good Morning, ${firstName} 👋`}
-      subtitle={`${user?.gymName || gym.name} · ${gym.branch}`}
+      subtitle={String(user?.gymName || gym.name)}
       avatarInitial={initial}
     />
   );

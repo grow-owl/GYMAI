@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { memberApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useSearchStore } from "../../store/searchStore";
 import { toast } from "sonner";
 
 const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
@@ -60,7 +61,7 @@ export default function Members() {
   const [memberList, setMemberList] = useState<any[]>(() => getStoredMembers());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);

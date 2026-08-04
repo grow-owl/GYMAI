@@ -31,9 +31,13 @@ export type ReportType =
   | 'ai_summary'
   | 'trainer_feedback'
   | 'revenue'
-  | 'member_full_progress';
+  | 'member_full_progress'
+  | 'ATTENDANCE_SUMMARY'
+  | 'REVENUE_COLLECTIONS'
+  | 'MEMBER_CHURN_RISK'
+  | 'TRAINER_PERFORMANCE';
 
-export type ReportFormat = 'json' | 'pdf';
+export type ReportFormat = 'json' | 'pdf' | 'csv';
 
 export type ReportStatus = 'PROCESSING' | 'READY' | 'FAILED';
 

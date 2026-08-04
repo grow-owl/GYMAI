@@ -14,21 +14,21 @@ reportRouter.use(injectTenantScope);
 
 // GET /api/v1/gyms/:gymId/dashboard/overview
 reportRouter.get(
-  '/dashboard/overview',
+  '/:gymId/dashboard/overview',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   ReportController.getOverview
 );
 
 // GET /api/v1/gyms/:gymId/dashboard/expiring-memberships
 reportRouter.get(
-  '/dashboard/expiring-memberships',
+  '/:gymId/dashboard/expiring-memberships',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   ReportController.getExpiringMemberships
 );
 
 // POST /api/v1/gyms/:gymId/reports
 reportRouter.post(
-  '/reports',
+  '/:gymId/reports',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
   validate(generateReportSchema),
   ReportController.requestReport
@@ -36,21 +36,21 @@ reportRouter.post(
 
 // GET /api/v1/gyms/:gymId/reports/:reportRequestId
 reportRouter.get(
-  '/reports/:reportRequestId',
+  '/:gymId/reports/:reportRequestId',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
   ReportController.getReportById
 );
 
 // GET /api/v1/gyms/:gymId/analytics/branch-comparison
 reportRouter.get(
-  '/analytics/branch-comparison',
+  '/:gymId/analytics/branch-comparison',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   ReportController.getBranchComparison
 );
 
 // GET /api/v1/gyms/:gymId/reports
 reportRouter.get(
-  '/reports',
+  '/:gymId/reports',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   ReportController.listReports
 );

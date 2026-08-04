@@ -110,6 +110,14 @@ body {
   outline-offset: 2px;
 }
 
+/* Text inputs handle focus visually via their parent container — no rectangle outline */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+
 .font-display { font-family: var(--font-display); }
 .font-mono { font-family: var(--font-mono); }
 
@@ -149,7 +157,7 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   @keyframes fade-in-up {
     from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: none; }
   }
   @keyframes fade-in {
     from { opacity: 0; }
@@ -157,11 +165,11 @@ body {
   }
   @keyframes scale-in {
     from { opacity: 0; transform: scale(0.96); }
-    to { opacity: 1; transform: scale(1); }
+    to { opacity: 1; transform: none; }
   }
   @keyframes slide-in-right {
     from { opacity: 0; transform: translateX(24px); }
-    to { opacity: 1; transform: translateX(0); }
+    to { opacity: 1; transform: none; }
   }
   @keyframes shimmer {
     0% { background-position: -200% 0; }
@@ -322,4 +330,93 @@ a, button, input, select, textarea, .transition-surface {
   overflow: hidden;
   color: #fff;
   background: radial-gradient(120% 140% at 80% 0%, #FFC670 0%, #FCA311 38%, #E08E00 70%, #A66500 100%);
+}
+
+/* ─── Global select / dropdown styling ───────────────────────────────────
+   Applies the design-system tokens to every <select> element in the app.
+   Removes the browser default arrow and injects a custom branded chevron.
+   ─────────────────────────────────────────────────────────────────────── */
+select {
+  /* Reset browser defaults */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* Layout & spacing */
+  display: block;
+  width: 100%;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+  border-radius: 0.625rem;          /* 10px — slightly softer than card radius */
+
+  /* Design-token colours */
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+
+  /* Custom chevron using an inline SVG (respects currentColor → uses accent) */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B5670' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 14px 14px;
+
+  /* Typography */
+  font-size: 0.875rem;   /* text-sm */
+  font-family: var(--font-sans);
+  line-height: 1.5;
+
+  /* Interaction */
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+select:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
+  background-color: var(--color-surface-3);
+}
+
+select:focus,
+select:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  outline: none;
+  background-color: var(--color-surface);
+}
+
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--color-surface-3);
+}
+
+/* Style the dropdown option items (limited cross-browser support, best-effort) */
+select option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+select option:checked,
+select option:hover {
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+/* TopBar branch selector — keep it inline / compact (overrides the full-width default) */
+header select {
+  width: auto;
+  padding: 0 1rem 0 0;
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+  font-weight: 600;
+  font-size: 0.75rem;
+  background-image: none;   /* arrow handled by the Building2 icon beside it */
+}
+header select:hover,
+header select:focus {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }

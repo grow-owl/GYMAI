@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { trainerApi, memberApi } from "@/lib/endpoints";
+import { useSearchStore } from "../../store/searchStore";
 import { toast } from "sonner";
 
 interface TrainerRow {
@@ -60,6 +62,7 @@ export default function Trainers() {
   const [trainers, setTrainers] = useState<TrainerRow[]>(() => getStoredTrainers());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -69,6 +72,13 @@ export default function Trainers() {
   const [membersList, setMembersList] = useState<any[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
+const filteredMembersDropdown = membersList.filter((m) => {
+  const q = memberSearchQuery.toLowerCase().trim();
+  if (!q) return true;
+  const name = (m.fullName || m.name || m.userId?.fullName || "").toLowerCase();
+  const phone = (m.phone || m.userId?.phone || "").toLowerCase();
+  return name.includes(q) || phone.includes(q);
+});
 
   const [newTrainer, setNewTrainer] = useState({
     fullName: "",
@@ -227,19 +237,21 @@ export default function Trainers() {
     }
   };
 
-  const filteredMembersDropdown = membersList.filter((m) => {
-    const q = memberSearchQuery.toLowerCase().trim();
+  const filteredTrainers = trainers.filter((t) => {
+    const q = search.toLowerCase().trim();
     if (!q) return true;
-    const name = (m.fullName || m.name || m.userId?.fullName || "").toLowerCase();
-    const phone = (m.phone || m.userId?.phone || "").toLowerCase();
-    return name.includes(q) || phone.includes(q);
+    const name = (t.fullName || t.name || t.userId?.fullName || "").toLowerCase();
+    const spec = (t.specialization || t.specializations?.join(", ") || "").toLowerCase();
+    const phone = (t.phone || t.userId?.phone || "").toLowerCase();
+    const email = (t.email || t.userId?.email || "").toLowerCase();
+    return name.includes(q) || spec.includes(q) || phone.includes(q) || email.includes(q);
   });
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Trainers"
-        subtitle={`${trainers.length} active trainers`}
+        subtitle={`${filteredTrainers.length} showing · Active trainers`}
         backTo="/owner"
         action={
           <button
@@ -250,6 +262,16 @@ export default function Trainers() {
           </button>
         }
       />
+
+      <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-4 py-2 text-sm text-(--color-text) max-w-sm">
+        <Search size={15} className="text-(--color-text-faint)" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search trainers by name..."
+          className="bg-transparent outline-none w-full placeholder:text-(--color-text-faint)"
+        />
+      </div>
 
       {(resolvingBranch || loading) ? (
         <div className="flex items-center gap-2 text-sm text-(--color-text-faint) py-10 justify-center">
@@ -273,9 +295,17 @@ export default function Trainers() {
             Click the "Add trainer" button above to onboard your gym's personal trainers.
           </p>
         </Card>
+      ) : filteredTrainers.length === 0 ? (
+        <Card className="flex flex-col items-center justify-center py-12 text-center">
+          <Search className="w-8 h-8 text-(--color-text-faint) mb-2 opacity-50" />
+          <p className="text-sm font-medium text-(--color-text)">No trainers match your search</p>
+          <p className="text-xs text-(--color-text-faint) mt-1 max-w-xs">
+            Try adjusting your search terms or clear the filter.
+          </p>
+        </Card>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {trainers.map((t, idx) => {
+          {filteredTrainers.map((t, idx) => {
             const name = t.fullName || t.name || t.userId?.fullName || "Unnamed Trainer";
             const spec = t.specialization || t.specializations?.join(", ") || "Fitness & Bodybuilding";
             const clientsCount = t.assignedMembersCount ?? t.clients ?? 0;
@@ -333,7 +363,7 @@ export default function Trainers() {
 
       {/* Add Trainer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:ml-64">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
             <h3 className="text-base font-semibold text-(--color-text)">Add Trainer</h3>
             <form onSubmit={handleAddTrainer} className="space-y-3">
@@ -386,8 +416,8 @@ export default function Trainers() {
 
       {/* Assign Client Modal with Searchable Member Dropdown */}
       {showAssignModal && selectedTrainer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:ml-64">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-xl space-y-4 overflow-visible">
             <h3 className="text-base font-semibold text-(--color-text)">
               Assign Client to {selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName}
             </h3>
@@ -403,26 +433,24 @@ export default function Trainers() {
                     className="bg-transparent text-xs text-(--color-text) outline-none w-full"
                   />
                 </div>
-                <select
-                  required
+                <CustomSelect
                   value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="">-- Choose Member --</option>
-                  {filteredMembersDropdown.map((m) => {
-                    const mName = m.fullName || m.name || m.userId?.fullName || "Member";
-                    const mPhone = m.phone || m.userId?.phone || "";
-                    const mAssignedTrainer = m.assignedTrainerId?.fullName || m.assignedTrainerId?.name || (m.assignedTrainerId ? "Another Trainer" : null);
-                    const tag = mAssignedTrainer ? ` (Assigned to ${mAssignedTrainer} - Reassign)` : " (Unassigned)";
-
-                    return (
-                      <option key={m._id || m.id} value={m._id || m.id}>
-                        {mName} {mPhone ? `[${mPhone}]` : ""}{tag}
-                      </option>
-                    );
-                  })}
-                </select>
+                  onChange={setSelectedMemberId}
+                  placeholder="-- Choose Member --"
+                  required
+                  options={[
+                    ...filteredMembersDropdown.map((m) => {
+                      const mName = m.fullName || m.name || m.userId?.fullName || "Member";
+                      const mPhone = m.phone || m.userId?.phone || "";
+                      const mAssignedTrainer = m.assignedTrainerId?.fullName || m.assignedTrainerId?.name || (m.assignedTrainerId ? "Another Trainer" : null);
+                      const tag = mAssignedTrainer ? ` (Assigned to ${mAssignedTrainer} - Reassign)` : " (Unassigned)";
+                      return {
+                        value: m._id || m.id || "",
+                        label: `${mName}${mPhone ? ` [${mPhone}]` : ""}${tag}`,
+                      };
+                    }),
+                  ]}
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button

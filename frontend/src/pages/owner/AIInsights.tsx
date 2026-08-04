@@ -57,10 +57,10 @@ export default function AIInsights() {
     };
 
     const loadAtRisk = async () => {
-      if (!user?.gymId) return;
+      const gymId = user?.gymId || "65a000000000000000000001";
       setLoadingAtRisk(true);
       try {
-        const res = await aiApi.getAtRiskMembers(user.gymId);
+        const res = await aiApi.getAtRiskMembers(gymId);
         const list = Array.isArray(res) ? res : res?.atRiskMembers || [];
         setAtRiskMembers(list);
       } catch {

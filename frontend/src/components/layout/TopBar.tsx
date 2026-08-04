@@ -5,6 +5,8 @@ import { gym } from "@/data/mock";
 import { notificationApi, gymApi } from "@/lib/endpoints";
 import type { INotificationItem } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useSearchStore } from "../../store/searchStore";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { toast } from "sonner";
 
 interface NavEntry {
@@ -89,7 +91,29 @@ export default function TopBar({
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
 
-  const [query, setQuery] = useState("");
+  // Only show search bar on the owner dashboard (index route)
+  const isDashboard = location.pathname === "/owner" || location.pathname === "/owner/";
+
+  const { searchQuery, setSearchQuery } = useSearchStore();
+  const query = searchQuery;
+  const setQuery = setSearchQuery;
+
+  useEffect(() => {
+    setQuery("");
+  }, [location.pathname]);
+
+  const placeholderText = useMemo(() => {
+    const path = location.pathname;
+    if (path.includes("/members") || path.includes("/search")) return "Search members by name...";
+    if (path.includes("/trainers")) return "Search trainers by name...";
+    if (path.includes("/payments")) return "Search payments by ID or detail...";
+    if (path.includes("/leads")) return "Search leads by name or status...";
+    if (path.includes("/inventory")) return "Search products by name...";
+    if (path.includes("/expenses")) return "Search expenses by title...";
+    if (path.includes("/equipment")) return "Search machines by name...";
+    return "Search pages...";
+  }, [location.pathname]);
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -271,7 +295,15 @@ export default function TopBar({
           </button>
           <div className="min-w-0">
             <h1 className="font-display text-lg sm:text-xl font-semibold text-(--color-text) truncate">{greeting}</h1>
-            {subtitle && <p className="text-xs sm:text-sm text-(--color-text-muted) mt-0.5">{subtitle}</p>}
+            {subtitle && (
+              <p className="text-xs sm:text-sm text-(--color-text-muted) mt-0.5">
+                {subtitle}
+                {branches.length > 0 && (() => {
+                  const active = branches.find((b) => (b._id || b.id) === activeBranchId);
+                  return active ? ` · ${active.name}` : "";
+                })()}
+              </p>
+            )}
           </div>
         </div>
 
@@ -280,55 +312,59 @@ export default function TopBar({
           {branches.length > 0 && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text)">
               <Building2 size={14} className="text-(--color-accent) shrink-0" />
-              <select
+              <CustomSelect
+                compact
                 value={activeBranchId}
-                onChange={(e) => handleSelectBranch(e.target.value)}
-                className="bg-transparent text-xs text-(--color-text) outline-none cursor-pointer pr-1 font-semibold"
-              >
-                {branches.map((b) => (
-                  <option key={b._id || b.id} value={b._id || b.id}>
-                    {b.name} ({b.city || "Branch"})
-                  </option>
-                ))}
-              </select>
+                onChange={handleSelectBranch}
+                options={branches.map((b) => ({
+                  value: b._id || b.id,
+                  label: `${b.name} (${b.city || "Branch"})`,
+                }))}
+              />
             </div>
           )}
 
-          {/* Search */}
-          <div ref={searchRef} className="relative hidden lg:block">
-            <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-3.5 py-2 text-sm text-(--color-text-muted) w-64 focus-within:text-(--color-text)">
-              <Search size={15} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => setSearchOpen(true)}
-                placeholder="Search pages..."
-                className="w-full bg-transparent outline-none text-(--color-text) placeholder:text-(--color-text-muted)"
-              />
-              {query && (
-                <button onClick={() => setQuery("")} className="text-(--color-text-muted)">
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-            {searchOpen && query.trim() && (
-              <div className="absolute right-0 mt-2 w-64 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden z-30">
-                {results.length === 0 ? (
-                  <p className="px-3.5 py-3 text-xs text-(--color-text-muted)">No matching pages</p>
-                ) : (
-                  results.map((r) => (
-                    <button
-                      key={r.path}
-                      onClick={() => goTo(r.path)}
-                      className="w-full text-left px-3.5 py-2.5 text-sm text-(--color-text) hover:bg-(--color-surface-2)"
-                    >
-                      {r.label}
-                    </button>
-                  ))
+          {/* Search — visible only on Dashboard */}
+          {isDashboard && (
+            <div ref={searchRef} className="relative hidden lg:block">
+              <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-3.5 py-2 text-sm text-(--color-text-muted) w-64 focus-within:text-(--color-text) transition-colors">
+                <Search size={15} />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => setSearchOpen(true)}
+                  placeholder={placeholderText}
+                  className="w-full bg-transparent text-(--color-text) placeholder:text-(--color-text-muted)"
+                  style={{ outline: "none" }}
+                />
+                {query && (
+                  <button onClick={() => setQuery("")} className="text-(--color-text-muted) hover:text-(--color-text)">
+                    <X size={13} />
+                  </button>
                 )}
               </div>
-            )}
-          </div>
+
+              {searchOpen && query.trim() && (
+                <div className="absolute left-0 top-full mt-1.5 w-64 z-[9999] rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden">
+                  {results.length === 0 ? (
+                    <p className="px-4 py-3 text-xs text-(--color-text-muted)">No matching pages found</p>
+                  ) : (
+                    results.map((r) => (
+                      <button
+                        key={r.path}
+                        onClick={() => goTo(r.path)}
+                        className="w-full text-left px-4 py-2.5 text-sm text-(--color-text) hover:bg-(--color-surface-2) transition-colors border-b border-(--color-border-soft) last:border-0"
+                      >
+                        {r.label}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+
 
           {/* Notifications Dropdown */}
           <div ref={notifRef} className="relative">

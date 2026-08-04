@@ -394,6 +394,31 @@ export class ReportService {
   }
 
   /**
+   * 8. Member Full Progress Report Generator
+   */
+  public static async generateMemberFullProgressReport(
+    gymId: string,
+    scope: { branchId?: string; memberId?: string } = {},
+    periodStart: Date,
+    periodEnd: Date
+  ) {
+    const [attendance, workout, weightChange, strengthGrowth] = await Promise.all([
+      this.generateAttendanceReport(gymId, scope, periodStart, periodEnd),
+      this.generateWorkoutCompletionReport(gymId, scope, periodStart, periodEnd),
+      this.generateWeightChangeReport(gymId, scope, periodStart, periodEnd),
+      this.generateStrengthGrowthReport(gymId, scope, periodStart, periodEnd),
+    ]);
+
+    return {
+      period: { start: periodStart, end: periodEnd },
+      attendance,
+      workout,
+      weightChange,
+      strengthGrowth,
+    };
+  }
+
+  /**
    * Request Report & Process Execution
    */
   public static async requestReport(
@@ -454,40 +479,26 @@ export class ReportService {
     try {
       let data: any;
 
-      switch (reportType) {
-        case 'attendance':
-          data = await this.generateAttendanceReport(gymId, scope, periodStart, periodEnd);
-          break;
-        case 'workout_completion':
-          data = await this.generateWorkoutCompletionReport(gymId, scope, periodStart, periodEnd);
-          break;
-        case 'weight_change':
-          data = await this.generateWeightChangeReport(gymId, scope, periodStart, periodEnd);
-          break;
-        case 'strength_growth':
-          data = await this.generateStrengthGrowthReport(gymId, scope, periodStart, periodEnd);
-          break;
-        case 'ai_summary':
-          data = await this.generateAISummaryReport(gymId, scope, periodStart, periodEnd);
-          break;
-        case 'trainer_feedback':
-          data = await this.generateTrainerFeedbackReport(gymId, scope, periodStart, periodEnd);
-          break;
-        case 'revenue':
-          data = await this.generateRevenueReport(gymId, scope, periodStart, periodEnd);
-          break;
-        case 'member_full_progress': {
-          const [att, work, weight, strength] = await Promise.all([
-            this.generateAttendanceReport(gymId, scope, periodStart, periodEnd),
-            this.generateWorkoutCompletionReport(gymId, scope, periodStart, periodEnd),
-            this.generateWeightChangeReport(gymId, scope, periodStart, periodEnd),
-            this.generateStrengthGrowthReport(gymId, scope, periodStart, periodEnd),
-          ]);
-          data = { attendance: att, workout: work, weight, strength };
-          break;
-        }
-        default:
-          data = {};
+      const typeKey = String(reportType || '').toLowerCase();
+
+      if (typeKey.includes('attendance')) {
+        data = await this.generateAttendanceReport(gymId, scope, periodStart, periodEnd);
+      } else if (typeKey.includes('revenue') || typeKey.includes('collection')) {
+        data = await this.generateRevenueReport(gymId, scope, periodStart, periodEnd);
+      } else if (typeKey.includes('churn') || typeKey.includes('risk') || typeKey.includes('ai')) {
+        data = await this.generateAISummaryReport(gymId, scope, periodStart, periodEnd);
+      } else if (typeKey.includes('trainer') || typeKey.includes('performance')) {
+        data = await this.generateTrainerFeedbackReport(gymId, scope, periodStart, periodEnd);
+      } else if (typeKey.includes('workout')) {
+        data = await this.generateWorkoutCompletionReport(gymId, scope, periodStart, periodEnd);
+      } else if (typeKey.includes('weight')) {
+        data = await this.generateWeightChangeReport(gymId, scope, periodStart, periodEnd);
+      } else if (typeKey.includes('strength')) {
+        data = await this.generateStrengthGrowthReport(gymId, scope, periodStart, periodEnd);
+      } else if (typeKey.includes('progress')) {
+        data = await this.generateMemberFullProgressReport(gymId, scope, periodStart, periodEnd);
+      } else {
+        data = await this.generateAttendanceReport(gymId, scope, periodStart, periodEnd);
       }
 
       if (format === 'pdf') {

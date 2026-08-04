@@ -138,7 +138,7 @@ app.use('/api/v1/billing/platform', platformBillingRouter);
 app.use('/api/v1/billing/member', memberWebhookRouter);
 app.use('/api/v1/ai', aiCoachRouter);
 app.use('/api/v1/notifications', notificationRouter);
-app.use('/api/v1/gyms/:gymId', reportRouter);
+app.use('/api/v1/gyms', reportRouter);
 app.use('/api/v1/members/:memberId/feedback', memberFeedbackRouter);
 app.use('/api/v1/feedback', generalFeedbackRouter);
 app.use('/api/v1', equipmentRouter);

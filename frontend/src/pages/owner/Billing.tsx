@@ -163,7 +163,7 @@ export default function Billing() {
 
       {/* Offline Upgrade/Downgrade Request Guidance Modal */}
       {selectedPlanForUpgrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:ml-64">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
             <div className="flex items-center gap-2">
               <Zap className="text-(--color-accent)" size={20} />

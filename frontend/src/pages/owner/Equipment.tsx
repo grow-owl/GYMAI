@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Wrench, CheckCircle, AlertTriangle } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { equipmentApi } from "@/lib/endpoints";
@@ -226,16 +227,17 @@ export default function Equipment() {
               </div>
               <div>
                 <label className="text-xs text-(--color-text-muted)">Category</label>
-                <select
+                <CustomSelect
                   value={newEquipment.category}
-                  onChange={(e) => setNewEquipment({ ...newEquipment, category: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="strength">Strength Training</option>
-                  <option value="cardio">Cardio Equipment</option>
-                  <option value="freeweights">Dumbbells & Barbells</option>
-                  <option value="accessories">Mats & Bands</option>
-                </select>
+                  onChange={(val) => setNewEquipment({ ...newEquipment, category: val })}
+                  className="mt-1"
+                  options={[
+                    { value: "strength", label: "Strength Training" },
+                    { value: "cardio", label: "Cardio Equipment" },
+                    { value: "freeweights", label: "Dumbbells & Barbells" },
+                    { value: "accessories", label: "Mats & Bands" },
+                  ]}
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button

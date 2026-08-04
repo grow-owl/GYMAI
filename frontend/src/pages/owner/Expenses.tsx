@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, DollarSign, Receipt } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
 import { expenseApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
@@ -123,17 +124,18 @@ export default function Expenses() {
               </div>
               <div>
                 <label className="text-xs text-(--color-text-muted)">Category</label>
-                <select
+                <CustomSelect
                   value={newExpense.category}
-                  onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="rent">Rent</option>
-                  <option value="utilities">Utilities & Electricity</option>
-                  <option value="salary">Staff Salary</option>
-                  <option value="maintenance">Equipment Maintenance</option>
-                  <option value="marketing">Marketing & Ads</option>
-                </select>
+                  onChange={(val) => setNewExpense({ ...newExpense, category: val })}
+                  className="mt-1"
+                  options={[
+                    { value: "rent", label: "Rent" },
+                    { value: "utilities", label: "Utilities & Electricity" },
+                    { value: "salary", label: "Staff Salary" },
+                    { value: "maintenance", label: "Equipment Maintenance" },
+                    { value: "marketing", label: "Marketing & Ads" },
+                  ]}
+                />
               </div>
               <div>
                 <label className="text-xs text-(--color-text-muted)">Amount (₹)</label>

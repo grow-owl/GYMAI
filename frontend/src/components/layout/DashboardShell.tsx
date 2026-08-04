@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import * as icons from "lucide-react";
 import { X, Dumbbell } from "lucide-react";
 import clsx from "clsx";
@@ -32,7 +32,6 @@ export default function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const allItems = [...primary, ...(secondary ?? [])];
   const handleLogout = () => {
@@ -41,7 +40,7 @@ export default function DashboardShell({
   };
 
   return (
-    <div className="min-h-screen flex bg-(--color-base)">
+    <div className={clsx("min-h-screen flex bg-(--color-base)", collapsed ? "sidebar-collapsed" : "sidebar-expanded")}>
       <Sidebar
         primary={primary}
         secondary={secondary}
@@ -109,9 +108,7 @@ export default function DashboardShell({
           onLogout={handleLogout}
         />
         <main className="px-4 sm:px-6 py-6 max-w-[1400px]">
-          <div key={location.pathname} className="page-enter">
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Loader2, RefreshCw, CreditCard } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { paymentApi, memberApi } from "@/lib/endpoints";
@@ -265,26 +266,23 @@ export default function Payments() {
 
       {/* Manual Payment Recording Form Modal */}
       {showRecordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:ml-64">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
             <h3 className="text-base font-semibold text-(--color-text)">Record Member Payment</h3>
             <form onSubmit={handleRecordPayment} className="space-y-3">
               <div>
                 <label className="text-xs text-(--color-text-muted)">Select Member</label>
                 {membersList.length > 0 ? (
-                  <select
-                    required
+                  <CustomSelect
                     value={formData.memberId}
-                    onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
-                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  >
-                    <option value="">Choose a member...</option>
-                    {membersList.map((m) => (
-                      <option key={m._id || m.id} value={m._id || m.id}>
-                        {m.userId?.fullName || m.fullName || m.name || "Member"} ({m.planName || m.plan || "Plan"})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, memberId: val })}
+                    placeholder="Choose a member..."
+                    required
+                    options={membersList.map((m) => ({
+                      value: m._id || m.id,
+                      label: `${m.userId?.fullName || m.fullName || m.name || "Member"} (${m.planName || m.plan || "Plan"})`,
+                    }))}
+                  />
                 ) : (
                   <input
                     required
@@ -310,31 +308,33 @@ export default function Payments() {
 
               <div>
                 <label className="text-xs text-(--color-text-muted)">Payment Purpose</label>
-                <select
+                <CustomSelect
                   value={formData.purpose}
-                  onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="membership_fee">Membership Fee</option>
-                  <option value="admission_fee">Admission & Registration Fee</option>
-                  <option value="personal_training">Personal Training Pack</option>
-                  <option value="product_sale">Supplement & Store Purchase</option>
-                  <option value="other">Locker & Facility Addon / Other</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, purpose: val })}
+                  className="mt-1"
+                  options={[
+                    { value: "membership_fee", label: "Membership Fee" },
+                    { value: "admission_fee", label: "Admission & Registration Fee" },
+                    { value: "personal_training", label: "Personal Training Pack" },
+                    { value: "product_sale", label: "Supplement & Store Purchase" },
+                    { value: "other", label: "Locker & Facility Addon / Other" },
+                  ]}
+                />
               </div>
 
               <div>
                 <label className="text-xs text-(--color-text-muted)">Payment Method (Manual)</label>
-                <select
+                <CustomSelect
                   value={formData.method}
-                  onChange={(e) => setFormData({ ...formData, method: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="card">Card (POS machine)</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, method: val })}
+                  className="mt-1"
+                  options={[
+                    { value: "cash", label: "Cash" },
+                    { value: "upi", label: "UPI" },
+                    { value: "bank_transfer", label: "Bank Transfer" },
+                    { value: "card", label: "Card (POS machine)" },
+                  ]}
+                />
               </div>
 
               <div>

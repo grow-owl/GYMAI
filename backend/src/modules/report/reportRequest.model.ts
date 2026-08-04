@@ -25,6 +25,10 @@ const reportRequestSchema = new Schema<IReportRequest>(
         'trainer_feedback',
         'revenue',
         'member_full_progress',
+        'ATTENDANCE_SUMMARY',
+        'REVENUE_COLLECTIONS',
+        'MEMBER_CHURN_RISK',
+        'TRAINER_PERFORMANCE',
       ],
       required: true,
     },
@@ -42,7 +46,7 @@ const reportRequestSchema = new Schema<IReportRequest>(
     },
     format: {
       type: String,
-      enum: ['json', 'pdf'],
+      enum: ['json', 'pdf', 'csv'],
       default: 'json',
     },
     status: {
