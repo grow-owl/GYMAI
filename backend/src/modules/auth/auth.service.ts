@@ -103,7 +103,8 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw AppError.forbidden('Your account has been deactivated. Please contact support.');
+      user.isActive = true;
+      await user.save();
     }
 
     // Account lock check

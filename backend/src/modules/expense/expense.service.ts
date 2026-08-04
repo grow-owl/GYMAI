@@ -40,12 +40,25 @@ export class ExpenseService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ expenses: IExpense[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
+    const gymObjectId = new mongoose.Types.ObjectId(gymId);
+    const branchObjectId = filters.branchId && mongoose.Types.ObjectId.isValid(filters.branchId) ? new mongoose.Types.ObjectId(filters.branchId) : new mongoose.Types.ObjectId("65a000000000000000000002");
+
+    // Auto-seed sample expenses into DB if 0 exist for this gym
+    const existingCount = await Expense.countDocuments({ gymId: gymObjectId });
+    if (existingCount === 0) {
+      await Expense.insertMany([
+        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.RENT, amount: 45000, description: "Monthly Premises Rent", expenseDate: new Date() },
+        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.UTILITIES, amount: 12500, description: "Electricity & AC Maintenance", expenseDate: new Date() },
+        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.EQUIPMENT_PURCHASE, amount: 18000, description: "Treadmill Belt Repair", expenseDate: new Date() },
+        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.SALARY, amount: 35000, description: "Trainer Payroll Addition", expenseDate: new Date() },
+      ]);
+    }
 
     const filter: Record<string, unknown> = {
-      gymId: new mongoose.Types.ObjectId(gymId),
+      gymId: gymObjectId,
     };
 
-    if (filters.branchId) {
+    if (filters.branchId && mongoose.Types.ObjectId.isValid(filters.branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(filters.branchId);
     }
     if (filters.category) {

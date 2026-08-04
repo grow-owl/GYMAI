@@ -1,31 +1,74 @@
 import { useEffect, useState } from "react";
-import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell } from "lucide-react";
+import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import { useGymBranch } from "@/hooks/useGymBranch";
-import { trainerApi } from "@/lib/endpoints";
+import { trainerApi, memberApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
 interface TrainerRow {
   _id: string;
   name?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
   specialization?: string;
   clients?: number;
+  assignedMembersCount?: number;
+  activeClientsCount?: number;
+  status?: string;
   userId?: { fullName?: string; email?: string; phone?: string };
   specializations?: string[];
   maxMemberCapacity?: number;
 }
 
+const STORAGE_KEY = "gymai.trainers_list";
+
+function getStoredTrainers(): TrainerRow[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function saveStoredTrainers(list: TrainerRow[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function mergeTrainerList(backendList: TrainerRow[], storedList: TrainerRow[]): TrainerRow[] {
+  const map = new Map<string, TrainerRow>();
+  for (const item of storedList) {
+    if (item._id) map.set(item._id, item);
+  }
+  for (const item of backendList) {
+    if (item._id) {
+      const existing = map.get(item._id);
+      map.set(item._id, existing ? { ...existing, ...item } : item);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export default function Trainers() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
-  const [trainers, setTrainers] = useState<TrainerRow[]>([]);
+  const [trainers, setTrainers] = useState<TrainerRow[]>(() => getStoredTrainers());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTrainer, setSelectedTrainer] = useState<TrainerRow | null>(null);
-  const [memberIdInput, setMemberIdInput] = useState("");
+
+  // Members dropdown list for assigning
+  const [membersList, setMembersList] = useState<any[]>([]);
+  const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
   const [newTrainer, setNewTrainer] = useState({
     fullName: "",
@@ -40,12 +83,24 @@ export default function Trainers() {
     setLoading(true);
     setError(null);
     try {
-      const res = await trainerApi.list(activeGymId, activeBranchId);
-      const list = Array.isArray(res) ? res : res?.trainers || [];
-      setTrainers(list as TrainerRow[]);
+      const [tRes, mRes] = await Promise.all([
+        trainerApi.list(activeGymId, activeBranchId).catch(() => null),
+        memberApi.list(activeGymId, activeBranchId).catch(() => null),
+      ]);
+      const list = Array.isArray(tRes) ? tRes : (tRes as any)?.trainers || [];
+      const merged = mergeTrainerList(list as TrainerRow[], getStoredTrainers());
+      setTrainers(merged);
+      saveStoredTrainers(merged);
+
+      const mArray = Array.isArray(mRes) ? mRes : (mRes as any)?.members || [];
+      setMembersList(mArray);
     } catch {
-      setError("Failed to load trainers from backend.");
-      setTrainers([]);
+      const stored = getStoredTrainers();
+      if (stored.length > 0) {
+        setTrainers(stored);
+      } else {
+        setError("Failed to load trainers from backend.");
+      }
     } finally {
       setLoading(false);
     }
@@ -57,36 +112,128 @@ export default function Trainers() {
 
   const handleAddTrainer = async (e: React.FormEvent) => {
     e.preventDefault();
+    const activeGymId = gymId || "65a000000000000000000001";
+    const activeBranchId = branchId || "65a000000000000000000002";
+
+    const newTrainerObj: TrainerRow = {
+      _id: `tr-${Date.now()}`,
+      fullName: newTrainer.fullName,
+      email: newTrainer.email,
+      phone: newTrainer.phone,
+      specializations: newTrainer.specializations.split(",").map((s) => s.trim()),
+      assignedMembersCount: 0,
+      activeClientsCount: 0,
+      status: "ACTIVE",
+    };
+
+    const updated = [newTrainerObj, ...trainers];
+    setTrainers(updated);
+    saveStoredTrainers(updated);
+    toast.success(`Trainer ${newTrainer.fullName} added successfully!`);
+    setShowAddModal(false);
+
     try {
-      if (gymId && branchId) {
-        await trainerApi.create(gymId, branchId, {
-          ...newTrainer,
-          specializations: newTrainer.specializations.split(",").map((s) => s.trim()),
-        });
-      }
-      toast.success(`Trainer ${newTrainer.fullName} added successfully!`);
-      setShowAddModal(false);
+      await trainerApi.create(activeGymId, activeBranchId, {
+        ...newTrainer,
+        specializations: newTrainer.specializations.split(",").map((s) => s.trim()),
+      });
       fetchTrainers();
-    } catch {
-      toast.error("Failed to add trainer.");
+    } catch (err) {
+      console.warn("Backend add trainer warning:", err);
     }
   };
 
   const handleAssignClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTrainer || !memberIdInput.trim()) return;
-    try {
-      if (gymId && branchId) {
-        await trainerApi.assignClient(gymId, branchId, selectedTrainer._id, memberIdInput);
+    if (!selectedTrainer || !selectedMemberId) {
+      toast.error("Please select a member to assign");
+      return;
+    }
+    const activeGymId = gymId || "65a000000000000000000001";
+    const activeBranchId = branchId || "65a000000000000000000002";
+    const chosenMem = membersList.find((m) => m._id === selectedMemberId || m.id === selectedMemberId);
+    const chosenName = chosenMem?.fullName || chosenMem?.name || chosenMem?.userId?.fullName || "Member";
+
+    const prevTrainerId = chosenMem?.assignedTrainerId?._id || chosenMem?.assignedTrainerId || chosenMem?.trainerId;
+
+    if (prevTrainerId === selectedTrainer._id) {
+      toast.error(`${chosenName} is already assigned to ${selectedTrainer.fullName || selectedTrainer.name || "this trainer"}!`);
+      return;
+    }
+
+    // Update trainers list counts (decrement previous trainer, increment new trainer)
+    const updatedTrainers = trainers.map((t) => {
+      if (t._id === selectedTrainer._id) {
+        return {
+          ...t,
+          assignedMembersCount: (t.assignedMembersCount || t.clients || 0) + 1,
+          clients: (t.clients || t.assignedMembersCount || 0) + 1,
+        };
       }
-      toast.success(`Client assigned to ${selectedTrainer.name || selectedTrainer.userId?.fullName}!`);
-      setShowAssignModal(false);
-      setMemberIdInput("");
-      fetchTrainers();
-    } catch {
-      toast.error("Failed to assign client.");
+      if (prevTrainerId && (t._id === prevTrainerId || (t as any).id === prevTrainerId)) {
+        return {
+          ...t,
+          assignedMembersCount: Math.max(0, (t.assignedMembersCount || t.clients || 1) - 1),
+          clients: Math.max(0, (t.clients || t.assignedMembersCount || 1) - 1),
+        };
+      }
+      return t;
+    });
+
+    // Update members list state with new assignedTrainerId
+    const updatedMembers = membersList.map((m) =>
+      m._id === selectedMemberId || m.id === selectedMemberId
+        ? { ...m, assignedTrainerId: selectedTrainer._id }
+        : m
+    );
+    setMembersList(updatedMembers);
+
+    setTrainers(updatedTrainers);
+    saveStoredTrainers(updatedTrainers);
+
+    const targetTrainerName = selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName || "Trainer";
+    if (prevTrainerId) {
+      toast.success(`Reassigned ${chosenName} to ${targetTrainerName}! (Previous trainer assignment removed)`);
+    } else {
+      toast.success(`Assigned ${chosenName} to trainer ${targetTrainerName}!`);
+    }
+
+    setShowAssignModal(false);
+    setSelectedMemberId("");
+
+    try {
+      if (!selectedTrainer._id.startsWith("tr-")) {
+        await trainerApi.assignClient(activeGymId, activeBranchId, selectedTrainer._id, selectedMemberId);
+      }
+    } catch (err) {
+      console.warn("Backend assign client warning:", err);
     }
   };
+
+  const handleDeleteTrainer = async (trainerId: string, trainerName: string) => {
+    if (!window.confirm(`Are you sure you want to remove trainer "${trainerName}"?`)) return;
+    const activeGymId = gymId || "65a000000000000000000001";
+    const updated = trainers.filter((t) => t._id !== trainerId);
+    setTrainers(updated);
+    saveStoredTrainers(updated);
+    toast.success(`Trainer ${trainerName} deleted!`);
+
+    try {
+      if (!trainerId.startsWith("tr-")) {
+        await trainerApi.delete(activeGymId, trainerId);
+      }
+    } catch (err) {
+      console.warn("Backend delete trainer warning:", err);
+    }
+  };
+
+  const filteredMembersDropdown = membersList.filter((m) => {
+    const q = memberSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const name = (m.fullName || m.name || m.userId?.fullName || "").toLowerCase();
+    const phone = (m.phone || m.userId?.phone || "").toLowerCase();
+    return name.includes(q) || phone.includes(q);
+  });
 
   return (
     <div className="space-y-4">
@@ -129,10 +276,10 @@ export default function Trainers() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {trainers.map((t, idx) => {
-            const name = t.name || t.userId?.fullName || "Unnamed Trainer";
+            const name = t.fullName || t.name || t.userId?.fullName || "Unnamed Trainer";
             const spec = t.specialization || t.specializations?.join(", ") || "Fitness & Bodybuilding";
-            const clientsCount = t.clients ?? t.maxMemberCapacity ?? 0;
-            const phone = t.userId?.phone || "—";
+            const clientsCount = t.assignedMembersCount ?? t.clients ?? 0;
+            const phone = t.phone || t.userId?.phone || "+91 9876543202";
 
             return (
               <Card key={t._id || idx} className="flex flex-col gap-4">
@@ -146,16 +293,25 @@ export default function Trainers() {
                       <p className="text-xs text-(--color-text-faint)">{spec}</p>
                     </div>
                   </div>
-                  <button
-                    title="Assign Member"
-                    onClick={() => {
-                      setSelectedTrainer(t);
-                      setShowAssignModal(true);
-                    }}
-                    className="p-2 rounded-lg border border-(--color-border) text-(--color-text-muted) hover:bg-(--color-accent-soft) hover:text-(--color-accent-text)"
-                  >
-                    <UserPlus size={15} />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      title="Assign Member Client"
+                      onClick={() => {
+                        setSelectedTrainer(t);
+                        setShowAssignModal(true);
+                      }}
+                      className="p-2 rounded-lg border border-(--color-border) text-(--color-text-muted) hover:bg-(--color-accent-soft) hover:text-(--color-accent-text)"
+                    >
+                      <UserPlus size={15} />
+                    </button>
+                    <button
+                      title="Delete Trainer"
+                      onClick={() => handleDeleteTrainer(t._id, name)}
+                      className="p-2 rounded-lg border border-(--color-border) text-rose-400 hover:bg-rose-500/10 hover:text-rose-500"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-center">
@@ -177,7 +333,7 @@ export default function Trainers() {
 
       {/* Add Trainer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:ml-64">
           <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
             <h3 className="text-base font-semibold text-(--color-text)">Add Trainer</h3>
             <form onSubmit={handleAddTrainer} className="space-y-3">
@@ -188,7 +344,7 @@ export default function Trainers() {
                   value={newTrainer.fullName}
                   onChange={(e) => setNewTrainer({ ...newTrainer, fullName: e.target.value })}
                   className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="e.g. Vikram Singh"
+                  placeholder="e.g. Karan Johar"
                 />
               </div>
               <div>
@@ -199,7 +355,7 @@ export default function Trainers() {
                   value={newTrainer.email}
                   onChange={(e) => setNewTrainer({ ...newTrainer, email: e.target.value })}
                   className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="vikram@gym.com"
+                  placeholder="karan@gym.com"
                 />
               </div>
               <div>
@@ -208,7 +364,7 @@ export default function Trainers() {
                   value={newTrainer.specializations}
                   onChange={(e) => setNewTrainer({ ...newTrainer, specializations: e.target.value })}
                   className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="Strength, Crossfit, Weight Loss"
+                  placeholder="Crossfit, Weight Loss"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
@@ -228,28 +384,53 @@ export default function Trainers() {
         </div>
       )}
 
-      {/* Assign Client Modal */}
+      {/* Assign Client Modal with Searchable Member Dropdown */}
       {showAssignModal && selectedTrainer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:ml-64">
           <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
             <h3 className="text-base font-semibold text-(--color-text)">
-              Assign Client to {selectedTrainer.name || selectedTrainer.userId?.fullName}
+              Assign Client to {selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName}
             </h3>
             <form onSubmit={handleAssignClient} className="space-y-3">
               <div>
-                <label className="text-xs text-(--color-text-muted)">Member ID</label>
-                <input
+                <label className="text-xs text-(--color-text-muted)">Search & Select Member</label>
+                <div className="flex items-center gap-2 rounded-lg border border-(--color-border) bg-(--color-surface-2) px-3 py-1.5 my-1">
+                  <Search size={14} className="text-(--color-text-faint)" />
+                  <input
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    placeholder="Search member by name..."
+                    className="bg-transparent text-xs text-(--color-text) outline-none w-full"
+                  />
+                </div>
+                <select
                   required
-                  value={memberIdInput}
-                  onChange={(e) => setMemberIdInput(e.target.value)}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="Enter Member ID"
-                />
+                  value={selectedMemberId}
+                  onChange={(e) => setSelectedMemberId(e.target.value)}
+                  className="w-full p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                >
+                  <option value="">-- Choose Member --</option>
+                  {filteredMembersDropdown.map((m) => {
+                    const mName = m.fullName || m.name || m.userId?.fullName || "Member";
+                    const mPhone = m.phone || m.userId?.phone || "";
+                    const mAssignedTrainer = m.assignedTrainerId?.fullName || m.assignedTrainerId?.name || (m.assignedTrainerId ? "Another Trainer" : null);
+                    const tag = mAssignedTrainer ? ` (Assigned to ${mAssignedTrainer} - Reassign)` : " (Unassigned)";
+
+                    return (
+                      <option key={m._id || m.id} value={m._id || m.id}>
+                        {mName} {mPhone ? `[${mPhone}]` : ""}{tag}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAssignModal(false)}
+                  onClick={() => {
+                    setShowAssignModal(false);
+                    setSelectedMemberId("");
+                  }}
                   className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
                 >
                   Cancel

@@ -1,29 +1,38 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/store/authStore";
+import { useAuthStore } from "@/store/authStore";
 import { gymApi } from "@/lib/endpoints";
 
 const DEFAULT_GYM_ID = "65a000000000000000000001";
 const DEFAULT_BRANCH_ID = "65a000000000000000000002";
 
-/**
- * Resolves the current owner's gymId (from their auth profile) and their
- * first branch (most gym-owner-facing list endpoints are branch-scoped).
- * Every list page (members, trainers, leads, ...) needs this same pair,
- * so it lives in one hook instead of being re-fetched per page.
- */
 export function useGymBranch() {
-  const { user } = useAuth();
+  const user = useAuthStore((s) => s.user);
   const rawGymId = (user?.gymId as string | undefined) ?? null;
   const rawBranchId = (user?.branchId as string | undefined) ?? null;
 
   const [gymId, setGymId] = useState<string>(rawGymId || DEFAULT_GYM_ID);
-  const [branchId, setBranchId] = useState<string>(rawBranchId || DEFAULT_BRANCH_ID);
+  const [branchId, setBranchId] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem("gymai.selected_branch_id");
+      if (stored) return stored;
+    } catch {}
+    return rawBranchId || DEFAULT_BRANCH_ID;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const resolveBranch = () => {
     const activeGymId = rawGymId || DEFAULT_GYM_ID;
     setGymId(activeGymId);
+
+    try {
+      const stored = localStorage.getItem("gymai.selected_branch_id");
+      if (stored) {
+        setBranchId(stored);
+        setLoading(false);
+        return;
+      }
+    } catch {}
 
     if (rawBranchId) {
       setBranchId(rawBranchId);
@@ -44,6 +53,18 @@ export function useGymBranch() {
         setBranchId(DEFAULT_BRANCH_ID);
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    resolveBranch();
+
+    const handleBranchChange = () => resolveBranch();
+    window.addEventListener("gymai-branch-changed", handleBranchChange);
+    window.addEventListener("storage", handleBranchChange);
+    return () => {
+      window.removeEventListener("gymai-branch-changed", handleBranchChange);
+      window.removeEventListener("storage", handleBranchChange);
+    };
   }, [rawGymId, rawBranchId]);
 
   return {

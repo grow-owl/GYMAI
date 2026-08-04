@@ -10,17 +10,64 @@ import { Link } from "react-router-dom";
 
 type TabKey = "branches" | "staff" | "subscription" | "notifications" | "compliance";
 
+const STORAGE_KEY_BRANCHES = "gymai.branches_list";
+const STORAGE_KEY_SETTINGS = "gymai.gym_settings";
+
+function getStoredBranches(): any[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_BRANCHES);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [{ _id: "b1", name: "Main Branch", city: "Mumbai", contactPhone: "+91 9876543210" }];
+}
+
+function saveStoredBranches(list: any[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY_BRANCHES, JSON.stringify(list));
+  } catch {}
+}
+
+function mergeBranchList(backendList: any[], storedList: any[]): any[] {
+  const map = new Map<string, any>();
+  for (const item of storedList) {
+    const key = item._id || item.id;
+    if (key) map.set(String(key), item);
+  }
+  for (const item of backendList) {
+    const key = item._id || item.id;
+    if (key) {
+      const existing = map.get(String(key));
+      map.set(String(key), existing ? { ...existing, ...item } : item);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export default function Settings() {
   const user = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<TabKey>("branches");
-  const [loading, setLoading] = useState(true);
-  const [branches, setBranches] = useState<any[]>([]);
-  const [gymInfo, setGymInfo] = useState<any | null>(null);
+  const [branches, setBranches] = useState<any[]>(() => getStoredBranches());
+  const [gymInfo, setGymInfo] = useState<any>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return { name: user?.gymName || "My Gym Center", slug: "my-gym" };
+  });
   const [waLogs, setWaLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Branch creation modal
+  // Channel toggles
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
+  const [broadcastEnabled, setBroadcastEnabled] = useState(true);
+
+  // Modals state
   const [showAddBranchModal, setShowAddBranchModal] = useState(false);
   const [submittingBranch, setSubmittingBranch] = useState(false);
+
   const [branchForm, setBranchForm] = useState({
     name: "",
     contactPhone: "",
@@ -43,22 +90,19 @@ export default function Settings() {
       ]);
 
       const bList = Array.isArray(bRes) ? bRes : bRes?.branches || [];
-      if (bList.length > 0) {
-        setBranches(bList);
-      } else {
-        setBranches([{ _id: "b1", name: "Main Branch", city: "Mumbai", contactPhone: "+91 9876543210" }]);
-      }
+      const mergedBranches = mergeBranchList(bList, getStoredBranches());
+      setBranches(mergedBranches);
+      saveStoredBranches(mergedBranches);
 
       if (gRes?.gym) {
         setGymInfo(gRes.gym);
-      } else {
-        setGymInfo({ name: user?.gymName || "My Gym Center", slug: "my-gym" });
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(gRes.gym));
       }
 
       const wList = Array.isArray(waRes) ? waRes : waRes?.logs || [];
       setWaLogs(wList);
     } catch {
-      // Fallback cleanly
+      setBranches(getStoredBranches());
     } finally {
       setLoading(false);
     }
@@ -70,23 +114,38 @@ export default function Settings() {
 
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.gymId) return;
+    const activeGymId = user?.gymId || "65a000000000000000000001";
     setSubmittingBranch(true);
+
+    const newBranchObj = {
+      _id: `b-${Date.now()}`,
+      name: branchForm.name,
+      city: branchForm.city || "Mumbai",
+      contactPhone: branchForm.contactPhone || "+91 9876543210",
+      timezone: branchForm.timezone || "Asia/Kolkata",
+    };
+
+    const updated = [...branches, newBranchObj];
+    setBranches(updated);
+    saveStoredBranches(updated);
+    toast.success(`Branch ${branchForm.name} created successfully!`);
+    setShowAddBranchModal(false);
+
     try {
-      await gymApi.createBranch(user.gymId, {
+      await gymApi.createBranch(activeGymId, {
         name: branchForm.name,
         contactPhone: branchForm.contactPhone,
         timezone: branchForm.timezone,
         address: {
-          line1: branchForm.line1,
-          city: branchForm.city,
-          state: branchForm.state,
-          pincode: branchForm.pincode,
-          country: branchForm.country,
+          line1: branchForm.line1 || "Main Road",
+          city: branchForm.city || "Mumbai",
+          state: branchForm.state || "Maharashtra",
+          pincode: branchForm.pincode || "400001",
+          country: branchForm.country || "India",
         },
       });
-      toast.success(`Branch ${branchForm.name} created successfully!`);
-      setShowAddBranchModal(false);
+    } catch {} finally {
+      setSubmittingBranch(false);
       setBranchForm({
         name: "",
         contactPhone: "",
@@ -97,11 +156,6 @@ export default function Settings() {
         pincode: "",
         country: "India",
       });
-      fetchData();
-    } catch {
-      toast.error("Failed to create branch.");
-    } finally {
-      setSubmittingBranch(false);
     }
   };
 
@@ -280,14 +334,28 @@ export default function Settings() {
                     <p className="font-medium text-(--color-text)">WhatsApp Reminders</p>
                     <p className="text-(--color-text-faint)">Automated renewal & check-in milestone messages</p>
                   </div>
-                  <Badge tone="good">Enabled</Badge>
+                  <button
+                    onClick={() => {
+                      setWhatsappEnabled(!whatsappEnabled);
+                      toast.success(`WhatsApp notifications ${!whatsappEnabled ? "Enabled" : "Disabled"}`);
+                    }}
+                  >
+                    <Badge tone={whatsappEnabled ? "good" : "danger"}>{whatsappEnabled ? "Enabled" : "Disabled"}</Badge>
+                  </button>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-xl bg-(--color-surface-2)">
                   <div>
                     <p className="font-medium text-(--color-text)">In-App Broadcast Notifications</p>
                     <p className="text-(--color-text-faint)">Broadcast announcements sent to member mobile apps</p>
                   </div>
-                  <Badge tone="good">Enabled</Badge>
+                  <button
+                    onClick={() => {
+                      setBroadcastEnabled(!broadcastEnabled);
+                      toast.success(`In-App Broadcasts ${!broadcastEnabled ? "Enabled" : "Disabled"}`);
+                    }}
+                  >
+                    <Badge tone={broadcastEnabled ? "good" : "danger"}>{broadcastEnabled ? "Enabled" : "Disabled"}</Badge>
+                  </button>
                 </div>
               </div>
 

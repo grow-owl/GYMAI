@@ -102,6 +102,9 @@ export const trainerApi = {
 
   getMyClients: (gymId: string) =>
     api.get<{ clients: any[] }>(`/gyms/${gymId}/trainers/me/clients`),
+
+  delete: (gymId: string, trainerId: string) =>
+    api.delete<any>(`/gyms/${gymId}/trainers/${trainerId}`),
 };
 
 export const memberApi = {
@@ -198,7 +201,7 @@ export const paymentApi = {
 };
 
 export const aiApi = {
-  getWeeklyDigest: (gymId: string) => api.get<{ weeklyDigest: string }>(`/gyms/${gymId}/insights/weekly-digest`),
+  getWeeklyDigest: (gymId: string) => api.get<{ weeklyDigest: string }>(`/ai/gyms/${gymId}/insights/weekly-digest`),
 
   getAtRiskMembers: (gymId: string, riskLevel?: string) =>
     api.get<any>(`/ai/gyms/${gymId}/at-risk-members${riskLevel ? `?riskLevel=${riskLevel}` : ""}`),

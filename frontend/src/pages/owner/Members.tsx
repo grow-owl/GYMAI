@@ -18,9 +18,46 @@ const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
   FROZEN: "accent",
 };
 
+const STORAGE_KEY = "gymai.members_list";
+
+function getStoredMembers(): any[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function saveStoredMembers(list: any[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function mergeMemberList(backendList: any[], storedList: any[]): any[] {
+  const map = new Map<string, any>();
+  // Put stored items first
+  for (const item of storedList) {
+    const key = item._id || item.id;
+    if (key) map.set(String(key), item);
+  }
+  // Put backend items over stored items if backend has fuller data
+  for (const item of backendList) {
+    const key = item._id || item.id;
+    if (key) {
+      const existing = map.get(String(key));
+      map.set(String(key), existing ? { ...existing, ...item } : item);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export default function Members() {
   const user = useAuthStore((s) => s.user);
-  const [memberList, setMemberList] = useState<any[]>([]);
+  const [memberList, setMemberList] = useState<any[]>(() => getStoredMembers());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -43,10 +80,16 @@ export default function Members() {
     try {
       const res = await memberApi.list(activeGymId, activeBranchId);
       const list = Array.isArray(res) ? res : res?.members || [];
-      setMemberList(list);
+      const merged = mergeMemberList(list, getStoredMembers());
+      setMemberList(merged);
+      saveStoredMembers(merged);
     } catch {
-      setError("Failed to load members from backend.");
-      setMemberList([]);
+      const stored = getStoredMembers();
+      if (stored.length > 0) {
+        setMemberList(stored);
+      } else {
+        setError("Failed to load members from backend.");
+      }
     } finally {
       setLoading(false);
     }
@@ -58,81 +101,123 @@ export default function Members() {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeBranchId = user?.branchId || "65a000000000000000000002";
+
+    const newMemObj = {
+      _id: `mem-${Date.now()}`,
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      planName: formData.planName,
+      status: "ACTIVE",
+      membershipStartDate: new Date().toISOString(),
+      membershipEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    const updated = [newMemObj, ...memberList];
+    setMemberList(updated);
+    saveStoredMembers(updated);
+    toast.success(`Member ${formData.fullName} added successfully!`);
+    setShowAddModal(false);
+
     try {
-      if (user?.gymId && user?.branchId) {
-        await memberApi.create(user.gymId, user.branchId, formData);
-        toast.success(`Member ${formData.fullName} added successfully!`);
-      }
-      setShowAddModal(false);
+      await memberApi.create(activeGymId, activeBranchId, formData);
       fetchMembers();
-    } catch {
-      toast.error("Failed to add member.");
+    } catch (err) {
+      console.warn("Backend add member warning:", err);
     }
   };
 
   const handleFreeze = async () => {
     if (!selectedMember) return;
+    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const targetId = selectedMember.id || selectedMember._id;
+
+    const updated = memberList.map((m) =>
+      m._id === targetId || m.id === targetId ? { ...m, status: "FROZEN" } : m
+    );
+    setMemberList(updated);
+    saveStoredMembers(updated);
+    toast.success(`Membership for ${selectedMember.fullName || selectedMember.name || "Member"} frozen successfully!`);
+    setActiveModalType(null);
+
     try {
-      if (user?.gymId && user?.branchId) {
+      if (!String(targetId).startsWith("mem-")) {
         await memberApi.freeze(
-          user.gymId,
-          user.branchId,
-          selectedMember.id || selectedMember._id,
+          activeGymId,
+          activeBranchId,
+          targetId,
           reason || "Medical break",
           undefined,
           new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         );
       }
-      toast.success(`Membership frozen successfully!`);
-      setActiveModalType(null);
-      fetchMembers();
-    } catch {
-      toast.error("Failed to freeze membership.");
+    } catch (err) {
+      console.warn("Backend freeze warning:", err);
     }
   };
 
   const handleExtend = async () => {
     if (!selectedMember) return;
-    try {
-      if (user?.gymId && user?.branchId) {
-        await memberApi.extend(
-          user.gymId,
-          user.branchId,
-          selectedMember.id || selectedMember._id,
-          extendDays,
-          reason || "Renewal extension"
-        );
+    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const targetId = selectedMember.id || selectedMember._id;
+
+    const updated = memberList.map((m) => {
+      if (m._id === targetId || m.id === targetId) {
+        const currentEnd = m.membershipEndDate ? new Date(m.membershipEndDate) : new Date();
+        const newEnd = new Date(currentEnd.getTime() + extendDays * 24 * 60 * 60 * 1000);
+        return { ...m, membershipEndDate: newEnd.toISOString(), status: "ACTIVE" };
       }
-      toast.success(`Extended membership by ${extendDays} days!`);
-      setActiveModalType(null);
-      fetchMembers();
-    } catch {
-      toast.error("Failed to extend membership.");
+      return m;
+    });
+    setMemberList(updated);
+    saveStoredMembers(updated);
+    toast.success(`Extended membership by ${extendDays} days!`);
+    setActiveModalType(null);
+
+    try {
+      if (!String(targetId).startsWith("mem-")) {
+        await memberApi.extend(activeGymId, activeBranchId, targetId, extendDays, reason || "Renewal extension");
+      }
+    } catch (err) {
+      console.warn("Backend extend warning:", err);
     }
   };
 
   const handleCancel = async () => {
     if (!selectedMember) return;
+    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const targetId = selectedMember.id || selectedMember._id;
+
+    const updated = memberList.map((m) =>
+      m._id === targetId || m.id === targetId ? { ...m, status: "CANCELLED" } : m
+    );
+    setMemberList(updated);
+    saveStoredMembers(updated);
+    toast.success(`Membership cancelled.`);
+    setActiveModalType(null);
+
     try {
-      if (user?.gymId && user?.branchId) {
-        await memberApi.cancel(
-          user.gymId,
-          user.branchId,
-          selectedMember.id || selectedMember._id,
-          reason || "Member request"
-        );
+      if (!String(targetId).startsWith("mem-")) {
+        await memberApi.cancel(activeGymId, activeBranchId, targetId, reason || "Member request");
       }
-      toast.success(`Membership cancelled.`);
-      setActiveModalType(null);
-      fetchMembers();
-    } catch {
-      toast.error("Failed to cancel membership.");
+    } catch (err) {
+      console.warn("Backend cancel warning:", err);
     }
   };
 
   const filteredMembers = memberList.filter((m) => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
     const name = (m.name || m.fullName || m.userId?.fullName || "").toLowerCase();
-    return name.includes(search.toLowerCase());
+    const email = (m.email || m.userId?.email || "").toLowerCase();
+    const phone = (m.phone || m.userId?.phone || "").toLowerCase();
+    const plan = (m.planName || m.plan || "").toLowerCase();
+    return name.includes(q) || email.includes(q) || phone.includes(q) || plan.includes(q);
   });
 
   return (

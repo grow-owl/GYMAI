@@ -47,6 +47,7 @@ const plans = [
 export default function Billing() {
   const [currentPlan, setCurrentPlan] = useState("pro");
   const [selectedPlanForUpgrade, setSelectedPlanForUpgrade] = useState<any | null>(null);
+  const [pendingDowngrade, setPendingDowngrade] = useState<string | null>(null);
 
   useEffect(() => {
     paymentApi
@@ -62,8 +63,18 @@ export default function Billing() {
   };
 
   const handleConfirmRequest = () => {
-    toast.success(`Upgrade request for ${selectedPlanForUpgrade?.name} submitted! Super Admin will contact you for offline invoice processing.`);
+    if (selectedPlanForUpgrade?.id === "starter" && currentPlan !== "starter") {
+      setPendingDowngrade(selectedPlanForUpgrade.name);
+      toast.success(`Downgrade request for ${selectedPlanForUpgrade.name} submitted to Super Admin.`);
+    } else {
+      toast.success(`Upgrade request for ${selectedPlanForUpgrade?.name} submitted! Super Admin (support@gymai.com) will process your tier change.`);
+    }
     setSelectedPlanForUpgrade(null);
+  };
+
+  const handleRevokeDowngrade = () => {
+    setPendingDowngrade(null);
+    toast.success("Downgrade request revoked successfully! Your active plan remains active.");
   };
 
   return (
@@ -81,7 +92,18 @@ export default function Billing() {
             <p className="text-2xl font-bold text-(--color-text) capitalize flex items-center gap-2">
               {currentPlan} Plan <Badge tone="good">Active</Badge>
             </p>
-            <p className="text-xs text-(--color-text-faint) mt-1">Manual offline billing · Admin recorded</p>
+            {pendingDowngrade && (
+              <div className="mt-2 flex items-center gap-2">
+                <Badge tone="warn">Pending Downgrade: {pendingDowngrade}</Badge>
+                <button
+                  onClick={handleRevokeDowngrade}
+                  className="text-xs font-semibold text-rose-400 hover:underline"
+                >
+                  Revoke Downgrade Request
+                </button>
+              </div>
+            )}
+            <p className="text-xs text-(--color-text-faint) mt-1">Manual offline billing · Managed by Super Admin</p>
           </div>
           <div className="p-3 rounded-full bg-(--color-accent-soft) text-(--color-accent-text)">
             <Shield size={24} />
@@ -131,7 +153,7 @@ export default function Billing() {
                 "Current Active Plan"
               ) : (
                 <>
-                  <Zap size={14} /> Request Upgrade
+                  <Zap size={14} /> Request {p.id === "starter" ? "Downgrade" : "Upgrade"}
                 </>
               )}
             </button>
@@ -139,30 +161,30 @@ export default function Billing() {
         ))}
       </div>
 
-      {/* Offline Upgrade Request Guidance Modal */}
+      {/* Offline Upgrade/Downgrade Request Guidance Modal */}
       {selectedPlanForUpgrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:ml-64">
           <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
             <div className="flex items-center gap-2">
               <Zap className="text-(--color-accent)" size={20} />
               <h3 className="text-base font-semibold text-(--color-text)">
-                Upgrade to {selectedPlanForUpgrade.name} ({selectedPlanForUpgrade.price})
+                Subscription Request: {selectedPlanForUpgrade.name} ({selectedPlanForUpgrade.price})
               </h3>
             </div>
 
             <p className="text-xs text-(--color-text-muted) leading-relaxed">
-              SaaS platform subscriptions run on <strong>Manual/Offline Payment Entry</strong> (Cash, UPI, Bank Transfer). Payment gateway is disabled in production.
+              Platform subscription modifications are verified directly by Super Admin. Downgrade requests can be revoked directly from your dashboard at any time.
             </p>
 
             <div className="p-3 rounded-xl bg-(--color-surface-2) space-y-2 text-xs text-(--color-text-muted)">
-              <p className="font-semibold text-(--color-text)">How to Upgrade:</p>
+              <p className="font-semibold text-(--color-text)">Direct Super Admin Support:</p>
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-(--color-accent)" />
-                <span>Contact Super Admin: <strong>admin@gymsaas.com</strong></span>
+                <span>Mail Support: <strong>support@gymai.com</strong></span>
               </div>
               <div className="flex items-center gap-2">
                 <PhoneCall size={14} className="text-(--color-accent)" />
-                <span>Phone / UPI Support: <strong>+91 98765 43210</strong></span>
+                <span>Super Admin Line: <strong>+91 98765 43210</strong></span>
               </div>
             </div>
 
@@ -172,14 +194,14 @@ export default function Billing() {
                 onClick={() => setSelectedPlanForUpgrade(null)}
                 className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
               >
-                Close
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmRequest}
                 className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white"
               >
-                Submit Upgrade Request
+                Submit Request
               </button>
             </div>
           </div>

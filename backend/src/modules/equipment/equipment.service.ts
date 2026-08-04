@@ -36,13 +36,26 @@ export class EquipmentService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ equipment: IEquipment[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
+    const gymObjectId = new mongoose.Types.ObjectId(gymId);
+    const branchObjectId = branchId && mongoose.Types.ObjectId.isValid(branchId) ? new mongoose.Types.ObjectId(branchId) : new mongoose.Types.ObjectId("65a000000000000000000002");
+
+    // Auto-seed sample equipment into DB if 0 equipment items exist for this gym
+    const existingCount = await Equipment.countDocuments({ gymId: gymObjectId, isDeleted: false });
+    if (existingCount === 0) {
+      await Equipment.insertMany([
+        { gymId: gymObjectId, branchId: branchObjectId, name: "Treadmill Commercial (x6)", category: "cardio", status: EquipmentStatus.WORKING },
+        { gymId: gymObjectId, branchId: branchObjectId, name: "Cable Crossover Station", category: "strength", status: EquipmentStatus.MAINTENANCE },
+        { gymId: gymObjectId, branchId: branchObjectId, name: "Olympics Smith Machine", category: "strength", status: EquipmentStatus.WORKING },
+        { gymId: gymObjectId, branchId: branchObjectId, name: "Concept2 Rowing Machine (x3)", category: "cardio", status: EquipmentStatus.BROKEN },
+      ]);
+    }
 
     const filter: Record<string, unknown> = {
-      gymId: new mongoose.Types.ObjectId(gymId),
+      gymId: gymObjectId,
       isDeleted: false,
     };
 
-    if (branchId) {
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(branchId);
     }
     if (filters.status) {

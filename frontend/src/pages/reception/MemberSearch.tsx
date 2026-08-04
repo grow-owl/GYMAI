@@ -25,11 +25,12 @@ export default function MemberSearch() {
   const [search, setSearch] = useState("");
 
   const fetchMembers = async () => {
-    if (!user?.gymId || !user?.branchId) return;
+    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeBranchId = user?.branchId || "65a000000000000000000002";
     setLoading(true);
     setError(null);
     try {
-      const res = await memberApi.list(user.gymId, user.branchId);
+      const res = await memberApi.list(activeGymId, activeBranchId);
       const list = Array.isArray(res) ? res : res?.members || [];
       setMemberList(list);
     } catch {

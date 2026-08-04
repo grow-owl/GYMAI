@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink } from "lucide-react";
+import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink, Building2 } from "lucide-react";
 import { gym } from "@/data/mock";
-import { notificationApi } from "@/lib/endpoints";
+import { notificationApi, gymApi } from "@/lib/endpoints";
 import type { INotificationItem } from "@/lib/endpoints";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 interface NavEntry {
@@ -86,6 +87,8 @@ export default function TopBar({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -94,9 +97,56 @@ export default function TopBar({
   const [notifications, setNotifications] = useState<INotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Branch Switcher state
+  const [branches, setBranches] = useState<any[]>([]);
+  const [activeBranchId, setActiveBranchId] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem("gymai.selected_branch_id");
+      if (stored) return stored;
+    } catch {}
+    return "65a000000000000000000002";
+  });
+
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const fetchBranches = useCallback(async () => {
+    try {
+      const storedLocal = localStorage.getItem("gymai.branches_list");
+      if (storedLocal) {
+        const parsed = JSON.parse(storedLocal);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setBranches(parsed);
+          return;
+        }
+      }
+    } catch {}
+
+    const gymId = user?.gymId || "65a000000000000000000001";
+    try {
+      const res = await gymApi.listBranches(gymId);
+      const bList = Array.isArray(res) ? res : res?.branches || [];
+      if (bList.length > 0) setBranches(bList);
+      else setBranches([{ _id: "65a000000000000000000002", name: "Main Branch" }]);
+    } catch {
+      setBranches([{ _id: "65a000000000000000000002", name: "Main Branch" }]);
+    }
+  }, [user?.gymId]);
+
+  useEffect(() => {
+    fetchBranches();
+  }, [fetchBranches]);
+
+  const handleSelectBranch = (bId: string) => {
+    setActiveBranchId(bId);
+    try {
+      localStorage.setItem("gymai.selected_branch_id", bId);
+    } catch {}
+    const chosen = branches.find((b) => (b._id || b.id) === bId);
+    toast.success(`Switched active branch view to: ${chosen?.name || "Selected Branch"}`);
+    window.dispatchEvent(new CustomEvent("gymai-branch-changed"));
+  };
 
   // Determine current role base path
   const notificationPath = useMemo(() => {
@@ -226,6 +276,24 @@ export default function TopBar({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Branch Selector Dropdown */}
+          {branches.length > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text)">
+              <Building2 size={14} className="text-(--color-accent) shrink-0" />
+              <select
+                value={activeBranchId}
+                onChange={(e) => handleSelectBranch(e.target.value)}
+                className="bg-transparent text-xs text-(--color-text) outline-none cursor-pointer pr-1 font-semibold"
+              >
+                {branches.map((b) => (
+                  <option key={b._id || b.id} value={b._id || b.id}>
+                    {b.name} ({b.city || "Branch"})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Search */}
           <div ref={searchRef} className="relative hidden lg:block">
             <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-3.5 py-2 text-sm text-(--color-text-muted) w-64 focus-within:text-(--color-text)">
