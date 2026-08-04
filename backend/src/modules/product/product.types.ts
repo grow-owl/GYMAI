@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 
-export type ProductCategory = 'supplement' | 'merchandise' | 'service_package';
+export type ProductCategory = 'supplement' | 'merchandise' | 'service_package' | 'gear';
 
 export interface IProduct {
   _id: Types.ObjectId;

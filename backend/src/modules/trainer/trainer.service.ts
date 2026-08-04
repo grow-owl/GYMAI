@@ -116,12 +116,49 @@ export class TrainerService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ trainers: ITrainer[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
+    const gymObjectId = new mongoose.Types.ObjectId(gymId);
+
+    // Auto-seed sample trainers into DB if 0 trainers exist for this gym
+    const existingCount = await Trainer.countDocuments({ gymId: gymObjectId, isDeleted: false });
+    if (existingCount === 0) {
+      const branchObjectId = branchId && mongoose.Types.ObjectId.isValid(branchId) ? new mongoose.Types.ObjectId(branchId) : new mongoose.Types.ObjectId("65a000000000000000000002");
+      const trainerSeeds = [
+        { fullName: "Vikram Singh", email: "vikram@gym.com", phone: "+91 9876543201", specs: ["Strength & Conditioning", "Bodybuilding"] },
+        { fullName: "Neha Kapoor", email: "neha@gym.com", phone: "+91 9876543202", specs: ["Crossfit", "Weight Loss"] },
+        { fullName: "Karan Johar", email: "karan@gym.com", phone: "+91 9876543203", specs: ["Functional Training", "HIIT"] },
+      ];
+
+      for (const t of trainerSeeds) {
+        let user = await User.findOne({ email: t.email });
+        if (!user) {
+          user = new User({
+            fullName: t.fullName,
+            email: t.email,
+            phone: t.phone,
+            password: "Trainer@123",
+            role: Role.TRAINER,
+            gymId: gymObjectId,
+            branchId: branchObjectId,
+          });
+          await user.save();
+        }
+
+        const trainer = new Trainer({
+          userId: user._id,
+          gymId: gymObjectId,
+          branchId: branchObjectId,
+          specializations: t.specs,
+          maxMemberCapacity: 25,
+        });
+        await trainer.save();
+      }
+    }
 
     const filter: Record<string, unknown> = {
-      gymId: new mongoose.Types.ObjectId(gymId),
+      gymId: gymObjectId,
       isDeleted: false,
     };
-    if (branchId) {
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(branchId);
     }
 
@@ -203,5 +240,23 @@ export class TrainerService {
 
     // Deactivate linked User account
     await User.findByIdAndUpdate(trainer.userId, { isActive: false });
+  }
+
+  public static async getTrainerClients(gymId: string, userId: string): Promise<any[]> {
+    const trainer = await Trainer.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      gymId: new mongoose.Types.ObjectId(gymId),
+      isDeleted: false,
+    });
+    if (!trainer) return [];
+
+    return Member.find({
+      gymId: new mongoose.Types.ObjectId(gymId),
+      assignedTrainerId: trainer._id,
+      isDeleted: false,
+    })
+      .populate('userId', 'fullName email phone avatarUrl')
+      .populate('branchId', 'name')
+      .sort({ createdAt: -1 });
   }
 }

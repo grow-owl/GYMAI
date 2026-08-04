@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bell, Search, Menu, LogOut, User, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink } from "lucide-react";
 import { gym } from "@/data/mock";
+import { notificationApi } from "@/lib/endpoints";
+import type { INotificationItem } from "@/lib/endpoints";
+import { toast } from "sonner";
 
 interface NavEntry {
   label: string;
@@ -9,17 +12,60 @@ interface NavEntry {
   icon: string;
 }
 
-interface NotificationItem {
-  id: string;
-  title: string;
-  time: string;
+const defaultNotifications: INotificationItem[] = [
+  {
+    _id: "n1",
+    title: "3 memberships expiring this week",
+    body: "Memberships for Aman Verma, Priya Sharma, and Rohan Gupta are expiring.",
+    isRead: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+  },
+  {
+    _id: "n2",
+    title: "New lead assigned to you",
+    body: "Sunita Rao requested a trial pass.",
+    isRead: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+  },
+  {
+    _id: "n3",
+    title: "Payment overdue for Aman Verma",
+    body: "Monthly fee payment is 5 days overdue.",
+    isRead: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+  },
+];
+
+const READ_KEY = "gymai.read_notifications";
+
+function getReadIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(READ_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
 }
 
-const defaultNotifications: NotificationItem[] = [
-  { id: "n1", title: "3 memberships expiring this week", time: "2h ago" },
-  { id: "n2", title: "New lead assigned to you", time: "5h ago" },
-  { id: "n3", title: "Payment overdue for Aman Verma", time: "1d ago" },
-];
+function saveReadId(id: string) {
+  try {
+    const set = getReadIds();
+    set.add(id);
+    localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore
+  }
+}
+
+function saveAllReadIds(ids: string[]) {
+  try {
+    const set = getReadIds();
+    ids.forEach((id) => set.add(id));
+    localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore
+  }
+}
 
 export default function TopBar({
   greeting,
@@ -39,13 +85,106 @@ export default function TopBar({
   onLogout?: () => void;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const [notifications, setNotifications] = useState<INotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Determine current role base path
+  const notificationPath = useMemo(() => {
+    if (location.pathname.startsWith("/owner")) return "/owner/notifications";
+    if (location.pathname.startsWith("/trainer")) return "/trainer/notifications";
+    if (location.pathname.startsWith("/reception")) return "/reception/notifications";
+    if (location.pathname.startsWith("/member")) return "/member/notifications";
+    return "/owner/notifications";
+  }, [location.pathname]);
+
+  const loadNotifications = useCallback(async () => {
+    const readSet = getReadIds();
+
+    try {
+      const [listRes, countRes] = await Promise.all([
+        notificationApi.list({ limit: 5 }),
+        notificationApi.getUnreadCount(),
+      ]);
+
+      const rawList = listRes?.notifications || (Array.isArray(listRes as any) ? (listRes as any) : []);
+      const baseList = rawList && rawList.length > 0 ? rawList : defaultNotifications;
+      
+      const processedList = baseList.map((n) =>
+        readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
+      );
+
+      setNotifications(processedList);
+
+      const realUnread = processedList.filter((n) => !n.isRead).length;
+      if (countRes?.unreadCount !== undefined && rawList.length > 0) {
+        setUnreadCount(Math.min(countRes.unreadCount, realUnread));
+      } else {
+        setUnreadCount(realUnread);
+      }
+    } catch {
+      const processedList = defaultNotifications.map((n) =>
+        readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
+      );
+      setNotifications(processedList);
+      setUnreadCount(processedList.filter((n) => !n.isRead).length);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+
+    const handleSync = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener("gymai-notifications-updated", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("gymai-notifications-updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, [loadNotifications]);
+
+  const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    saveReadId(id);
+    try {
+      await notificationApi.markAsRead(id);
+    } catch {
+      // ignore
+    }
+    toast.success("Marked as read");
+    setNotifications((prev) =>
+      prev.map((n) => (n._id === id || n.id === id ? { ...n, isRead: true } : n))
+    );
+    setUnreadCount((c) => Math.max(0, c - 1));
+    window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
+  };
+
+  const handleMarkAllAsRead = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ids = notifications.map((n) => n._id || n.id || "");
+    saveAllReadIds(ids);
+    try {
+      await notificationApi.markAllAsRead();
+    } catch {
+      // ignore
+    }
+    toast.success("All notifications marked as read");
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+    window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
+  };
 
   const results = useMemo(() => {
     if (!query.trim()) return [];
@@ -123,29 +262,98 @@ export default function TopBar({
             )}
           </div>
 
-          {/* Notifications */}
+          {/* Notifications Dropdown */}
           <div ref={notifRef} className="relative">
             <button
               onClick={() => {
                 setNotifOpen((o) => !o);
                 setProfileOpen(false);
               }}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) text-(--color-text-muted)"
+              aria-label="Notifications"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-text) transition-colors"
             >
               <Bell size={17} />
-              <span className="absolute top-2 right-2.5 h-1.5 w-1.5 rounded-full bg-(--color-accent)" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-(--color-accent) text-[10px] font-bold text-white shadow-xs animate-pulse">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </button>
             {notifOpen && (
-              <div className="absolute right-0 mt-2 w-72 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden z-30">
-                <p className="px-4 py-3 text-xs font-semibold text-(--color-text-muted) border-b border-(--color-border)">
-                  Notifications
-                </p>
-                {defaultNotifications.map((n) => (
-                  <div key={n.id} className="px-4 py-3 border-b border-(--color-border-soft) last:border-0">
-                    <p className="text-sm text-(--color-text)">{n.title}</p>
-                    <p className="text-[11px] text-(--color-text-muted) mt-0.5">{n.time}</p>
+              <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-(--color-border) bg-(--color-surface) shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-(--color-border) bg-(--color-surface-2)/50">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold text-(--color-text)">Notifications</p>
+                    {unreadCount > 0 && (
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-(--color-accent-soft) text-(--color-accent-text)">
+                        {unreadCount} new
+                      </span>
+                    )}
                   </div>
-                ))}
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllAsRead}
+                      className="text-[11px] font-medium text-(--color-accent) hover:underline inline-flex items-center gap-1"
+                    >
+                      <CheckCheck size={12} /> Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-72 overflow-y-auto divide-y divide-(--color-border-soft)">
+                  {notifications.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-xs text-(--color-text-muted)">No notifications</p>
+                  ) : (
+                    notifications.map((n) => {
+                      const id = n._id || n.id || "";
+                      return (
+                        <div
+                          key={id}
+                          onClick={() => {
+                            setNotifOpen(false);
+                            navigate(notificationPath);
+                          }}
+                          className={`group px-4 py-3 cursor-pointer transition-colors flex items-start justify-between gap-2 ${
+                            !n.isRead ? "bg-(--color-accent-soft)/15 hover:bg-(--color-accent-soft)/25" : "hover:bg-(--color-surface-2)"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              {!n.isRead && (
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-(--color-accent)" />
+                              )}
+                              <p className="text-xs font-medium text-(--color-text) truncate">{n.title}</p>
+                            </div>
+                            <p className="text-[11px] text-(--color-text-muted) line-clamp-2 mt-0.5">
+                              {n.body}
+                            </p>
+                          </div>
+                          {!n.isRead && (
+                            <button
+                              onClick={(e) => handleMarkAsRead(id, e)}
+                              title="Mark as read"
+                              className="shrink-0 opacity-80 group-hover:opacity-100 p-1 rounded-full hover:bg-(--color-surface-3) text-(--color-text-muted) hover:text-(--color-accent)"
+                            >
+                              <Check size={13} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="p-2 border-t border-(--color-border) bg-(--color-surface-2)/40 text-center">
+                  <button
+                    onClick={() => {
+                      setNotifOpen(false);
+                      navigate(notificationPath);
+                    }}
+                    className="w-full py-2 text-xs font-semibold text-(--color-accent) hover:bg-(--color-accent-soft)/20 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
+                  >
+                    View All Notifications <ExternalLink size={12} />
+                  </button>
+                </div>
               </div>
             )}
           </div>

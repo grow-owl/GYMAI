@@ -71,3 +71,12 @@ export const renewMembershipSchema = z.object({
   newEndDate: z.string().or(z.date()).transform((val) => new Date(val)),
   planName: z.string().trim().optional(),
 });
+
+export const extendMembershipSchema = z.object({
+  days: z.number().positive('Days to extend must be positive'),
+  reason: z.string().trim().optional(),
+});
+
+export const cancelMembershipSchema = z.object({
+  reason: z.string().trim().optional(),
+});

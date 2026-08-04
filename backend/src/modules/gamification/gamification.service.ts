@@ -456,6 +456,17 @@ export class GamificationService {
   }
 
   /**
+   * List active gym challenges.
+   */
+  public static async listChallenges(gymId?: string): Promise<any[]> {
+    const filter: any = { isDeleted: { $ne: true } };
+    if (gymId && mongoose.Types.ObjectId.isValid(gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(gymId);
+    }
+    return Challenge.find(filter).sort({ startDate: -1 });
+  }
+
+  /**
    * Create a gym challenge (for controller)
    */
   public static async createChallenge(gymId: string, challengeData: any): Promise<any> {

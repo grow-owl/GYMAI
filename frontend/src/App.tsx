@@ -24,6 +24,8 @@ import AIInsights from "@/pages/owner/AIInsights";
 import Settings from "@/pages/owner/Settings";
 import Inventory from "@/pages/owner/Inventory";
 import Expenses from "@/pages/owner/Expenses";
+import Equipment from "@/pages/owner/Equipment";
+import Billing from "@/pages/owner/Billing";
 
 import TrainerDashboard from "@/pages/trainer/TrainerDashboard";
 import MyClients from "@/pages/trainer/MyClients";
@@ -50,6 +52,12 @@ import CheckIn from "@/pages/reception/CheckIn";
 import ReceptionLeads from "@/pages/reception/Leads";
 import ReceptionPayments from "@/pages/reception/Payments";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
+import AdminPanel from "@/pages/admin/AdminPanel";
+
+import BranchComparison from "@/pages/owner/BranchComparison";
+import Notifications from "@/pages/Notifications";
+
 function OwnerShell() {
   const { user } = useAuth();
   const firstName = user?.fullName?.split(" ")[0] ?? gym.ownerName;
@@ -74,7 +82,7 @@ export default function App() {
   }, [init]);
 
   return (
-    <>
+    <ErrorBoundary>
       <AnimatedBackground />
       <div className="content-layer">
       <BrowserRouter>
@@ -84,6 +92,13 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/roles" element={<RoleSelect />} />
+
+          <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
+            <Route path="/admin" element={<OwnerShell />}>
+              <Route index element={<AdminPanel />} />
+              <Route path="notifications" element={<Notifications />} />
+            </Route>
+          </Route>
 
           <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN", "BRANCH_MANAGER"]} />}>
             <Route path="/owner" element={<OwnerShell />}>
@@ -95,9 +110,13 @@ export default function App() {
               <Route path="leads" element={<OwnerLeads />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="expenses" element={<Expenses />} />
+              <Route path="equipment" element={<Equipment />} />
+              <Route path="billing" element={<Billing />} />
               <Route path="reports" element={<Reports />} />
               <Route path="ai-insights" element={<AIInsights />} />
+              <Route path="branch-comparison" element={<BranchComparison />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="notifications" element={<Notifications />} />
             </Route>
           </Route>
 
@@ -121,6 +140,7 @@ export default function App() {
             <Route path="diet-plans" element={<DietPlans />} />
             <Route path="progress" element={<TrainerProgress />} />
             <Route path="recovery-alerts" element={<RecoveryAlerts />} />
+            <Route path="notifications" element={<Notifications />} />
           </Route>
         </Route>
 
@@ -142,6 +162,7 @@ export default function App() {
             <Route path="check-in" element={<CheckIn />} />
             <Route path="leads" element={<ReceptionLeads />} />
             <Route path="payments" element={<ReceptionPayments />} />
+            <Route path="notifications" element={<Notifications />} />
           </Route>
         </Route>
 
@@ -157,11 +178,12 @@ export default function App() {
             <Route path="rewards" element={<Gamification />} />
             <Route path="payments" element={<MemberPayments />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="notifications" element={<Notifications />} />
           </Route>
         </Route>
         </Routes>
       </BrowserRouter>
       </div>
-    </>
+    </ErrorBoundary>
   );
 }

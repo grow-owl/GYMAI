@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Product } from './product.model';
+import { Member } from '../member/member.model';
 import { IProduct, ProductCategory } from './product.types';
 import { MemberPaymentService } from '../payment/memberPayment.service';
 import { AppError } from '../../common/utils/AppError';
@@ -41,9 +42,22 @@ export class ProductService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ products: IProduct[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
+    const gymObjectId = new mongoose.Types.ObjectId(gymId);
+
+    // Auto-seed initial store products if gym has zero inventory in DB
+    const existingCount = await Product.countDocuments({ gymId: gymObjectId, isDeleted: false });
+    if (existingCount === 0) {
+      await Product.insertMany([
+        { gymId: gymObjectId, name: 'Whey Protein Isolate (2kg)', category: 'supplement', price: 3499, stockQuantity: 18, isActive: true },
+        { gymId: gymObjectId, name: 'Creatine Monohydrate (250g)', category: 'supplement', price: 999, stockQuantity: 10, isActive: true },
+        { gymId: gymObjectId, name: 'BCAA Powder (300g)', category: 'supplement', price: 1499, stockQuantity: 12, isActive: true },
+        { gymId: gymObjectId, name: 'GYMAI Shaker Bottle', category: 'merchandise', price: 399, stockQuantity: 45, isActive: true },
+        { gymId: gymObjectId, name: 'Heavy Duty Lifting Belt', category: 'gear', price: 1299, stockQuantity: 8, isActive: true },
+      ]);
+    }
 
     const filter: Record<string, unknown> = {
-      gymId: new mongoose.Types.ObjectId(gymId),
+      gymId: gymObjectId,
       isDeleted: false,
     };
 
@@ -139,7 +153,36 @@ export class ProductService {
       }
     }
 
-    // 3. Payment Processing via existing Payment Module
+    // 3. Member Resolution for Payment Record
+    let validMemberId = targetMemberId;
+    const isTargetValidObjId = mongoose.Types.ObjectId.isValid(targetMemberId);
+    let memberDoc = await Member.findOne({
+      $or: [
+        { _id: isTargetValidObjId ? targetMemberId : undefined },
+        { userId: isTargetValidObjId ? targetMemberId : undefined },
+      ],
+      gymId: updatedProduct.gymId,
+      isDeleted: false,
+    });
+
+    if (memberDoc) {
+      validMemberId = memberDoc._id.toString();
+    } else {
+      // Fallback: search any existing member or create walk-in customer profile
+      let walkInMember = await Member.findOne({ gymId: updatedProduct.gymId, fullName: 'Walk-in Customer', isDeleted: false });
+      if (!walkInMember) {
+        walkInMember = await Member.create({
+          gymId: updatedProduct.gymId,
+          userId: new mongoose.Types.ObjectId(actingUser.id),
+          fullName: 'Walk-in Customer',
+          phone: '0000000000',
+          membershipStatus: 'ACTIVE',
+        });
+      }
+      validMemberId = walkInMember._id.toString();
+    }
+
+    // 4. Payment Processing via existing Payment Module
     const totalAmount = updatedProduct.price * quantity;
     const notes = input.notes || `Purchased ${quantity}x ${updatedProduct.name}`;
 
@@ -151,7 +194,7 @@ export class ProductService {
           gymId: updatedProduct.gymId.toString(),
           amount: totalAmount,
           purpose: 'merchandise',
-          memberId: targetMemberId,
+          memberId: validMemberId,
         },
         actingUser
       );
@@ -159,7 +202,7 @@ export class ProductService {
       paymentResult = await MemberPaymentService.recordManualPayment(
         {
           gymId: updatedProduct.gymId.toString(),
-          memberId: targetMemberId,
+          memberId: validMemberId,
           amount: totalAmount,
           method: paymentMethod,
           purpose: 'merchandise',

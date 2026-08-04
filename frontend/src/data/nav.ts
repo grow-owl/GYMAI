@@ -3,6 +3,9 @@ export const ownerNav = [
   { label: "Members", path: "/owner/members", icon: "Users" },
   { label: "Trainers", path: "/owner/trainers", icon: "Dumbbell" },
   { label: "Attendance", path: "/owner/attendance", icon: "QrCode" },
+  { label: "Store & Inventory", path: "/owner/inventory", icon: "Package" },
+  { label: "Expenses", path: "/owner/expenses", icon: "DollarSign" },
+  { label: "Equipment", path: "/owner/equipment", icon: "Wrench" },
   { label: "Payments", path: "/owner/payments", icon: "CreditCard" },
   { label: "Leads", path: "/owner/leads", icon: "Target" },
   { label: "Reports", path: "/owner/reports", icon: "BarChart3" },
@@ -10,6 +13,7 @@ export const ownerNav = [
 
 export const ownerNavSecondary = [
   { label: "AI Insights", path: "/owner/ai-insights", icon: "Sparkles" },
+  { label: "SaaS Billing", path: "/owner/billing", icon: "Shield" },
   { label: "Settings", path: "/owner/settings", icon: "Settings" },
 ];
 

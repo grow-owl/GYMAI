@@ -1,10 +1,20 @@
 import { Request, Response } from 'express';
 import { DeviceTokenService } from './deviceToken.service';
 import { NotificationService } from './notification.service';
+import { WhatsAppMessageLog } from './whatsapp/whatsAppMessageLog.model';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
 
 export class NotificationController {
+  public static getWhatsAppLogs = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    const filter: Record<string, unknown> = {};
+    if (gymId) filter.gymId = gymId;
+
+    const logs = await WhatsAppMessageLog.find(filter).sort({ sentAt: -1 }).limit(100);
+    return sendSuccess(res, { logs }, 'WhatsApp message delivery logs retrieved successfully');
+  });
+
   public static registerDeviceToken = asyncHandler(async (req: Request, res: Response) => {
     const { fcmToken, platform } = req.body;
     const tokenDoc = await DeviceTokenService.registerDeviceToken(req.user!.id, fcmToken, platform);
@@ -28,7 +38,7 @@ export class NotificationController {
       req.query
     );
 
-    return sendSuccess(res, { notifications }, 'Notification feed retrieved successfully', 200, {
+    return sendSuccess(res, { notifications, pagination: meta }, 'Notification feed retrieved successfully', 200, {
       pagination: meta,
     });
   });

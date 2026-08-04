@@ -12,6 +12,8 @@ import {
   assignTrainerSchema,
   freezeMembershipSchema,
   renewMembershipSchema,
+  extendMembershipSchema,
+  cancelMembershipSchema,
 } from './member.validation';
 
 const gymMemberRouter = Router({ mergeParams: true });
@@ -87,6 +89,20 @@ gymMemberRouter.patch(
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(renewMembershipSchema, 'body'),
   MemberController.renewMembership
+);
+
+gymMemberRouter.patch(
+  '/:gymId/members/:memberId/extend',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  validate(extendMembershipSchema, 'body'),
+  MemberController.extendMembership
+);
+
+gymMemberRouter.patch(
+  '/:gymId/members/:memberId/cancel',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  validate(cancelMembershipSchema, 'body'),
+  MemberController.cancelMembership
 );
 
 gymMemberRouter.post(

@@ -22,7 +22,8 @@ gamificationRouter.put(
   GamificationController.updateRestDays
 );
 
-// Challenges Endpoints (/api/v1/challenges/:challengeId/join)
+// Challenges Endpoints (/api/v1/gamification/challenges)
+gamificationRouter.get('/challenges', GamificationController.listChallenges);
 gamificationRouter.post(
   '/challenges/:challengeId/join',
   authorize(Role.MEMBER),

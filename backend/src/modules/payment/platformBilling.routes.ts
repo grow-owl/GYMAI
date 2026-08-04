@@ -4,7 +4,7 @@ import { authenticate } from '../../common/middlewares/auth.middleware';
 import { authorize } from '../../common/middlewares/authorize.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { Role } from '../../common/constants/roles.enum';
-import { createPlatformOrderSchema } from './payment.validation';
+import { createPlatformOrderSchema, recordManualPlatformPaymentSchema } from './payment.validation';
 
 const router = Router();
 
@@ -20,5 +20,25 @@ router.post(
   PlatformBillingController.initiatePlanUpgrade
 );
 router.get('/invoices', authorize(Role.GYM_OWNER, Role.SUPER_ADMIN), PlatformBillingController.getInvoices);
+
+// Super Admin Manual Platform Payment & Revenue Analytics
+router.post(
+  '/gyms/:gymId/manual-payment',
+  authorize(Role.SUPER_ADMIN),
+  validate(recordManualPlatformPaymentSchema, 'body'),
+  PlatformBillingController.recordManualPlatformPayment
+);
+
+router.get(
+  '/analytics/overview',
+  authorize(Role.SUPER_ADMIN),
+  PlatformBillingController.getPlatformRevenueOverview
+);
+
+router.get(
+  '/analytics/revenue-trends',
+  authorize(Role.SUPER_ADMIN),
+  PlatformBillingController.getPlatformRevenueTrends
+);
 
 export default router;

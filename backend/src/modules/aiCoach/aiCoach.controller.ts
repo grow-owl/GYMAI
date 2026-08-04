@@ -49,7 +49,7 @@ export class AICoachController {
   // Chatbot Endpoints
   public static startConversation = asyncHandler(async (req: Request, res: Response) => {
     const { firstMessage } = req.body;
-    const result = await AIChatbotService.startConversation(req.user!.id, firstMessage);
+    const result = await AIChatbotService.startConversation(req.user!.id, firstMessage, req.user!.role);
     return sendSuccess(res, result, 'AI Chat conversation started successfully', 201);
   });
 
@@ -57,7 +57,7 @@ export class AICoachController {
     const { conversationId } = req.params;
     const { content } = req.body;
 
-    const replyMessage = await AIChatbotService.sendMessage(conversationId, req.user!.id, content);
+    const replyMessage = await AIChatbotService.sendMessage(conversationId, req.user!.id, content, req.user!.role);
     return sendSuccess(res, { replyMessage }, 'AI Chat message processed successfully');
   });
 
@@ -75,13 +75,13 @@ export class AICoachController {
   });
 
   public static listConversations = asyncHandler(async (req: Request, res: Response) => {
-    const conversations = await AIChatbotService.listConversations(req.user!.id);
+    const conversations = await AIChatbotService.listConversations(req.user!.id, req.user!.role);
     return sendSuccess(res, { conversations }, 'AI conversations listed successfully');
   });
 
   public static archiveConversation = asyncHandler(async (req: Request, res: Response) => {
     const { conversationId } = req.params;
-    const conversation = await AIChatbotService.archiveConversation(conversationId, req.user!.id);
+    const conversation = await AIChatbotService.archiveConversation(conversationId);
     return sendSuccess(res, { conversation }, 'Conversation archived successfully');
   });
 

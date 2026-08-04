@@ -1,5 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import { IPlatformInvoice, PaymentStatus } from './platformSubscription.types';
+import { GymPlan } from '../gym/gym.types';
 
 const platformInvoiceSchema = new Schema<IPlatformInvoice>(
   {
@@ -25,6 +26,25 @@ const platformInvoiceSchema = new Schema<IPlatformInvoice>(
       type: String,
       enum: Object.values(PaymentStatus),
       default: PaymentStatus.PENDING,
+    },
+    method: {
+      type: String,
+      enum: ['razorpay', 'bank_transfer', 'upi', 'cheque', 'cash', 'other'],
+      default: 'razorpay',
+      required: true,
+    },
+    recordedByUserId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    transactionRef: {
+      type: String,
+      trim: true,
+    },
+    targetPlan: {
+      type: String,
+      enum: Object.values(GymPlan),
+      default: GymPlan.PRO,
     },
     gatewayPaymentId: {
       type: String,

@@ -43,4 +43,13 @@ export class TrainerController {
       'Trainer workload calculated successfully'
     );
   });
+
+  public static getTrainerClients = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    if (!gymId) {
+      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+    }
+    const clients = await TrainerService.getTrainerClients(gymId.toString(), req.user!.id);
+    return sendSuccess(res, { clients }, 'Trainer clients retrieved successfully');
+  });
 }

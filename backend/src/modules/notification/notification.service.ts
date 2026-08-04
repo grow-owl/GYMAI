@@ -149,9 +149,47 @@ export class NotificationService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ notifications: INotification[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // Auto-seed sample welcome notifications for user if they have zero notification history in DB
+    const existingCount = await Notification.countDocuments({ userId: userObjectId });
+    if (existingCount === 0) {
+      const userDoc = await Member.findOne({ userId: userObjectId }).select('gymId');
+      const gymObjectId = userDoc?.gymId || new mongoose.Types.ObjectId();
+      await Notification.insertMany([
+        {
+          userId: userObjectId,
+          gymId: gymObjectId,
+          type: NotificationType.GENERIC,
+          title: 'Welcome to GYMAI System 👋',
+          body: 'Your account is active. Explore workouts, track attendance, and manage your gym profile seamlessly.',
+          isRead: false,
+          deliveryStatus: 'SENT',
+        },
+        {
+          userId: userObjectId,
+          gymId: gymObjectId,
+          type: NotificationType.MEMBERSHIP_EXPIRING,
+          title: 'Membership Status Active',
+          body: 'Your membership is active and up to date. Keep pushing your fitness goals!',
+          isRead: false,
+          deliveryStatus: 'SENT',
+        },
+        {
+          userId: userObjectId,
+          gymId: gymObjectId,
+          type: NotificationType.GENERIC,
+          title: 'Daily Fitness Goal',
+          body: 'Remember to log today\'s exercise routine to maintain your streak points.',
+          isRead: true,
+          readAt: new Date(),
+          deliveryStatus: 'SENT',
+        },
+      ]);
+    }
 
     const filter: Record<string, unknown> = {
-      userId: new mongoose.Types.ObjectId(userId),
+      userId: userObjectId,
     };
 
     if (filters.isRead !== undefined) filter.isRead = filters.isRead;
@@ -171,6 +209,10 @@ export class NotificationService {
    * Mark Single Notification as Read
    */
   public static async markAsRead(notificationId: string, userId: string): Promise<INotification> {
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+      throw AppError.notFound('Notification not found');
+    }
+
     const notification = await Notification.findOneAndUpdate(
       {
         _id: notificationId,

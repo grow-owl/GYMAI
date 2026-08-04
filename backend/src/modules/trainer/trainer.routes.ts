@@ -26,6 +26,12 @@ router.get(
 );
 
 router.get(
+  '/:gymId/trainers/me/clients',
+  authorize(Role.TRAINER),
+  TrainerController.getTrainerClients
+);
+
+router.get(
   '/:gymId/trainers/:trainerId',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
   TrainerController.getTrainerById

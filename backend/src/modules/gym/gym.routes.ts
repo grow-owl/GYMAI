@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { GymController } from './gym.controller';
+import { PlatformBillingController } from '../payment/platformBilling.controller';
+import { recordManualPlatformPaymentSchema } from '../payment/payment.validation';
 import { authenticate } from '../../common/middlewares/auth.middleware';
 import { authorize } from '../../common/middlewares/authorize.middleware';
 import { injectTenantScope } from '../../common/middlewares/tenant.middleware';
@@ -58,6 +60,13 @@ router.get(
   '/:gymId/overview',
   authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER),
   GymController.getGymOverview
+);
+
+router.post(
+  '/:gymId/manual-payment',
+  authorize(Role.SUPER_ADMIN),
+  validate(recordManualPlatformPaymentSchema, 'body'),
+  PlatformBillingController.recordManualPlatformPayment
 );
 
 // Branch Routes

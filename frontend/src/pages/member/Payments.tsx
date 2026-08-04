@@ -1,22 +1,97 @@
+import { useState, useEffect } from "react";
+import { Loader2, RefreshCw, CreditCard } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { memberPayment } from "@/data/mock";
+import { paymentApi } from "@/lib/endpoints";
+import { useAuthStore } from "@/store/authStore";
 
-export default function Payments() {
+export default function MemberPayments() {
+  const user = useAuthStore((s) => s.user);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+
+  const fetchMyPayments = async () => {
+    if (!user?.gymId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await paymentApi.getMyPayments(user.gymId);
+      const list = Array.isArray(res) ? res : res?.payments || [];
+      setPayments(list);
+    } catch {
+      setError("Failed to load your payment history.");
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyPayments();
+  }, [user]);
+
   return (
-    <div>
-      <PageHeader title="Membership" backTo="/member" />
-      <Card sweep className="border-(--color-accent)/25">
-        <p className="text-xs text-(--color-text-faint) uppercase tracking-wide mb-1">Plan</p>
-        <p className="font-display text-xl font-semibold text-(--color-text)">{memberPayment.plan}</p>
-        <p className="text-sm text-(--color-text-muted) mt-1">Valid until {memberPayment.validUntil}</p>
-        <p className="font-mono text-2xl font-semibold text-(--color-text) mt-4">{memberPayment.price}</p>
-        <Badge tone="good" className="mt-3">{memberPayment.status}</Badge>
-        <button className="mt-5 w-full rounded-full bg-(--color-accent) text-white text-sm font-semibold py-3">
-          Renew Membership
-        </button>
-      </Card>
+    <div className="space-y-4 max-w-2xl mx-auto w-full">
+      <PageHeader title="Payment History" subtitle="Your gym membership payment receipts" backTo="/member" />
+
+      {loading ? (
+        <div className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading your payments...
+        </div>
+      ) : error ? (
+        <Card className="text-center py-8">
+          <p className="text-sm text-(--color-danger) mb-3">{error}</p>
+          <button
+            onClick={fetchMyPayments}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-full bg-(--color-surface-3) text-(--color-text)"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
+        </Card>
+      ) : payments.length === 0 ? (
+        <Card className="flex flex-col items-center justify-center py-12 text-center">
+          <CreditCard className="w-8 h-8 text-(--color-text-faint) mb-2 opacity-50" />
+          <p className="text-sm font-medium text-(--color-text)">No payment history found</p>
+          <p className="text-xs text-(--color-text-faint) mt-1 max-w-xs">
+            Payment records will appear here when front-desk staff processes your membership fees or purchases.
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {payments.map((p) => {
+            const purpose = (p.purpose || "Membership Fee").replace("_", " ");
+            const method = (p.method || "Cash").toUpperCase();
+            const dateStr = p.paidAt ? new Date(p.paidAt).toLocaleDateString() : "Recent";
+            const status = p.status || "SUCCESS";
+
+            return (
+              <Card key={p._id || p.id} className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-(--color-text) capitalize">{purpose}</p>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-(--color-surface-3) font-mono text-(--color-text-muted)">
+                      {p.invoiceNumber}
+                    </span>
+                  </div>
+                  <p className="text-xs text-(--color-text-faint) mt-0.5">
+                    {dateStr} · Method: {method}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-sm font-semibold text-(--color-text)">
+                    ₹{p.amount?.toLocaleString("en-IN")}
+                  </span>
+                  <Badge tone={status === "REFUNDED" ? "danger" : "good"}>
+                    {status === "REFUNDED" ? "Refunded" : "Paid"}
+                  </Badge>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

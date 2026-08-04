@@ -86,6 +86,27 @@ export class MemberController {
     return sendSuccess(res, { member }, 'Membership renewed successfully');
   });
 
+  public static extendMembership = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    const member = await MemberService.extendMembership(
+      req.params.memberId,
+      Number(req.body.days),
+      req.body.reason,
+      gymId ? gymId.toString() : undefined
+    );
+    return sendSuccess(res, { member }, 'Membership extended successfully');
+  });
+
+  public static cancelMembership = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    const member = await MemberService.cancelMembership(
+      req.params.memberId,
+      req.body.reason,
+      gymId ? gymId.toString() : undefined
+    );
+    return sendSuccess(res, { member }, 'Membership cancelled successfully');
+  });
+
   public static regenerateQRCode = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user?.gymId;
     const result = await MemberService.regenerateQRCode(req.params.memberId, gymId ? gymId.toString() : undefined);

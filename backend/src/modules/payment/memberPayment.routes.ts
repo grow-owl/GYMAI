@@ -34,6 +34,12 @@ gymMemberPaymentRouter.post(
 );
 
 gymMemberPaymentRouter.get(
+  '/me',
+  authorize(Role.MEMBER),
+  MemberPaymentController.getMyPayments
+);
+
+gymMemberPaymentRouter.get(
   '/',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   MemberPaymentController.listPayments

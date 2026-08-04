@@ -28,6 +28,8 @@ export interface IPlatformSubscription {
   updatedAt: Date;
 }
 
+export type PlatformPaymentMethod = 'razorpay' | 'bank_transfer' | 'upi' | 'cheque' | 'cash' | 'other';
+
 export interface IPlatformInvoice {
   _id: Types.ObjectId;
   gymId: Types.ObjectId;
@@ -35,6 +37,10 @@ export interface IPlatformInvoice {
   amount: number;
   currency: string;
   status: PaymentStatus;
+  method: PlatformPaymentMethod;
+  recordedByUserId?: Types.ObjectId;
+  transactionRef?: string;
+  targetPlan?: GymPlan;
   gatewayPaymentId?: string;
   gatewayOrderId?: string;
   invoiceNumber: string; // e.g. "PLT-2026-000001"

@@ -1,11 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Loader2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
-import { attendanceToday } from "@/data/mock";
+import { attendanceApi } from "@/lib/endpoints";
+import { useAuthStore } from "@/store/authStore";
 
 export default function Attendance() {
+  const user = useAuthStore((s) => s.user);
   const [secondsLeft, setSecondsLeft] = useState(21);
+  const [loading, setLoading] = useState(true);
+  const [todayLog, setTodayLog] = useState<any[]>([]);
+
+  const fetchAttendance = async () => {
+    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    setLoading(true);
+    try {
+      const res = await attendanceApi.getToday(activeGymId, activeBranchId);
+      const list = Array.isArray(res) ? res : res?.attendance || [];
+      setTodayLog(list);
+    } catch {
+      setTodayLog([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAttendance();
+  }, [user]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,6 +52,10 @@ export default function Attendance() {
     ],
     []
   );
+
+  const checkedInCount = todayLog.length;
+  const currentlyInCount = todayLog.filter((a) => !a.checkOutTime).length;
+  const checkedOutCount = todayLog.filter((a) => Boolean(a.checkOutTime)).length;
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto w-full">
@@ -65,20 +92,26 @@ export default function Attendance() {
 
       <Card className="max-w-md mx-auto border-(--color-border)">
         <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase mb-3">Attendance today</p>
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="rounded-2xl bg-(--color-surface-2) p-3">
-            <p className="text-xs text-(--color-text-faint)">In</p>
-            <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{attendanceToday.checkedIn}</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-6 text-sm text-(--color-text-muted) gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-(--color-accent)" /> Loading today's attendance...
           </div>
-          <div className="rounded-2xl bg-(--color-surface-2) p-3">
-            <p className="text-xs text-(--color-text-faint)">Inside</p>
-            <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{attendanceToday.currentlyIn}</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-2xl bg-(--color-surface-2) p-3">
+              <p className="text-xs text-(--color-text-faint)">In</p>
+              <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{checkedInCount}</p>
+            </div>
+            <div className="rounded-2xl bg-(--color-surface-2) p-3">
+              <p className="text-xs text-(--color-text-faint)">Inside</p>
+              <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{currentlyInCount}</p>
+            </div>
+            <div className="rounded-2xl bg-(--color-surface-2) p-3">
+              <p className="text-xs text-(--color-text-faint)">Out</p>
+              <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{checkedOutCount}</p>
+            </div>
           </div>
-          <div className="rounded-2xl bg-(--color-surface-2) p-3">
-            <p className="text-xs text-(--color-text-faint)">Out</p>
-            <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{attendanceToday.checkedOut}</p>
-          </div>
-        </div>
+        )}
       </Card>
     </div>
   );

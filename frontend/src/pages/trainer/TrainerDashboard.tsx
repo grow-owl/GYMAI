@@ -1,10 +1,12 @@
-import { AlertTriangle, CalendarCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { AlertTriangle, CalendarCheck, Loader2, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import QuickAccessCard from "@/components/ui/QuickAccessCard";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import DonutChart from "@/components/ui/DonutChart";
-import { todaysSessions, clientRecoveryAlert } from "@/data/mock";
+import { trainerApi, attendanceApi } from "@/lib/endpoints";
+import { useAuthStore } from "@/store/authStore";
 
 const quickAccess = [
   { label: "My Clients", path: "/trainer/clients", icon: "Users" },
@@ -17,58 +19,127 @@ const quickAccess = [
 
 const statusTone: Record<string, "good" | "danger" | "neutral"> = {
   done: "good",
+  completed: "good",
   missed: "danger",
   upcoming: "neutral",
 };
 
 export default function TrainerDashboard() {
-  const upcoming = todaysSessions.filter((s) => s.status === "upcoming");
-  const done = todaysSessions.filter((s) => s.status === "done");
-  const missed = todaysSessions.filter((s) => s.status === "missed");
+  const user = useAuthStore((s) => s.user);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [clients, setClients] = useState<any[]>([]);
+  const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
+
+  const fetchData = async () => {
+    if (!user?.gymId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [clientRes, attRes] = await Promise.all([
+        trainerApi.getMyClients(user.gymId).catch(() => null),
+        user.branchId ? attendanceApi.getToday(user.gymId, user.branchId).catch(() => null) : Promise.resolve(null),
+      ]);
+
+      const cList = Array.isArray(clientRes) ? clientRes : clientRes?.clients || [];
+      setClients(cList);
+
+      const aList = Array.isArray(attRes) ? attRes : attRes?.attendance || [];
+      setTodayAttendance(aList);
+    } catch {
+      setError("Failed to load trainer dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [user]);
+
+  // Match client attendance sessions
+  const clientUserIds = new Set(clients.map((c) => c.userId?._id || c.userId));
+  const myClientAttendance = todayAttendance.filter((a) => clientUserIds.has(a.memberId?.userId?._id || a.memberId?.userId));
+
+  const doneCount = myClientAttendance.filter((a) => Boolean(a.checkOutTime)).length;
+  const inGymCount = myClientAttendance.filter((a) => !a.checkOutTime).length;
 
   const sessionSegments = [
-    { label: "Done", value: Math.max(done.length, 0.0001), color: "var(--tone-green)" },
-    { label: "Upcoming", value: Math.max(upcoming.length, 0.0001), color: "var(--tone-blue)" },
-    { label: "Missed", value: Math.max(missed.length, 0.0001), color: "var(--tone-pink)" },
+    { label: "Completed", value: Math.max(doneCount, 0.0001), color: "var(--tone-green)" },
+    { label: "Active in Gym", value: Math.max(inGymCount, 0.0001), color: "var(--tone-blue)" },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-4">
-        <Card sweep className="flex flex-col justify-center">
-          <p className="text-sm text-(--color-text-muted)">You have</p>
-          <p className="font-display text-2xl font-semibold text-(--color-text)">{todaysSessions.length} sessions today</p>
-          <p className="text-xs text-(--color-text-faint) mt-1">{upcoming.length} still upcoming</p>
+      {loading ? (
+        <div className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading trainer dashboard...
+        </div>
+      ) : error ? (
+        <Card className="text-center py-8">
+          <p className="text-sm text-(--color-danger) mb-3">{error}</p>
+          <button
+            onClick={fetchData}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-full bg-(--color-surface-3) text-(--color-text)"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
         </Card>
-        <Card>
-          <div className="flex items-center gap-2 mb-2">
-            <CalendarCheck size={15} className="text-(--tone-blue-text)" />
-            <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Session status</p>
-          </div>
-          <DonutChart segments={sessionSegments} size={104} thickness={13} />
-        </Card>
-      </div>
-
-      <div>
-        <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Today</p>
-        <Card className="p-0 overflow-hidden">
-          <div className="divide-y divide-(--color-border-soft)">
-            {todaysSessions.map((s) => (
-              <div key={s.id} className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2) transition-colors">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-xs text-(--color-text-faint) w-16 shrink-0">{s.time}</span>
-                  <div>
-                    <p className="text-sm font-medium text-(--color-text)">{s.clientName}</p>
-                    <p className="text-xs text-(--color-text-faint)">{s.type}</p>
-                  </div>
-                </div>
-                <Badge tone={statusTone[s.status] ?? "neutral"}>{s.status}</Badge>
+      ) : (
+        <>
+          <div className="grid lg:grid-cols-[1.4fr_1fr] gap-4">
+            <Card sweep className="flex flex-col justify-center">
+              <p className="text-sm text-(--color-text-muted)">Assigned Clients & Today's Activity</p>
+              <p className="font-display text-2xl font-semibold text-(--color-text)">
+                {clients.length} active client{clients.length === 1 ? "" : "s"}
+              </p>
+              <p className="text-xs text-(--color-text-faint) mt-1">
+                {myClientAttendance.length} client check-in(s) today
+              </p>
+            </Card>
+            <Card>
+              <div className="flex items-center gap-2 mb-2">
+                <CalendarCheck size={15} className="text-(--tone-blue-text)" />
+                <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Client session status</p>
               </div>
-            ))}
+              <DonutChart segments={sessionSegments} size={104} thickness={13} />
+            </Card>
           </div>
-        </Card>
-        <p className="text-xs text-(--color-text-faint) mt-2">{upcoming.length} sessions remaining today</p>
-      </div>
+
+          <div>
+            <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Today's Client Attendance & Workouts</p>
+            <Card className="p-0 overflow-hidden">
+              {myClientAttendance.length === 0 ? (
+                <div className="py-8 text-center text-xs text-(--color-text-faint) px-4">
+                  No assigned clients checked in yet today.
+                </div>
+              ) : (
+                <div className="divide-y divide-(--color-border-soft)">
+                  {myClientAttendance.map((s, idx) => {
+                    const clientName = s.memberId?.userId?.fullName || "Client";
+                    const timeStr = s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+                    const status = s.checkOutTime ? "done" : "in-gym";
+
+                    return (
+                      <div key={s._id || idx} className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2) transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-xs text-(--color-text-faint) w-16 shrink-0">{timeStr}</span>
+                          <div>
+                            <p className="text-sm font-medium text-(--color-text)">{clientName}</p>
+                            <p className="text-xs text-(--color-text-faint)">Check-in Session</p>
+                          </div>
+                        </div>
+                        <Badge tone={statusTone[status] ?? "neutral"}>{status}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          </div>
+        </>
+      )}
 
       <div>
         <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Quick access</p>
@@ -81,19 +152,22 @@ export default function TrainerDashboard() {
 
       <div>
         <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Client attention required</p>
-        <Card className="border-(--color-danger)/30 bg-(--color-danger-soft)">
+        <Card className="border-(--color-border) bg-(--color-surface)">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={15} className="text-(--color-danger)" />
-            <p className="text-xs font-semibold text-(--color-danger) uppercase tracking-wide">Recovery alert</p>
+            <AlertTriangle size={15} className="text-(--color-accent)" />
+            <p className="text-xs font-semibold text-(--color-accent-text) uppercase tracking-wide">Client Recovery & Goals</p>
           </div>
-          <p className="text-sm font-medium text-(--color-text)">{clientRecoveryAlert.name}</p>
-          <p className="text-xs text-(--color-text-faint) mb-1">Recovery Score: {clientRecoveryAlert.score}/100</p>
-          <p className="text-sm text-(--color-text-muted) mb-3">{clientRecoveryAlert.note}</p>
+          <p className="text-sm font-medium text-(--color-text)">
+            {clients.length > 0 ? `${clients.length} Active Clients Under Your Guidance` : "No Assigned Clients"}
+          </p>
+          <p className="text-xs text-(--color-text-faint) mb-3">
+            Review your assigned client list and progress tracking for customized workout plans.
+          </p>
           <Link
-            to="/trainer/recovery-alerts"
-            className="inline-flex items-center rounded-full bg-(--color-surface-3) text-(--color-text) text-xs font-medium px-3.5 py-1.5 hover:bg-(--color-surface) transition-colors"
+            to="/trainer/clients"
+            className="inline-flex items-center rounded-full bg-(--color-surface-3) text-(--color-text) text-xs font-medium px-3.5 py-1.5 hover:bg-(--color-surface-2) transition-colors"
           >
-            View member
+            View clients
           </Link>
         </Card>
       </div>

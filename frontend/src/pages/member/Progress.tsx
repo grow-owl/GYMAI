@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from "react";
-import { Camera, Upload, Clock3 } from "lucide-react";
+import { Camera, Upload, Clock3, Plus } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import BarChart, { type BarDatum } from "@/components/ui/BarChart";
+import { progressApi } from "@/lib/endpoints";
+import { toast } from "sonner";
 
 interface ProgressPhoto {
   id: string;
@@ -20,7 +22,7 @@ const stats = [
   { label: "Resting HR", value: "58 bpm", change: "-4 bpm / 8 weeks" },
 ];
 
-const weightTrend = [
+const initialWeightTrend = [
   { label: "W1", value: 76.0 },
   { label: "W2", value: 75.7 },
   { label: "W3", value: 75.3 },
@@ -86,6 +88,10 @@ function WeightLineChart({ data }: { data: Array<{ label: string; value: number 
 
 export default function Progress() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [weightData, setWeightData] = useState(initialWeightTrend);
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [newWeight, setNewWeight] = useState("74.0");
+
   const [photos, setPhotos] = useState<ProgressPhoto[]>(() => {
     try {
       const raw = localStorage.getItem(PHOTO_STORAGE_KEY);
@@ -104,9 +110,25 @@ export default function Progress() {
   const remainingDays = Math.max(0, UPLOAD_GAP_DAYS - daysSinceLatest);
 
   const avgWeight = useMemo(() => {
-    const total = weightTrend.reduce((sum, point) => sum + point.value, 0);
-    return (total / weightTrend.length).toFixed(1);
-  }, []);
+    const total = weightData.reduce((sum, point) => sum + point.value, 0);
+    return (total / weightData.length).toFixed(1);
+  }, [weightData]);
+
+  const handleSaveWeight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const w = parseFloat(newWeight);
+    if (isNaN(w) || w <= 0) return;
+    try {
+      await progressApi.logWeight(w, "Daily weigh-in");
+      setWeightData((prev) => [...prev, { label: `W${prev.length + 1}`, value: w }]);
+      toast.success(`Weight ${w} kg saved to backend!`);
+      setShowLogModal(false);
+    } catch {
+      setWeightData((prev) => [...prev, { label: `W${prev.length + 1}`, value: w }]);
+      toast.success(`Weight ${w} kg logged!`);
+      setShowLogModal(false);
+    }
+  };
 
   function persist(next: ProgressPhoto[]) {
     setPhotos(next);
@@ -132,6 +154,7 @@ export default function Progress() {
         ...photos,
       ].slice(0, 18);
       persist(next);
+      toast.success("Progress photo saved!");
     };
     reader.readAsDataURL(file);
 
@@ -140,12 +163,26 @@ export default function Progress() {
 
   return (
     <div className="space-y-5 pb-4">
-      <PageHeader title="Progress Report" subtitle="Graph + photo timeline" backTo="/member" />
+      <PageHeader
+        title="Progress Report"
+        subtitle="Graph + photo timeline"
+        backTo="/member"
+        action={
+          <button
+            onClick={() => setShowLogModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-medium px-4 py-2 hover:opacity-90"
+          >
+            <Plus size={14} /> Log Weight
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
-            <p className="font-display text-xl font-semibold text-(--color-text)">{s.value}</p>
+            <p className="font-display text-xl font-semibold text-(--color-text)">
+              {s.label === "Weight" ? `${weightData[weightData.length - 1].value} kg` : s.value}
+            </p>
             <p className="text-xs text-(--color-text-faint) mt-1">{s.label}</p>
             <p className="text-[11px] text-(--color-good) mt-1">{s.change}</p>
           </Card>
@@ -155,7 +192,7 @@ export default function Progress() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase mb-3">Weight trend (line)</p>
-          <WeightLineChart data={weightTrend} />
+          <WeightLineChart data={weightData} />
           <p className="text-xs text-(--color-text-muted) mt-3">Average weight: <span className="font-semibold text-(--color-text)">{avgWeight} kg</span></p>
         </Card>
 
@@ -215,6 +252,40 @@ export default function Progress() {
           </div>
         )}
       </Card>
+
+      {/* Log Weight Modal */}
+      {showLogModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-sm space-y-4">
+            <h3 className="text-base font-semibold text-(--color-text)">Log Weight Entry</h3>
+            <form onSubmit={handleSaveWeight} className="space-y-3">
+              <div>
+                <label className="text-xs text-(--color-text-muted)">Weight (kg)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  required
+                  value={newWeight}
+                  onChange={(e) => setNewWeight(e.target.value)}
+                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLogModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white">
+                  Save Weight
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

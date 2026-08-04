@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { MemberPaymentService } from './memberPayment.service';
+import { MemberPayment } from './memberPayment.model';
+import { Member } from '../member/member.model';
 import { PaymentStatus } from './platformSubscription.types';
 import { PaymentPurpose } from './memberPayment.types';
 import { sendSuccess } from '../../common/utils/ApiResponse';
@@ -91,6 +93,25 @@ export class MemberPaymentController {
     return sendSuccess(res, { payments }, 'Member payments retrieved successfully', 200, {
       pagination: meta,
     });
+  });
+
+  public static getMyPayments = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user!.gymId;
+    if (!gymId) {
+      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+    }
+
+    const member = await Member.findOne({ userId: req.user!.id, gymId, isDeleted: false });
+    if (!member) {
+      return sendSuccess(res, { payments: [] }, 'Member payments retrieved successfully');
+    }
+
+    const payments = await MemberPayment.find({
+      gymId,
+      memberId: member._id,
+    }).sort({ paidAt: -1, createdAt: -1 });
+
+    return sendSuccess(res, { payments }, 'Member payments retrieved successfully');
   });
 
   public static getRevenueSummary = asyncHandler(async (req: Request, res: Response) => {

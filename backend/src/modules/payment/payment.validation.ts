@@ -32,3 +32,12 @@ export const refundPaymentSchema = z.object({
   amount: z.number().positive().optional(),
   reason: z.string().min(3, 'Refund reason is required').trim(),
 });
+
+export const recordManualPlatformPaymentSchema = z.object({
+  targetPlan: z.enum(['BASIC', 'PRO', 'ENTERPRISE']),
+  billingCycle: z.enum(['MONTHLY', 'YEARLY']).optional().default('MONTHLY'),
+  amount: z.number().positive('Amount must be greater than 0'),
+  method: z.enum(['bank_transfer', 'upi', 'cheque', 'cash', 'other']),
+  transactionRef: z.string().trim().optional(),
+  notes: z.string().trim().optional(),
+});

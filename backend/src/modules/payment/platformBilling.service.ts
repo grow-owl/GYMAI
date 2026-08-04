@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { Gym } from '../gym/gym.model';
 import { GymPlan, GymStatus } from '../gym/gym.types';
 import { PlatformSubscription } from './platformSubscription.model';
@@ -5,7 +6,7 @@ import { PlatformInvoice } from './platformInvoice.model';
 import { generatePlatformInvoiceNumber } from './invoiceCounter.model';
 import { getPaymentGateway } from './gateway/paymentGateway.factory';
 import { PLATFORM_PLAN_PRICING } from '../../common/constants/pricing';
-import { BillingCycle, PaymentStatus } from './platformSubscription.types';
+import { BillingCycle, PaymentStatus, PlatformPaymentMethod } from './platformSubscription.types';
 import { AppError } from '../../common/utils/AppError';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
@@ -13,6 +14,159 @@ import { notificationTemplates } from '../notification/notificationTemplates';
 import { logger } from '../../config/logger';
 
 export class PlatformBillingService {
+  public static async recordManualPlatformPayment(
+    gymId: string,
+    recordedByUserId: string,
+    data: {
+      targetPlan: GymPlan;
+      billingCycle?: BillingCycle;
+      amount: number;
+      method: PlatformPaymentMethod;
+      transactionRef?: string;
+      notes?: string;
+    }
+  ) {
+    if (data.method === 'razorpay') {
+      throw AppError.badRequest('Razorpay method is not allowed for manual payment entry');
+    }
+
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false });
+    if (!gym) {
+      throw AppError.notFound('Gym organization not found');
+    }
+
+    const billingCycle = data.billingCycle || BillingCycle.MONTHLY;
+    const durationDays = billingCycle === BillingCycle.YEARLY ? 365 : 30;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    const invoiceNumber = await generatePlatformInvoiceNumber();
+
+    const invoice = await PlatformInvoice.create({
+      gymId: gym._id,
+      invoiceNumber,
+      amount: data.amount,
+      currency: 'INR',
+      status: PaymentStatus.SUCCESS,
+      method: data.method,
+      recordedByUserId: new Types.ObjectId(recordedByUserId),
+      transactionRef: data.transactionRef,
+      targetPlan: data.targetPlan,
+      periodStart: now,
+      periodEnd: expiresAt,
+      paidAt: now,
+    });
+
+    gym.plan = data.targetPlan;
+    gym.status = GymStatus.ACTIVE;
+    gym.subscriptionExpiresAt = expiresAt;
+    await gym.save();
+
+    await PlatformSubscription.findOneAndUpdate(
+      { gymId: gym._id },
+      {
+        plan: data.targetPlan,
+        billingCycle,
+        amount: data.amount,
+        currency: 'INR',
+        currentPeriodStart: now,
+        currentPeriodEnd: expiresAt,
+        autoRenew: false,
+      },
+      { upsert: true, new: true }
+    );
+
+    const template = notificationTemplates[NotificationType.PAYMENT_SUCCESS](invoice.amount, invoice.invoiceNumber);
+    await NotificationService.sendToUser(
+      gym.ownerId.toString(),
+      gym._id.toString(),
+      NotificationType.PAYMENT_SUCCESS,
+      template.title,
+      template.body
+    );
+
+    logger.info(`📝 Manual Platform Payment recorded: [Gym: ${gym._id}] [Plan: ${data.targetPlan}] [Invoice: ${invoiceNumber}]`);
+
+    return invoice;
+  }
+
+  public static async getPlatformRevenueOverview() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const invoices = await PlatformInvoice.find({ status: PaymentStatus.SUCCESS });
+
+    let totalRevenue = 0;
+    let revenueThisMonth = 0;
+    const revenueByPlan: Record<string, number> = {};
+    const revenueByMethod: Record<string, number> = {};
+
+    for (const inv of invoices) {
+      totalRevenue += inv.amount || 0;
+      if (inv.paidAt && new Date(inv.paidAt) >= startOfMonth) {
+        revenueThisMonth += inv.amount || 0;
+      }
+
+      const planKey = inv.targetPlan || GymPlan.PRO;
+      revenueByPlan[planKey] = (revenueByPlan[planKey] || 0) + (inv.amount || 0);
+
+      const methodKey = inv.method || 'razorpay';
+      revenueByMethod[methodKey] = (revenueByMethod[methodKey] || 0) + (inv.amount || 0);
+    }
+
+    const activePayingGyms = await PlatformInvoice.distinct('gymId', {
+      status: PaymentStatus.SUCCESS,
+      paidAt: { $gte: startOfMonth },
+    });
+    const activePayingGymsCount = activePayingGyms.length;
+
+    return {
+      totalRevenue,
+      revenueThisMonth,
+      activePayingGymsCount,
+      revenueByPlan,
+      revenueByMethod,
+    };
+  }
+
+  public static async getPlatformRevenueTrends(startDate?: Date, endDate?: Date) {
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const invoices = await PlatformInvoice.find({
+      status: PaymentStatus.SUCCESS,
+      paidAt: { $gte: start, $lte: end },
+    });
+
+    const dailyMap: Record<string, { totalRevenue: number; count: number }> = {};
+
+    for (const inv of invoices) {
+      if (inv.paidAt) {
+        const dateStr = new Date(inv.paidAt).toISOString().split('T')[0];
+        if (!dailyMap[dateStr]) {
+          dailyMap[dateStr] = { totalRevenue: 0, count: 0 };
+        }
+        dailyMap[dateStr].totalRevenue += inv.amount || 0;
+        dailyMap[dateStr].count += 1;
+      }
+    }
+
+    const timeSeries: { date: string; totalRevenue: number; count: number }[] = [];
+    const current = new Date(start);
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      const data = dailyMap[dateStr] || { totalRevenue: 0, count: 0 };
+      timeSeries.push({
+        date: dateStr,
+        totalRevenue: data.totalRevenue,
+        count: data.count,
+      });
+      current.setDate(current.getDate() + 1);
+    }
+
+    return timeSeries;
+  }
+
   public static async initiatePlanUpgrade(
     gymId: string,
     ownerUserId: string,

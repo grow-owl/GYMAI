@@ -29,6 +29,12 @@ export class GamificationController {
     return sendSuccess(res, { leaderboard, metric, timeframe }, 'Leaderboard retrieved successfully');
   });
 
+  public static listChallenges = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = (req.query.gymId as string) || req.user?.gymId;
+    const challenges = await GamificationService.listChallenges(gymId?.toString());
+    return sendSuccess(res, { challenges });
+  });
+
   public static createChallenge = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user!.gymId;
     if (!gymId) {

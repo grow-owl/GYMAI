@@ -31,8 +31,19 @@ notificationRouter.get('/unread-count', NotificationController.getUnreadCount);
 notificationRouter.patch('/read-all', NotificationController.markAllAsRead);
 notificationRouter.patch('/:notificationId/read', NotificationController.markAsRead);
 
+notificationRouter.get(
+  '/whatsapp-logs',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  NotificationController.getWhatsAppLogs
+);
+
 // Gym Staff Broadcast Router (/api/v1/gyms/:gymId/notifications/broadcast)
 gymBroadcastRouter.use(authenticate);
+gymBroadcastRouter.get(
+  '/whatsapp-logs',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  NotificationController.getWhatsAppLogs
+);
 gymBroadcastRouter.post(
   '/broadcast',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),

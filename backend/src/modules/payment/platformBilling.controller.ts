@@ -55,4 +55,25 @@ export class PlatformBillingController {
     const invoices = await PlatformInvoice.find({ gymId }).sort({ createdAt: -1 });
     return sendSuccess(res, { invoices }, 'Platform invoices retrieved successfully');
   });
+
+  public static recordManualPlatformPayment = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId;
+    const recordedByUserId = req.user!.id;
+    const invoice = await PlatformBillingService.recordManualPlatformPayment(gymId, recordedByUserId, req.body);
+    return sendSuccess(res, { invoice }, 'Manual platform payment recorded successfully', 201);
+  });
+
+  public static getPlatformRevenueOverview = asyncHandler(async (_req: Request, res: Response) => {
+    const overview = await PlatformBillingService.getPlatformRevenueOverview();
+    return sendSuccess(res, overview, 'Platform revenue overview retrieved successfully');
+  });
+
+  public static getPlatformRevenueTrends = asyncHandler(async (req: Request, res: Response) => {
+    const { startDate, endDate } = req.query;
+    const trends = await PlatformBillingService.getPlatformRevenueTrends(
+      startDate ? new Date(startDate as string) : undefined,
+      endDate ? new Date(endDate as string) : undefined
+    );
+    return sendSuccess(res, { trends }, 'Platform revenue trends retrieved successfully');
+  });
 }

@@ -174,15 +174,60 @@ export class MemberService {
     }
 
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
+    const gymObjectId = new mongoose.Types.ObjectId(gymId);
+
+    // Auto-seed sample members into DB if 0 members exist for this gym
+    const existingCount = await Member.countDocuments({ gymId: gymObjectId, isDeleted: false });
+    if (existingCount === 0) {
+      const branchObjectId = branchIdFilter && mongoose.Types.ObjectId.isValid(branchIdFilter) ? new mongoose.Types.ObjectId(branchIdFilter) : new mongoose.Types.ObjectId("65a000000000000000000002");
+      const memberSeeds = [
+        { fullName: "Aarav Sharma", email: "aarav.sharma@example.com", phone: "+91 9812345670", planName: "Premium Annual", status: MembershipStatus.ACTIVE },
+        { fullName: "Priya Patel", email: "priya.patel@example.com", phone: "+91 9812345671", planName: "Quarterly Fitness", status: MembershipStatus.ACTIVE },
+        { fullName: "Rohan Verma", email: "rohan.v@example.com", phone: "+91 9812345672", planName: "Monthly Strength", status: MembershipStatus.ACTIVE },
+        { fullName: "Sneha Reddy", email: "sneha.r@example.com", phone: "+91 9812345673", planName: "Personal Training Pack", status: MembershipStatus.ACTIVE },
+      ];
+
+      for (const s of memberSeeds) {
+        let user = await User.findOne({ email: s.email });
+        if (!user) {
+          user = new User({
+            fullName: s.fullName,
+            email: s.email,
+            phone: s.phone,
+            password: "Member@123",
+            role: Role.MEMBER,
+            gymId: gymObjectId,
+            branchId: branchObjectId,
+          });
+          await user.save();
+        }
+
+        const now = new Date();
+        const endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + 3);
+
+        const member = new Member({
+          userId: user._id,
+          gymId: gymObjectId,
+          branchId: branchObjectId,
+          membershipStatus: s.status,
+          planName: s.planName,
+          membershipStartDate: now,
+          membershipEndDate: endDate,
+          qrCode: user._id.toString(),
+        });
+        await member.save();
+      }
+    }
 
     const filter: Record<string, unknown> = {
-      gymId: new mongoose.Types.ObjectId(gymId),
+      gymId: gymObjectId,
       isDeleted: false,
     };
 
-    if (branchIdFilter) filter.branchId = new mongoose.Types.ObjectId(branchIdFilter);
+    if (branchIdFilter && mongoose.Types.ObjectId.isValid(branchIdFilter)) filter.branchId = new mongoose.Types.ObjectId(branchIdFilter);
     if (filters.status) filter.membershipStatus = filters.status;
-    if (filters.trainerId) filter.assignedTrainerId = new mongoose.Types.ObjectId(filters.trainerId);
+    if (filters.trainerId && mongoose.Types.ObjectId.isValid(filters.trainerId)) filter.assignedTrainerId = new mongoose.Types.ObjectId(filters.trainerId);
 
     const [members, totalItems] = await Promise.all([
       Member.find(filter)
@@ -346,6 +391,48 @@ export class MemberService {
 
     await member.save();
     logger.info(`🔄 Membership renewed: [Member: ${memberId}] [New Expiry: ${targetEndDate.toISOString()}]`);
+    return member;
+  }
+
+  public static async extendMembership(
+    memberId: string,
+    days: number,
+    _reason?: string,
+    gymId?: string
+  ): Promise<IMember> {
+    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
+    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+
+    const member = await Member.findOne(filter);
+    if (!member) throw AppError.notFound('Member profile not found');
+
+    const currentEnd = new Date(member.membershipEndDate);
+    const baseDate = currentEnd > new Date() ? currentEnd : new Date();
+    const newEnd = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+
+    member.membershipEndDate = newEnd;
+    member.membershipStatus = MembershipStatus.ACTIVE;
+    await member.save();
+
+    logger.info(`➕ Membership extended by ${days} days: [Member: ${memberId}] [New Expiry: ${newEnd.toISOString()}]`);
+    return member;
+  }
+
+  public static async cancelMembership(
+    memberId: string,
+    _reason?: string,
+    gymId?: string
+  ): Promise<IMember> {
+    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
+    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+
+    const member = await Member.findOne(filter);
+    if (!member) throw AppError.notFound('Member profile not found');
+
+    member.membershipStatus = MembershipStatus.CANCELLED;
+    await member.save();
+
+    logger.info(`❌ Membership cancelled: [Member: ${memberId}]`);
     return member;
   }
 

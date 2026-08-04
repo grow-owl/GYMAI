@@ -13,7 +13,7 @@ memberFeedbackRouter.use(authenticate);
 // POST /api/v1/members/:memberId/feedback
 memberFeedbackRouter.post(
   '/',
-  authorize(Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(createFeedbackSchema),
   FeedbackController.createFeedback
 );
