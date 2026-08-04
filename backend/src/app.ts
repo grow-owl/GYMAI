@@ -92,6 +92,10 @@ if (env.NODE_ENV === 'development') {
   );
 }
 
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'GYM AI Backend is running' });
+});
+
 // 9. Rate Limiting for API routes
 app.use('/api', defaultRateLimiter);
 
