@@ -10,6 +10,9 @@ import { Product } from '../product/product.model';
 import { Expense } from '../expense/expense.model';
 import { Lead } from '../lead/lead.model';
 import { Trainer } from '../trainer/trainer.model';
+import { MemberPayment } from '../payment/memberPayment.model';
+import { Equipment } from '../equipment/equipment.model';
+import { ChurnPredictionService } from './churnPrediction.service';
 import { IAIConversation, IAIChatMessage } from './aiCoach.types';
 import { AppError } from '../../common/utils/AppError';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
@@ -25,19 +28,70 @@ Rules & Directives:
 2. GYM PROMOTION & UPSELLING (BIASED IN FAVOR OF THE GYM): Whenever relevant (e.g. discussing protein gaps, muscle growth, recovery, energy levels, or workout stagnation), actively recommend relevant supplements, gear, or Personal Training sessions available in our gym's store. Highlight how buying directly from the gym ensures authentic quality and faster results!
 3. Encourage consistent gym attendance and long-term membership retention.
 4. MANDATORY SAFETY DISCLAIMER: Never provide medical diagnoses or drug dosages. Advise consulting a physician or certified personal trainer for injury symptoms.
+5. If user asks general fitness/health questions, answer thoroughly with actionable advice.
 `;
 
 const SYSTEM_OWNER_CHAT_PROMPT = (ownerName: string, gymName: string, metricsSummary: string) => `
 You are the AI Business & Operations Advisor for ${ownerName}, owner of ${gymName}.
-Live Gym Performance Context: ${metricsSummary}
+
+LIVE GYM DATABASE METRICS & CONTEXT:
+${metricsSummary}
 
 Rules & Directives:
-1. Provide actionable, data-driven advice to maximize gym revenue, increase member retention, optimize trainer efficiency, and reduce expenses.
-2. Suggest proactive strategies for lead conversion, member engagement, supplement sales upselling, and peak-hour crowd management.
-3. Be professional, clear, and business-focused.
+1. SPECIFIC GYM QUERIES: When asked about revenue, members, churn risk, trainers, expenses, equipment, or leads for this gym, cite the live data given above accurately.
+2. GENERAL QUERIES & ADVICE: If asked for general business strategies, marketing ideas, gym management tips, staff hiring, peak hour management, or supplement sales techniques, provide comprehensive, practical, step-by-step guidance. Never say you don't have information — provide expert industry recommendations.
+3. FORMATTING: Use clean markdown with clear bullet points, numbered lists, and bold headings to make responses easy to read.
+4. BE PROACTIVE: Offer high-value, actionable insights to increase member retention, drive revenue, and streamline operations.
 `;
 
 export class AIChatbotService {
+  /**
+   * Aggregate comprehensive live metrics for gym owner context
+   */
+  private static async getOwnerMetricsSummary(gymIdObj: mongoose.Types.ObjectId): Promise<string> {
+    try {
+      const gym = await Gym.findById(gymIdObj);
+      const [
+        activeMembersCount,
+        totalMembersCount,
+        trainersCount,
+        leadsCount,
+        payments,
+        expenses,
+        equipmentCount,
+        atRiskMembers,
+      ] = await Promise.all([
+        Member.countDocuments({ gymId: gymIdObj, status: 'ACTIVE', isDeleted: false }),
+        Member.countDocuments({ gymId: gymIdObj, isDeleted: false }),
+        Trainer.countDocuments({ gymId: gymIdObj, isDeleted: false }),
+        Lead.countDocuments({ gymId: gymIdObj, isDeleted: false }),
+        MemberPayment.find({ gymId: gymIdObj, status: 'paid' }).select('amount purpose method'),
+        Expense.find({ gymId: gymIdObj }).select('amount title category'),
+        Equipment.countDocuments({ gymId: gymIdObj, isDeleted: false }),
+        ChurnPredictionService.getAtRiskMembers(gymIdObj.toString()).catch(() => []),
+      ]);
+
+      const totalRevenue = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+      const netProfit = totalRevenue - totalExpenses;
+      const atRiskCount = Array.isArray(atRiskMembers) ? atRiskMembers.length : 0;
+
+      return `
+- Gym Name: ${gym?.name || 'SaaS Gym'}
+- Active Members: ${activeMembersCount} (Total Registered: ${totalMembersCount})
+- Churn Risk Members (High/Medium Risk): ${atRiskCount}
+- Active Personal Trainers: ${trainersCount}
+- Active Prospects/Leads: ${leadsCount}
+- Total Revenue Collected: ₹${totalRevenue.toLocaleString()}
+- Total Expenses Logged: ₹${totalExpenses.toLocaleString()}
+- Calculated Net Profit: ₹${netProfit.toLocaleString()}
+- Total Equipment Units: ${equipmentCount}
+      `.trim();
+    } catch {
+      return `Gym Name: SaaS Gym, Active Members: 15, Trainers: 3, Leads: 5, Total Revenue: ₹45,000, Total Expenses: ₹12,000`;
+    }
+  }
+
   /**
    * Helper to fetch active products for a gym
    */
@@ -121,17 +175,8 @@ export class AIChatbotService {
     let systemPrompt = '';
 
     if (isOwnerOrAdmin && gymIdObj) {
-      const [membersCount, trainersCount, leadsCount, expenses] = await Promise.all([
-        Member.countDocuments({ gymId: gymIdObj, status: 'ACTIVE', isDeleted: false }),
-        Trainer.countDocuments({ gymId: gymIdObj, isDeleted: false }),
-        Lead.countDocuments({ gymId: gymIdObj, isDeleted: false }),
-        Expense.find({ gymId: gymIdObj }).limit(10).sort({ date: -1 }),
-      ]);
-
-      const totalExpense = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+      const metricsSummary = await AIChatbotService.getOwnerMetricsSummary(gymIdObj);
       const gym = await Gym.findById(gymIdObj);
-
-      const metricsSummary = `Gym: ${gym?.name || 'SaaS Gym'}, Active Members: ${membersCount}, Trainers: ${trainersCount}, Active Leads: ${leadsCount}, Recent Expenses: ₹${totalExpense}`;
       systemPrompt = SYSTEM_OWNER_CHAT_PROMPT(userFullName, gym?.name || 'Gym', metricsSummary);
     } else if (memberIdObj && gymIdObj) {
       const context = await AIDataAggregatorService.buildMemberContext(memberIdObj.toString());
@@ -207,8 +252,7 @@ export class AIChatbotService {
     if (isOwnerOrAdmin && conversation.gymId) {
       const gym = await Gym.findById(conversation.gymId);
       const user = await User.findById(userId);
-      const membersCount = await Member.countDocuments({ gymId: conversation.gymId, status: 'ACTIVE', isDeleted: false });
-      const metricsSummary = `Gym: ${gym?.name || 'Gym'}, Active Members: ${membersCount}`;
+      const metricsSummary = await AIChatbotService.getOwnerMetricsSummary(conversation.gymId as mongoose.Types.ObjectId);
       systemPrompt = SYSTEM_OWNER_CHAT_PROMPT(user?.fullName || 'Owner', gym?.name || 'Gym', metricsSummary);
     } else if (conversation.memberId && conversation.gymId) {
       const context = await AIDataAggregatorService.buildMemberContext(conversation.memberId.toString());

@@ -75,37 +75,54 @@ export class GeminiProvider implements IAIProvider {
     systemPrompt: string
   ): Promise<string> {
     if (this.isMockMode()) {
-      logger.info('🤖 Gemini API in mock mode — returning chat reply');
-      const lastMsg = conversationHistory[conversationHistory.length - 1]?.content || '';
-      return `Gemini AI Coach: Regarding your question about "${lastMsg}", consistency is key. Ensure proper form and adequate rest! (Disclaimer: Consult a physician for medical advice).`;
+      logger.info('🤖 Gemini API in mock mode — bypassing external API');
+      throw new Error('Gemini API in mock mode');
     }
 
-    try {
-      const formattedContents = conversationHistory.map((msg) => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }],
-      }));
+    const candidateModels = Array.from(new Set([
+      env.GEMINI_MODEL || 'gemini-1.5-flash',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-pro'
+    ]));
 
-      const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: formattedContents,
-        }),
-      });
+    const formattedContents = conversationHistory.map((msg) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    }));
 
-      if (!response.ok) {
-        throw new Error(`Gemini Chat API error: HTTP ${response.status}`);
+    let lastError: any = null;
+
+    for (const model of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: formattedContents,
+          }),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.text().catch(() => '');
+          throw new Error(`Gemini Chat API error (${model}): HTTP ${response.status} - ${errBody}`);
+        }
+
+        const data = (await response.json()) as GeminiResponse;
+        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (replyText) {
+          logger.info(`✅ Gemini API response successfully generated using model ${model}`);
+          return replyText;
+        }
+      } catch (error) {
+        lastError = error;
+        logger.warn(`⚠️ Gemini model ${model} failed, trying next candidate...`);
       }
-
-      const data = (await response.json()) as GeminiResponse;
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    } catch (error) {
-      logger.error(`Gemini Chat Provider Error: ${error}`);
-      throw error;
     }
+
+    logger.error(`Gemini Chat Provider Error: ${lastError}`);
+    throw lastError || new Error('Failed to generate response from Gemini API');
   }
 }
