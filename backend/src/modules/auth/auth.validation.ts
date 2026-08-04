@@ -8,7 +8,14 @@ export const registerSchema = z.object({
     .max(100, 'Full name cannot exceed 100 characters')
     .trim(),
   email: z.string().email('Please enter a valid email address').toLowerCase().trim(),
-  phone: z.string().min(5, 'Phone number must be at least 5 characters').trim(),
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Phone number is required')
+    .regex(
+      /^\+?[0-9\s-]{7,15}$/,
+      'Enter a valid phone number (7-15 digits, optionally starting with +)'
+    ),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -21,6 +28,9 @@ export const registerSchema = z.object({
   gymId: z.string().optional(),
   branchId: z.string().optional(),
   referralCode: z.string().trim().optional(),
+  // Required when role === GYM_OWNER (checked in the service, not here, since
+  // it depends on the OWNER_INVITE_CODE env var being configured or not).
+  ownerInviteCode: z.string().trim().optional(),
 });
 
 export const loginSchema = z.object({

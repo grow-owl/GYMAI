@@ -4,7 +4,7 @@ import clsx from "clsx";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { memberNav } from "@/data/nav";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 

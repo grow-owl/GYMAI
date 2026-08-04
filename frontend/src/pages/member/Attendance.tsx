@@ -34,7 +34,7 @@ export default function Attendance() {
 
             <button
               onClick={() => setView("scanning")}
-              className="w-full rounded-xl bg-(--color-accent) text-white text-base sm:text-lg font-semibold py-3.5 flex items-center justify-center gap-2"
+              className="w-full rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) text-base sm:text-lg font-semibold py-3.5 flex items-center justify-center gap-2 transition-colors"
             >
               <QrCode size={18} /> Open Camera to Scan
             </button>
@@ -58,7 +58,7 @@ export default function Attendance() {
             <p className="text-xs text-(--color-text-faint) mt-1">Please try the live gym QR again.</p>
             <button
               onClick={() => setView("scanning")}
-              className="mt-5 rounded-full bg-(--color-accent) text-white text-sm font-semibold px-5 py-2.5"
+              className="mt-5 rounded-full bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) text-sm font-semibold px-5 py-2.5 transition-colors"
             >
               Try again
             </button>

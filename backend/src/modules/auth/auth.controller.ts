@@ -7,11 +7,23 @@ import { env } from '../../config/env';
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
+// 'strict' was dropping this cookie in two very real scenarios:
+//  1. Opening the app from an external link (a QR code scanned with the
+//     phone's normal camera app, a WhatsApp/SMS link, etc.) is treated by the
+//     browser as a cross-site top-level navigation, so a Strict cookie never
+//     rides along on that first load — the very next silent refresh call then
+//     has nothing to refresh with, and the user gets bounced to /login.
+//  2. Any production deployment where the frontend and API live on different
+//     domains needs SameSite=None (+ Secure) — 'strict'/'lax' block it outright.
+// 'lax' is the right default for same-site dev; 'none' (+ secure) for prod.
+const isProd = env.NODE_ENV === 'production';
+const REFRESH_COOKIE_SAME_SITE: 'lax' | 'none' = isProd ? 'none' : 'lax';
+
 const setRefreshTokenCookie = (res: Response, token: string): void => {
   res.cookie(REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    sameSite: REFRESH_COOKIE_SAME_SITE,
     path: '/api/v1/auth',
     maxAge: REFRESH_COOKIE_MAX_AGE,
   });
@@ -20,8 +32,8 @@ const setRefreshTokenCookie = (res: Response, token: string): void => {
 const clearRefreshTokenCookie = (res: Response): void => {
   res.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    sameSite: REFRESH_COOKIE_SAME_SITE,
     path: '/api/v1/auth',
   });
 };

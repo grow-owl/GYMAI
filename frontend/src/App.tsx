@@ -1,10 +1,12 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import RoleSelect from "@/pages/RoleSelect";
+import Landing from "@/pages/Landing";
 import DashboardShell from "@/components/layout/DashboardShell";
 import MobileShell from "@/components/layout/MobileShell";
 import { ownerNav, ownerNavSecondary, trainerNav, receptionNav } from "@/data/nav";
 import { gym } from "@/data/mock";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { useAuth, useAuthStore } from "@/store/authStore";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
@@ -65,19 +67,25 @@ function OwnerShell() {
 }
 
 export default function App() {
+  const init = useAuthStore((s) => s.init);
+
+  useEffect(() => {
+    init();
+  }, [init]);
+
   return (
-    <AuthProvider>
+    <>
       <AnimatedBackground />
       <div className="content-layer">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/roles" element={<RoleSelect />} />
 
-          <Route element={<ProtectedRoute />}>
+          <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN", "BRANCH_MANAGER"]} />}>
             <Route path="/owner" element={<OwnerShell />}>
               <Route index element={<OwnerDashboard />} />
               <Route path="members" element={<Members />} />
@@ -93,61 +101,67 @@ export default function App() {
             </Route>
           </Route>
 
-        <Route
-          path="/trainer"
-          element={
-            <DashboardShell
-              primary={trainerNav}
-              roleLabel="Trainer"
-              greeting={`Good Morning, ${gym.trainerName} 👋`}
-              subtitle="You have 4 sessions today"
-              avatarInitial="R"
-            />
-          }
-        >
-          <Route index element={<TrainerDashboard />} />
-          <Route path="clients" element={<MyClients />} />
-          <Route path="sessions" element={<Sessions />} />
-          <Route path="workout-plans" element={<WorkoutPlans />} />
-          <Route path="diet-plans" element={<DietPlans />} />
-          <Route path="progress" element={<TrainerProgress />} />
-          <Route path="recovery-alerts" element={<RecoveryAlerts />} />
+        <Route element={<ProtectedRoute allowedRoles={["TRAINER"]} />}>
+          <Route
+            path="/trainer"
+            element={
+              <DashboardShell
+                primary={trainerNav}
+                roleLabel="Trainer"
+                greeting={`Good Morning, ${gym.trainerName} 👋`}
+                subtitle="You have 4 sessions today"
+                avatarInitial="R"
+              />
+            }
+          >
+            <Route index element={<TrainerDashboard />} />
+            <Route path="clients" element={<MyClients />} />
+            <Route path="sessions" element={<Sessions />} />
+            <Route path="workout-plans" element={<WorkoutPlans />} />
+            <Route path="diet-plans" element={<DietPlans />} />
+            <Route path="progress" element={<TrainerProgress />} />
+            <Route path="recovery-alerts" element={<RecoveryAlerts />} />
+          </Route>
         </Route>
 
-        <Route
-          path="/reception"
-          element={
-            <DashboardShell
-              primary={receptionNav}
-              roleLabel="Reception / Staff"
-              greeting="Front Desk"
-              subtitle={`${gym.name} · ${gym.branch}`}
-              avatarInitial="S"
-            />
-          }
-        >
-          <Route index element={<ReceptionDashboard />} />
-          <Route path="search" element={<MemberSearch />} />
-          <Route path="check-in" element={<CheckIn />} />
-          <Route path="leads" element={<ReceptionLeads />} />
-          <Route path="payments" element={<ReceptionPayments />} />
+        <Route element={<ProtectedRoute allowedRoles={["KIOSK", "BRANCH_MANAGER", "GYM_OWNER"]} />}>
+          <Route
+            path="/reception"
+            element={
+              <DashboardShell
+                primary={receptionNav}
+                roleLabel="Reception / Staff"
+                greeting="Front Desk"
+                subtitle={`${gym.name} · ${gym.branch}`}
+                avatarInitial="S"
+              />
+            }
+          >
+            <Route index element={<ReceptionDashboard />} />
+            <Route path="search" element={<MemberSearch />} />
+            <Route path="check-in" element={<CheckIn />} />
+            <Route path="leads" element={<ReceptionLeads />} />
+            <Route path="payments" element={<ReceptionPayments />} />
+          </Route>
         </Route>
 
-        <Route path="/member" element={<MobileShell />}>
-          <Route index element={<MemberHome />} />
-          <Route path="workout-plan" element={<WorkoutPlan />} />
-          <Route path="workout-tracking" element={<WorkoutTracking />} />
-          <Route path="diet-plan" element={<DietPlan />} />
-          <Route path="ai-coach" element={<AICoach />} />
-          <Route path="attendance" element={<MemberAttendance />} />
-          <Route path="progress" element={<MemberProgress />} />
-          <Route path="rewards" element={<Gamification />} />
-          <Route path="payments" element={<MemberPayments />} />
-          <Route path="profile" element={<Profile />} />
+        <Route element={<ProtectedRoute allowedRoles={["MEMBER"]} />}>
+          <Route path="/member" element={<MobileShell />}>
+            <Route index element={<MemberHome />} />
+            <Route path="workout-plan" element={<WorkoutPlan />} />
+            <Route path="workout-tracking" element={<WorkoutTracking />} />
+            <Route path="diet-plan" element={<DietPlan />} />
+            <Route path="ai-coach" element={<AICoach />} />
+            <Route path="attendance" element={<MemberAttendance />} />
+            <Route path="progress" element={<MemberProgress />} />
+            <Route path="rewards" element={<Gamification />} />
+            <Route path="payments" element={<MemberPayments />} />
+            <Route path="profile" element={<Profile />} />
+          </Route>
         </Route>
         </Routes>
       </BrowserRouter>
       </div>
-    </AuthProvider>
+    </>
   );
 }

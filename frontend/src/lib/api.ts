@@ -14,14 +14,22 @@ export function setAccessToken(token: string | null) {
   else localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
+export interface ApiFieldError {
+  field: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(message: string, status: number, code?: string) {
+  /** Per-field validation errors, e.g. [{ field: "phone", message: "..." }], when the backend sends them. */
+  details?: ApiFieldError[];
+  constructor(message: string, status: number, code?: string, details?: ApiFieldError[]) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -94,8 +102,9 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   }
 
   if (!res.ok || json?.success === false) {
+    const details = json?.error?.details as ApiFieldError[] | undefined;
     const message = json?.error?.message || json?.message || `Request failed (${res.status})`;
-    throw new ApiError(message, res.status, json?.error?.code);
+    throw new ApiError(message, res.status, json?.error?.code, Array.isArray(details) ? details : undefined);
   }
 
   return (json?.data ?? json) as T;

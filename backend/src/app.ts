@@ -45,9 +45,23 @@ app.use(requestId);
 app.use(helmet());
 
 // 3. CORS configuration
+// NOTE: with credentials:true, the browser REQUIRES a specific echoed origin —
+// a literal '*' silently breaks cookies (refresh-token) on every cross-origin
+// deployment. CLIENT_URL supports a comma-separated list for multiple environments.
+const allowedOrigins = (env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: env.CLIENT_URL || '*',
+    origin(origin, callback) {
+      // No Origin header (server-to-server, curl, mobile apps) — allow.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      logger.warn(`🚫 CORS blocked request from origin: ${origin}`);
+      return callback(null, false);
+    },
     credentials: true,
   })
 );

@@ -29,6 +29,7 @@ export const authApi = {
     phone: string;
     password: string;
     role: "GYM_OWNER" | "MEMBER";
+    ownerInviteCode?: string;
   }) => api.post<AuthResponse>("/auth/register", input),
 
   login: (email: string, password: string) => api.post<AuthResponse>("/auth/login", { email, password }),

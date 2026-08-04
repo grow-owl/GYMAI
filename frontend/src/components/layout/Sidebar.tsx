@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import * as icons from "lucide-react";
 import clsx from "clsx";
 import { Dumbbell, ChevronsLeft, LogOut } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 interface NavEntry {
   label: string;

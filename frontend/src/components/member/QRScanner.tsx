@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import jsQR from "jsqr";
-import { Camera, X, AlertTriangle, Keyboard } from "lucide-react";
+import { Camera, X, AlertTriangle, Keyboard, ScanLine, Zap } from "lucide-react";
 
 type ScanStatus = "starting" | "scanning" | "denied" | "unsupported" | "no-camera" | "error";
 
@@ -10,6 +10,13 @@ interface QRScannerProps {
   allowManualEntry?: boolean;
 }
 
+const statusCopy: Record<Exclude<ScanStatus, "starting" | "scanning">, string> = {
+  denied: "Camera access was denied. Allow camera permission in your browser settings, then try again.",
+  unsupported: "Camera scanning isn't supported on this device or browser.",
+  "no-camera": "No camera was found on this device.",
+  error: "Couldn't start the camera. Please try again.",
+};
+
 export default function QRScanner({ onScan, onClose, allowManualEntry = true }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,6 +25,8 @@ export default function QRScanner({ onScan, onClose, allowManualEntry = true }: 
   const hasScannedRef = useRef(false);
 
   const [status, setStatus] = useState<ScanStatus>("starting");
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [manualCode, setManualCode] = useState("");
 
@@ -57,6 +66,18 @@ export default function QRScanner({ onScan, onClose, allowManualEntry = true }: 
     rafRef.current = requestAnimationFrame(tick);
   }, [onScan, stopStream]);
 
+  const toggleTorch = useCallback(async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const next = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: next } as unknown as MediaTrackConstraintSet] });
+      setTorchOn(next);
+    } catch {
+      // Some devices report torch capability but reject the constraint — fail silently.
+    }
+  }, [torchOn]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -82,6 +103,11 @@ export default function QRScanner({ onScan, onClose, allowManualEntry = true }: 
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
+
+        const capabilities = stream.getVideoTracks()[0]?.getCapabilities?.() as
+          | (MediaTrackCapabilities & { torch?: boolean })
+          | undefined;
+        setTorchSupported(Boolean(capabilities?.torch));
 
         setStatus("scanning");
         rafRef.current = requestAnimationFrame(tick);
@@ -113,46 +139,79 @@ export default function QRScanner({ onScan, onClose, allowManualEntry = true }: 
     onScan(trimmed);
   }
 
+  const hasError = status === "denied" || status === "unsupported" || status === "no-camera" || status === "error";
+
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-full max-w-sm aspect-square rounded-2xl overflow-hidden bg-black">
+      {/* Header row */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-(--color-accent-soft) text-(--color-accent-text)">
+          <ScanLine size={15} />
+        </span>
+        <p className="font-display text-sm font-semibold text-(--color-text)">Scan gym check-in code</p>
+      </div>
+
+      <div className="relative w-full max-w-sm aspect-square rounded-3xl overflow-hidden bg-(--color-navbar) shadow-lg">
         <video
           ref={videoRef}
           muted
           playsInline
-          className={`h-full w-full object-cover ${status === "scanning" ? "opacity-100" : "opacity-0"}`}
+          className={`h-full w-full object-cover transition-opacity duration-300 ${
+            status === "scanning" ? "opacity-100" : "opacity-0"
+          }`}
         />
         <canvas ref={canvasRef} className="hidden" />
 
         {status === "scanning" && (
           <>
-            <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-white/70">
-              <span className="absolute -top-0.5 -left-0.5 h-6 w-6 border-t-4 border-l-4 border-(--color-accent) rounded-tl-xl" />
-              <span className="absolute -top-0.5 -right-0.5 h-6 w-6 border-t-4 border-r-4 border-(--color-accent) rounded-tr-xl" />
-              <span className="absolute -bottom-0.5 -left-0.5 h-6 w-6 border-b-4 border-l-4 border-(--color-accent) rounded-bl-xl" />
-              <span className="absolute -bottom-0.5 -right-0.5 h-6 w-6 border-b-4 border-r-4 border-(--color-accent) rounded-br-xl" />
+            {/* Dim scrim outside the target box so the frame reads clearly */}
+            <div className="pointer-events-none absolute inset-0 [box-shadow:inset_0_0_0_2000px_rgba(0,0,0,0.32)] [clip-path:polygon(0%_0%,0%_100%,12%_100%,12%_12%,88%_12%,88%_88%,12%_88%,12%_100%,100%_100%,100%_0%)]" />
+
+            <div className="pointer-events-none absolute inset-[12%] rounded-2xl border border-white/30">
+              <span className="absolute -top-1 -left-1 h-8 w-8 border-t-[3px] border-l-[3px] border-(--color-accent) rounded-tl-2xl" />
+              <span className="absolute -top-1 -right-1 h-8 w-8 border-t-[3px] border-r-[3px] border-(--color-accent) rounded-tr-2xl" />
+              <span className="absolute -bottom-1 -left-1 h-8 w-8 border-b-[3px] border-l-[3px] border-(--color-accent) rounded-bl-2xl" />
+              <span className="absolute -bottom-1 -right-1 h-8 w-8 border-b-[3px] border-r-[3px] border-(--color-accent) rounded-br-2xl" />
+              <div className="absolute left-0 top-0 h-0.5 w-full bg-gradient-to-r from-transparent via-(--color-accent) to-transparent shadow-[0_0_8px_var(--color-accent)] scan-line-anim" />
             </div>
-            <div className="absolute left-1/2 top-8 h-0.5 w-[calc(100%-4rem)] -translate-x-1/2 bg-(--color-accent)/80 scan-line-anim" />
+
+            {/* Top scrim with live badge */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent flex items-start justify-center pt-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-white/90">
+                <span className="h-1.5 w-1.5 rounded-full bg-(--color-good) animate-pulse" /> Camera live
+              </span>
+            </div>
+
+            {torchSupported && (
+              <button
+                type="button"
+                onClick={toggleTorch}
+                aria-label="Toggle flashlight"
+                className={`absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full backdrop-blur-sm transition-colors ${
+                  torchOn ? "bg-(--color-accent) text-(--color-navbar)" : "bg-black/40 text-white"
+                }`}
+              >
+                <Zap size={16} fill={torchOn ? "currentColor" : "none"} />
+              </button>
+            )}
           </>
         )}
 
         {status === "starting" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/80">
-            <Camera size={28} className="animate-pulse" />
-            <p className="text-xs">Opening camera…</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 text-white/85">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10">
+              <Camera size={20} className="animate-pulse" />
+            </span>
+            <p className="text-xs font-medium">Opening camera…</p>
           </div>
         )}
 
-        {(status === "denied" || status === "unsupported" || status === "no-camera" || status === "error") && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center text-white/90">
-            <AlertTriangle size={24} className="text-(--color-warn)" />
-            <p className="text-xs leading-relaxed">
-              {status === "denied" &&
-                "Camera access was denied. Please allow camera permission in your browser settings and try again."}
-              {status === "unsupported" && "Camera scanning isn't supported on this device or browser."}
-              {status === "no-camera" && "No camera was found on this device."}
-              {status === "error" && "Couldn't start the camera. Please try again."}
-            </p>
+        {hasError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-(--color-warn-soft) text-(--color-warn)">
+              <AlertTriangle size={22} />
+            </span>
+            <p className="text-xs leading-relaxed text-white/85">{statusCopy[status]}</p>
           </div>
         )}
       </div>
@@ -166,14 +225,14 @@ export default function QRScanner({ onScan, onClose, allowManualEntry = true }: 
       {allowManualEntry && !manualMode && (
         <button
           onClick={() => setManualMode(true)}
-          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-(--color-accent-text)"
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-(--color-accent-text) hover:text-(--color-accent-strong) transition-colors"
         >
           <Keyboard size={13} /> Enter code manually
         </button>
       )}
 
       {manualMode && (
-        <form onSubmit={handleManualSubmit} className="mt-3 w-full max-w-sm flex gap-2">
+        <form onSubmit={handleManualSubmit} className="mt-3 w-full max-w-sm flex gap-2 animate-fade-in-up">
           <input
             autoFocus
             value={manualCode}
@@ -181,7 +240,10 @@ export default function QRScanner({ onScan, onClose, allowManualEntry = true }: 
             placeholder="Check-in code"
             className="flex-1 rounded-full border border-(--color-border) bg-(--color-surface) px-4 py-2.5 text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
           />
-          <button type="submit" className="rounded-full bg-(--color-accent) text-white text-sm font-semibold px-4 py-2.5">
+          <button
+            type="submit"
+            className="rounded-full bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) text-sm font-semibold px-4 py-2.5 transition-colors"
+          >
             Go
           </button>
         </form>
@@ -192,7 +254,7 @@ export default function QRScanner({ onScan, onClose, allowManualEntry = true }: 
           stopStream();
           onClose();
         }}
-        className="mt-5 flex items-center gap-1.5 rounded-full border border-(--color-border) text-(--color-text-muted) text-sm font-medium px-5 py-2.5"
+        className="mt-5 flex items-center gap-1.5 rounded-full border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text) hover:border-(--color-text-faint) text-sm font-medium px-5 py-2.5 transition-colors"
       >
         <X size={15} /> Cancel
       </button>

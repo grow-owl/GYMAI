@@ -35,8 +35,8 @@ export default function ForgotPassword() {
         </div>
       ) : (
         <>
-          <h2 className="font-display text-2xl font-semibold text-(--color-text)">Reset your password</h2>
-          <p className="text-sm text-(--color-text-muted) mt-1.5 mb-7">We'll email you a secure reset link.</p>
+          <h2 className="font-display text-xl font-semibold text-(--color-text)">Reset your password</h2>
+          <p className="text-sm text-(--color-text-muted) mt-1.5 mb-5">We'll email you a secure reset link.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -49,7 +49,7 @@ export default function ForgotPassword() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="owner@yourgym.com"
-                  className="w-full rounded-xl border border-(--color-border) bg-(--color-surface) pl-10 pr-4 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent)"
+                  className="w-full rounded-xl border border-(--color-border) bg-(--color-surface) pl-10 pr-4 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint) transition-colors"
                 />
               </div>
             </div>

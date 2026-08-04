@@ -5,7 +5,7 @@ import { X, Dumbbell } from "lucide-react";
 import clsx from "clsx";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 interface NavEntry {
   label: string;

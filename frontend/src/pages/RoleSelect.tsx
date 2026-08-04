@@ -1,41 +1,37 @@
 import { Link } from "react-router-dom";
-import { Dumbbell, Users, ClipboardList, ScanLine, ArrowRight, Sparkles } from "lucide-react";
+import { Dumbbell, ClipboardList, ScanLine, ArrowRight, Sparkles } from "lucide-react";
 
+// Every card routes through /login now — no role can be entered without a real,
+// authenticated account. The `hint` is passed along so the login page can show
+// which dashboard the person is headed to once they sign in.
+// Note: owner sign-in is intentionally NOT listed here — owner accounts are
+// invite-only and provisioned directly, never advertised on the public site.
 const roles = [
-  {
-    role: "owner",
-    title: "Owner / Admin",
-    desc: "Revenue, members, trainers, and AI insights across every branch.",
-    stat: "1,248 members · 3 branches",
-    icon: Users,
-    path: "/owner",
-    tone: "blue",
-  },
   {
     role: "trainer",
     title: "Trainer",
     desc: "Today's sessions, client workout plans, and recovery alerts.",
-    stat: "4 sessions scheduled today",
+    stat: "Sign in with your trainer account",
     icon: Dumbbell,
-    path: "/trainer",
+    path: "/login?role=trainer",
     tone: "purple",
   },
   {
     role: "member",
     title: "Member",
     desc: "Workouts, diet, AI coach, streaks and rewards — mobile first.",
-    stat: "12-day streak waiting",
+    stat: "Sign in with your member account",
     icon: ClipboardList,
-    path: "/member",
+    path: "/login?role=member",
     tone: "orange",
   },
   {
     role: "reception",
     title: "Reception / Staff",
     desc: "Check-in members, scan QR codes, and manage trial leads.",
-    stat: "6 trials booked this week",
+    stat: "Sign in with your staff account",
     icon: ScanLine,
-    path: "/reception",
+    path: "/login?role=reception",
     tone: "green",
   },
 ];
@@ -49,9 +45,9 @@ const toneStyles: Record<string, { icon: string; ring: string }> = {
 
 export default function RoleSelect() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 relative z-10">
+    <div className="h-screen overflow-y-auto flex flex-col items-center justify-center px-6 py-8 relative z-10">
       <div className="max-w-3xl w-full">
-        <div className="flex items-center gap-2.5 mb-10 justify-center animate-fade-in">
+        <div className="flex items-center gap-2.5 mb-6 justify-center animate-fade-in">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-(--color-accent) text-white shadow-md">
             <Dumbbell size={20} strokeWidth={2.5} />
           </span>
@@ -61,7 +57,7 @@ export default function RoleSelect() {
         <div className="flex items-center justify-center gap-1.5 mb-4 animate-fade-in">
           <Sparkles size={14} className="text-(--color-accent-text)" />
           <span className="text-xs font-semibold tracking-wide uppercase text-(--color-accent-text)">
-            Demo workspace
+            Choose your role
           </span>
         </div>
 
@@ -69,10 +65,10 @@ export default function RoleSelect() {
           One gym. <span className="text-(--color-accent-strong)">Four ways in.</span>
         </h1>
         <p
-          className="text-center text-(--color-text-muted) mt-3 mb-10 max-w-md mx-auto animate-fade-in-up stagger-item"
+          className="text-center text-(--color-text-muted) mt-3 mb-8 max-w-md mx-auto animate-fade-in-up stagger-item"
           style={{ ["--stagger-i" as string]: 1 }}
         >
-          Tap a role to open its dashboard — every screen updates live from the same gym data.
+          Pick your role, then sign in — each dashboard is only visible to its own account.
         </p>
 
         <div className="grid sm:grid-cols-2 gap-4">
@@ -83,7 +79,7 @@ export default function RoleSelect() {
                 key={role}
                 to={path}
                 data-tone={tone}
-                className={`glow-hover card-hover group flex flex-col gap-4 rounded-(--radius-card) border-2 border-(--color-border) bg-(--color-surface) p-6 shadow-md animate-fade-in-up stagger-item ${ring}`}
+                className={`glow-hover card-hover group flex flex-col gap-3 rounded-(--radius-card) border-2 border-(--color-border) bg-(--color-surface) p-5 shadow-md animate-fade-in-up stagger-item ${ring}`}
                 style={{ ["--stagger-i" as string]: i + 2 }}
               >
                 <div className="flex items-center justify-between">
@@ -105,13 +101,6 @@ export default function RoleSelect() {
             );
           })}
         </div>
-
-        <p className="text-center text-sm text-(--color-text-muted) mt-8">
-          Are you a gym owner?{" "}
-          <Link to="/login" className="text-(--color-accent-text) hover:text-(--color-accent-strong) font-semibold underline underline-offset-2">
-            Sign in to your dashboard
-          </Link>
-        </p>
       </div>
     </div>
   );

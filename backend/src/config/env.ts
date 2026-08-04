@@ -31,6 +31,11 @@ const envSchema = z.object({
 
   CLIENT_URL: z.string().optional(),
 
+  // Secret code that must be supplied to self-register a GYM_OWNER account.
+  // Only people who know this code (i.e. you) can create an owner account —
+  // this is the real lock on "who can become an owner", not the URL itself.
+  OWNER_INVITE_CODE: z.string().optional(),
+
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   GEMINI_API_KEY: z.string().optional(),

@@ -25,9 +25,9 @@ export default function AuthLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-(--color-base)">
+    <div className="h-screen w-full flex flex-col lg:flex-row bg-(--color-base) overflow-hidden">
       {/* Left / top brand panel — bold gradient hero, distinct from the light app UI */}
-      <aside className="relative lg:w-[46%] xl:w-[42%] shrink-0 overflow-hidden px-6 sm:px-10 py-10 lg:py-14 flex flex-col justify-between min-h-[320px] lg:min-h-screen text-white">
+      <aside className="relative lg:w-[40%] xl:w-[36%] shrink-0 overflow-hidden px-6 sm:px-10 py-6 lg:py-10 flex-col justify-between hidden lg:flex text-white">
         {/* Base gradient mesh */}
         <div
           className="absolute inset-0"
@@ -66,22 +66,22 @@ export default function AuthLayout({
             <span className="font-display text-xl font-semibold tracking-tight">GYMAI</span>
           </div>
 
-          <p className="mt-10 sm:mt-16 text-xs font-semibold tracking-[0.25em] uppercase text-white/60">{eyebrow}</p>
-          <h1 className="font-display text-3xl sm:text-[2.6rem] font-semibold mt-3 leading-[1.1] max-w-sm">
+          <p className="mt-6 lg:mt-8 text-xs font-semibold tracking-[0.25em] uppercase text-white/60">{eyebrow}</p>
+          <h1 className="font-display text-2xl sm:text-3xl xl:text-[2.25rem] font-semibold mt-3 leading-[1.15] max-w-sm">
             {title}
           </h1>
-          <p className="text-white/70 mt-4 max-w-sm text-sm sm:text-base leading-relaxed">{subtitle}</p>
+          <p className="text-white/70 mt-3 max-w-sm text-sm leading-relaxed">{subtitle}</p>
         </div>
 
         {/* Decorative floating mock stat cards — signals "product" without a screenshot */}
-        <div className="relative hidden lg:flex gap-3 mt-8 animate-fade-in-up stagger-item" style={{ ["--stagger-i" as string]: 3 }}>
-          <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3 flex-1">
+        <div className="relative hidden lg:flex gap-3 mt-6 animate-fade-in-up stagger-item" style={{ ["--stagger-i" as string]: 3 }}>
+          <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-2.5 flex-1">
             <div className="flex items-center gap-2 text-white/60 text-[11px]">
               <Users size={12} /> Members
             </div>
             <p className="font-display text-lg font-semibold mt-1">1,248</p>
           </div>
-          <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-3 flex-1">
+          <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-2.5 flex-1">
             <div className="flex items-center gap-2 text-white/60 text-[11px]">
               <Activity size={12} /> Retention
             </div>
@@ -89,11 +89,11 @@ export default function AuthLayout({
           </div>
         </div>
 
-        <div className="relative mt-8 hidden lg:flex flex-col gap-3">
+        <div className="relative mt-6 hidden lg:flex flex-col gap-2.5">
           {highlights.map(({ icon: Icon, text, tone }, i) => (
             <div
               key={text}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-4 py-3 animate-fade-in-up stagger-item"
+              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-4 py-2.5 transition-colors hover:bg-white/[0.1] hover:border-white/20 animate-fade-in-up stagger-item"
               style={{ ["--stagger-i" as string]: i }}
             >
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${toneBg[tone]} text-white`}>
@@ -106,12 +106,12 @@ export default function AuthLayout({
       </aside>
 
       {/* Right / bottom form panel */}
-      <main className="flex-1 flex items-center justify-center px-5 sm:px-8 py-10 sm:py-14 bg-(--color-base) relative overflow-hidden">
+      <main className="flex-1 min-h-0 flex items-center justify-center px-5 sm:px-8 py-6 sm:py-8 bg-(--color-base) relative overflow-y-auto overflow-x-hidden">
         <div
           className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full blur-[100px] opacity-40"
           style={{ background: "var(--tone-purple)" }}
         />
-        <div className="w-full max-w-md animate-fade-in-up relative z-10">{children}</div>
+        <div className="w-full max-w-md animate-fade-in-up relative z-10 my-auto">{children}</div>
       </main>
     </div>
   );

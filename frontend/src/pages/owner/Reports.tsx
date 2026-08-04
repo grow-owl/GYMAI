@@ -52,7 +52,7 @@ const reports: ReportDef[] = [
     period: "Last 90 days",
     columns: ["Member", "Plan", "Trainer", "Churn risk"],
     rows: () =>
-      members.map((m) => ({ Member: m.name, Plan: m.plan, Trainer: m.trainer, "Churn risk": m.churnRisk })),
+      members.map((m) => ({ Member: m.name, Plan: m.plan, Trainer: m.trainer ?? "—", "Churn risk": m.churnRisk ?? "—" })),
   },
   {
     key: "business",

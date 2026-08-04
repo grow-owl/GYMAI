@@ -9,6 +9,7 @@ import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
 import { notificationTemplates } from '../notification/notificationTemplates';
 import { logger } from '../../config/logger';
+import { env } from '../../config/env';
 
 import { Member } from '../member/member.model';
 
@@ -20,9 +21,18 @@ function hashToken(token: string): string {
 
 export class AuthService {
   public static async registerUser(
-    input: Partial<IUser> & { referralCode?: string },
+    input: Partial<IUser> & { referralCode?: string; ownerInviteCode?: string },
     ipAddress?: string
   ): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
+    // Public self-registration is only ever meant to be usable by someone who
+    // already knows the secret invite code. If OWNER_INVITE_CODE isn't
+    // configured, owner self-registration is disabled outright (fail closed).
+    if (input.role === Role.GYM_OWNER) {
+      if (!env.OWNER_INVITE_CODE || input.ownerInviteCode !== env.OWNER_INVITE_CODE) {
+        throw AppError.forbidden('A valid invite code is required to create an owner account.');
+      }
+    }
+
     const existing = await User.findOne({ email: input.email?.toLowerCase(), isDeleted: false });
     if (existing) {
       throw AppError.conflict('An active user account with this email address already exists');

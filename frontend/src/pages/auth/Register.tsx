@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import clsx from "clsx";
 import {
   Camera,
   User,
@@ -13,17 +14,18 @@ import {
   ArrowRight,
   Loader2,
   Check,
+  KeyRound,
 } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 const inputCls =
-  "w-full rounded-xl border border-(--color-border) bg-(--color-surface) pl-10 pr-4 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent)";
+  "w-full rounded-xl border border-(--color-border) bg-(--color-surface) pl-10 pr-4 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint)";
 const labelCls = "block text-xs font-medium text-(--color-text-muted) mb-1.5";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register, loading, error, clearError } = useAuth();
+  const { register, loading, error, fieldErrors, clearError } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitLockRef = useRef(false);
 
@@ -40,6 +42,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [agree, setAgree] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -86,6 +89,7 @@ export default function Register() {
         gymName: gymName || undefined,
         address: { line1: line1.trim(), city: city.trim(), state: stateVal.trim(), pincode: pincode.trim() },
         avatarDataUrl: avatar,
+        ownerInviteCode: inviteCode.trim(),
       });
       navigate("/owner");
     } catch {
@@ -101,39 +105,56 @@ export default function Register() {
       title="Set up your gym in under two minutes."
       subtitle="Create your owner profile — add your photo, contact details and address so your team recognizes you instantly."
     >
-      <h2 className="font-display text-2xl font-semibold text-(--color-text)">Create your owner account</h2>
-      <p className="text-sm text-(--color-text-muted) mt-1.5 mb-7">
+      <h2 className="font-display text-xl font-semibold text-(--color-text)">Create your owner account</h2>
+      <p className="text-sm text-(--color-text-muted) mt-1 mb-4">
         You'll be able to invite trainers & reception staff right after.
       </p>
 
       {(error || formError) && (
-        <div className="mb-5 rounded-xl border border-(--color-danger)/30 bg-(--color-danger-soft) px-4 py-3 text-sm text-(--color-danger) animate-fade-in-up">
+        <div className="mb-4 rounded-xl border border-(--color-danger)/30 bg-(--color-danger-soft) px-4 py-2.5 text-sm text-(--color-danger) animate-fade-in-up">
           {formError || error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <div>
+          <label className={labelCls}>Owner invite code</label>
+          <div className="relative">
+            <KeyRound size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-faint)" />
+            <input
+              required
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              placeholder="Given to you by the gym owner"
+              className={inputCls}
+            />
+          </div>
+          <p className="text-xs text-(--color-text-faint) mt-1">
+            Owner accounts can only be created with a valid invite code — ask whoever runs this GYMAI workspace for one.
+          </p>
+        </div>
+
         {/* Profile picture */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3.5">
           <div className="relative shrink-0">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="btn-press h-20 w-20 rounded-full overflow-hidden border-2 border-(--color-border) bg-(--color-surface-2) flex items-center justify-center animate-scale-in"
+              className="btn-press h-16 w-16 rounded-full overflow-hidden border-2 border-(--color-border) bg-(--color-surface-2) flex items-center justify-center animate-scale-in transition-transform hover:scale-[1.04] hover:border-(--color-accent)"
             >
               {avatar ? (
                 <img src={avatar} alt="Profile preview" className="h-full w-full object-cover" />
               ) : (
-                <User size={26} className="text-(--color-text-faint)" />
+                <User size={22} className="text-(--color-text-faint)" />
               )}
             </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="btn-press absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-(--color-accent) text-white shadow-md"
+              className="btn-press absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-(--color-accent) text-white shadow-md hover:bg-(--color-accent-strong)"
               aria-label="Upload profile picture"
             >
-              <Camera size={13} strokeWidth={2.5} />
+              <Camera size={12} strokeWidth={2.5} />
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           </div>
@@ -143,7 +164,7 @@ export default function Register() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-3.5">
           <div>
             <label className={labelCls}>Full name</label>
             <div className="relative">
@@ -160,20 +181,35 @@ export default function Register() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-3.5">
           <div>
             <label className={labelCls}>Email address</label>
             <div className="relative">
               <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-faint)" />
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="owner@yourgym.com" className={inputCls} />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="owner@yourgym.com"
+                className={clsx(inputCls, fieldErrors.email && "border-(--color-danger)")}
+              />
             </div>
+            {fieldErrors.email && <p className="text-xs text-(--color-danger) mt-1">{fieldErrors.email}</p>}
           </div>
           <div>
             <label className={labelCls}>Phone number</label>
             <div className="relative">
               <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-faint)" />
-              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" className={inputCls} />
+              <input
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className={clsx(inputCls, fieldErrors.phone && "border-(--color-danger)")}
+              />
             </div>
+            {fieldErrors.phone && <p className="text-xs text-(--color-danger) mt-1">{fieldErrors.phone}</p>}
           </div>
         </div>
 
@@ -186,12 +222,12 @@ export default function Register() {
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <input required value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="rounded-xl border border-(--color-border) bg-(--color-surface) px-3.5 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent)" />
-          <input required value={stateVal} onChange={(e) => setStateVal(e.target.value)} placeholder="State" className="rounded-xl border border-(--color-border) bg-(--color-surface) px-3.5 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent)" />
-          <input required value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="Pincode" className="rounded-xl border border-(--color-border) bg-(--color-surface) px-3.5 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent)" />
+          <input required value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="rounded-xl border border-(--color-border) bg-(--color-surface) px-3.5 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint)" />
+          <input required value={stateVal} onChange={(e) => setStateVal(e.target.value)} placeholder="State" className="rounded-xl border border-(--color-border) bg-(--color-surface) px-3.5 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint)" />
+          <input required value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="Pincode" className="rounded-xl border border-(--color-border) bg-(--color-surface) px-3.5 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint)" />
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-3.5">
           <div>
             <label className={labelCls}>Password</label>
             <div className="relative">
@@ -202,7 +238,7 @@ export default function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full rounded-xl border border-(--color-border) bg-(--color-surface) pl-10 pr-10 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent)"
+                className="w-full rounded-xl border border-(--color-border) bg-(--color-surface) pl-10 pr-10 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint)"
               />
               <button
                 type="button"
@@ -235,7 +271,7 @@ export default function Register() {
               type="checkbox"
               checked={agree}
               onChange={(e) => setAgree(e.target.checked)}
-              className="peer h-5 w-5 rounded accent-(--color-accent) appearance-none border border-(--color-border) bg-(--color-surface) checked:bg-(--color-accent) checked:border-(--color-accent)"
+              className="peer h-5 w-5 rounded accent-(--color-accent) appearance-none border border-(--color-border) bg-(--color-surface) checked:bg-(--color-accent) checked:border-(--color-accent) hover:border-(--color-accent)"
             />
             <Check size={13} strokeWidth={3} className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100" />
           </span>
@@ -246,7 +282,7 @@ export default function Register() {
         <button
           type="submit"
           disabled={loading}
-          className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-white font-semibold text-sm py-3 transition-colors disabled:opacity-70"
+          className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-lg hover:shadow-(--color-accent-soft) text-white font-semibold text-sm py-3 transition-all disabled:opacity-70"
         >
           {loading ? (
             <>
@@ -260,7 +296,7 @@ export default function Register() {
         </button>
       </form>
 
-      <p className="text-sm text-(--color-text-muted) text-center mt-7">
+      <p className="text-sm text-(--color-text-muted) text-center mt-5">
         Already have an account?{" "}
         <Link to="/login" className="text-(--color-accent-text) hover:text-(--color-accent) font-medium">
           Sign in
