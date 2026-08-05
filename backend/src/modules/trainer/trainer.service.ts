@@ -142,24 +142,6 @@ export class TrainerService {
       Trainer.countDocuments(filter),
     ]);
 
-    // If zero trainers returned for specific branch filter, try querying without branch filter
-    if (trainers.length === 0 && filter.branchId) {
-      delete filter.branchId;
-      [trainers, totalItems] = await Promise.all([
-        Trainer.find(filter).populate('userId', 'fullName email phone avatarUrl').skip(skip).limit(limit).sort({ createdAt: -1 }),
-        Trainer.countDocuments(filter),
-      ]);
-    }
-
-    // If still zero trainers returned for specific gym filter, query all active trainers in DB
-    if (trainers.length === 0 && filter.gymId) {
-      delete filter.gymId;
-      [trainers, totalItems] = await Promise.all([
-        Trainer.find(filter).populate('userId', 'fullName email phone avatarUrl').skip(skip).limit(limit).sort({ createdAt: -1 }),
-        Trainer.countDocuments(filter),
-      ]);
-    }
-
     const meta = buildPaginationMeta(totalItems, page, limit);
 
     return { trainers, meta };

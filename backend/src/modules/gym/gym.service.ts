@@ -286,4 +286,27 @@ export class GymService {
     }
     return count;
   }
+
+  public static async listAllGyms(): Promise<{ gyms: any[] }> {
+    const gyms = await Gym.find({ isDeleted: false })
+      .populate('ownerId', 'fullName email phone')
+      .sort({ createdAt: -1 });
+
+    const gymListWithBranches = await Promise.all(
+      gyms.map(async (g) => {
+        const branches = await Branch.find({ gymId: g._id, isDeleted: false }).select('_id name');
+        return {
+          _id: g._id,
+          name: g.name,
+          plan: g.plan,
+          status: g.status,
+          owner: g.ownerId,
+          createdAt: g.createdAt,
+          branches,
+        };
+      })
+    );
+
+    return { gyms: gymListWithBranches };
+  }
 }

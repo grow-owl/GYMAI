@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dumbbell, Salad, Droplets, ChevronRight, CheckCircle2, Play, Plus, Minus, Flame, Sparkles } from "lucide-react";
+import { Dumbbell, Salad, Droplets, ChevronRight, Play, Plus, Minus } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { workoutApi, dietApi } from "@/lib/endpoints";
 import { Link } from "react-router-dom";
@@ -12,11 +12,9 @@ interface WorkoutDietProps {
 export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
   const [activePlan, setActivePlan] = useState<any | null>(null);
   const [dietPlan, setDietPlan] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
   const [waterGlasses, setWaterGlasses] = useState<number>(5);
 
   useEffect(() => {
-    setLoading(true);
     Promise.all([
       memberId ? workoutApi.getActivePlan(memberId).catch(() => null) : null,
       memberId ? dietApi.getActive(memberId).catch(() => null) : null,
@@ -29,8 +27,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
           setDietPlan(dRes.plan || dRes);
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, [memberId]);
 
   const handleWaterAdd = (delta: number) => {
@@ -41,14 +38,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
     }
   };
 
-  const defaultExercises = [
-    { name: "Barbell Incline Press", sets: 4, reps: "10-12 reps", target: "Upper Chest" },
-    { name: "Dumbbell Flyes", sets: 3, reps: "12-15 reps", target: "Chest Isolation" },
-    { name: "Tricep Rope Pushdowns", sets: 4, reps: "12 reps", target: "Triceps" },
-    { name: "Bodyweight Dips", sets: 3, reps: "Failure", target: "Lower Chest / Triceps" },
-  ];
-
-  const exercises = activePlan?.exercises || defaultExercises;
+  const exercises = activePlan?.exercises || [];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
@@ -64,7 +54,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
                 Today's Workout Plan
               </h3>
               <p className="text-xs text-(--color-text-muted)">
-                {activePlan?.title || activePlan?.name || "Hypertrophy Chest & Triceps Push Day"}
+                {activePlan?.title || activePlan?.name || "No Active Plan"}
               </p>
             </div>
           </div>
@@ -78,28 +68,40 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
         </div>
 
         {/* Exercises list */}
-        <div className="space-y-2">
-          {exercises.slice(0, 4).map((ex: any, idx: number) => (
-            <div
-              key={idx}
-              className="flex items-center justify-between p-3 rounded-xl bg-(--color-surface-2)/40 border border-white/5 hover:border-white/10 transition-all"
+        {exercises.length === 0 ? (
+          <div className="text-center py-6 px-4">
+            <p className="text-xs text-(--color-text-muted)">No active workout plan assigned.</p>
+            <Link
+              to="/member/ai-coach"
+              className="inline-block mt-2 text-xs font-semibold text-(--color-accent) hover:underline"
             >
-              <div className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white font-mono">
-                  {idx + 1}
-                </span>
-                <div>
-                  <p className="font-display text-xs font-bold text-(--color-text)">{ex.name || ex.exerciseId?.name}</p>
-                  <p className="text-[11px] text-(--color-text-muted)">{ex.target || "Chest Focus"}</p>
+              Ask AI Coach to generate a plan →
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {exercises.slice(0, 4).map((ex: any, idx: number) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between p-3 rounded-xl bg-(--color-surface-2)/40 border border-white/5 hover:border-white/10 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white font-mono">
+                    {idx + 1}
+                  </span>
+                  <div>
+                    <p className="font-display text-xs font-bold text-(--color-text)">{ex.name || ex.exerciseId?.name}</p>
+                    <p className="text-[11px] text-(--color-text-muted)">{ex.target || "Target Area"}</p>
+                  </div>
                 </div>
-              </div>
 
-              <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
-                {ex.sets || 4} Sets × {ex.reps || "10-12"}
-              </span>
-            </div>
-          ))}
-        </div>
+                <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+                  {ex.sets || 4} Sets × {ex.reps || "10-12"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <Link
           to="/member/workout-tracking"

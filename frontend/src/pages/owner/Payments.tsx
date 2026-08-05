@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Loader2, RefreshCw, CreditCard } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
+import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { paymentApi, memberApi } from "@/lib/endpoints";
@@ -52,8 +53,12 @@ export default function Payments() {
   });
 
   const fetchData = async () => {
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
+    if (!activeGymId) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -106,8 +111,8 @@ export default function Payments() {
 
   const handleRecordPaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
     if (!formData.memberId) {
       toast.error("Please select a valid member.");
       return;
@@ -248,10 +253,8 @@ export default function Payments() {
 
       {/* Record Payment Modal */}
       {showRecordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleRecordPaymentSubmit} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
-            <h3 className="font-display text-base font-bold text-(--color-text)">Record Member Payment</h3>
-
+        <Modal onClose={() => setShowRecordModal(false)} maxWidth="md" title="Record Member Payment">
+          <form onSubmit={handleRecordPaymentSubmit} className="space-y-4 text-xs">
             <div>
               <CustomSelect
                 label="Select Member"
@@ -315,7 +318,7 @@ export default function Payments() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -69,22 +69,6 @@ export class EquipmentService {
       Equipment.countDocuments(filter),
     ]);
 
-    if (equipment.length === 0 && filter.branchId) {
-      delete filter.branchId;
-      [equipment, totalItems] = await Promise.all([
-        Equipment.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
-        Equipment.countDocuments(filter),
-      ]);
-    }
-
-    if (equipment.length === 0 && filter.gymId) {
-      delete filter.gymId;
-      [equipment, totalItems] = await Promise.all([
-        Equipment.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
-        Equipment.countDocuments(filter),
-      ]);
-    }
-
     const meta = buildPaginationMeta(totalItems, page, limit);
 
     return { equipment, meta };

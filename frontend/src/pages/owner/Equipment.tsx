@@ -4,6 +4,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
+import Modal from "@/components/ui/Modal";
 import { equipmentApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
@@ -65,8 +66,8 @@ export default function Equipment() {
 
   const handleAddEquipment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
 
     setSubmittingAdd(true);
     try {
@@ -169,9 +170,8 @@ export default function Equipment() {
 
       {/* Add Equipment Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleAddEquipment} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-lg font-bold text-(--color-text)">Register Gym Equipment</h3>
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Register Gym Equipment">
+          <form onSubmit={handleAddEquipment} className="space-y-4">
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Equipment Name</label>
@@ -212,7 +212,7 @@ export default function Equipment() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

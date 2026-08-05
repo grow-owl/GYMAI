@@ -2,6 +2,7 @@ export const ownerNav = [
   { label: "Dashboard", path: "/owner", icon: "LayoutGrid" },
   { label: "Members", path: "/owner/members", icon: "Users" },
   { label: "Trainers", path: "/owner/trainers", icon: "Dumbbell" },
+  { label: "Staff", path: "/owner/staff", icon: "UserCheck" },
   { label: "Attendance", path: "/owner/attendance", icon: "QrCode" },
   { label: "Store & Inventory", path: "/owner/inventory", icon: "Package" },
   { label: "Expenses", path: "/owner/expenses", icon: "DollarSign" },
@@ -39,7 +40,12 @@ export const receptionNav = [
 export const memberNav = [
   { label: "Home", path: "/member", icon: "Home" },
   { label: "Workout", path: "/member/workout-plan", icon: "Dumbbell" },
-  { label: "AI", path: "/member/ai-coach", icon: "Sparkles" },
+  { label: "Diet Plan", path: "/member/diet-plan", icon: "Salad" },
+  { label: "AI Coach", path: "/member/ai-coach", icon: "Sparkles" },
+  { label: "Attendance", path: "/member/attendance", icon: "QrCode" },
   { label: "Progress", path: "/member/progress", icon: "LineChart" },
+  { label: "Gamification", path: "/member/rewards", icon: "Trophy" },
+  { label: "Payments", path: "/member/payments", icon: "CreditCard" },
+  { label: "Referral", path: "/member/referral", icon: "Gift" },
   { label: "Profile", path: "/member/profile", icon: "User" },
 ];

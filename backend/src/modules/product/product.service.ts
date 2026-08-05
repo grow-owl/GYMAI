@@ -66,14 +66,6 @@ export class ProductService {
       Product.countDocuments(filter),
     ]);
 
-    if (products.length === 0 && filter.gymId) {
-      delete filter.gymId;
-      [products, totalItems] = await Promise.all([
-        Product.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
-        Product.countDocuments(filter),
-      ]);
-    }
-
     const meta = buildPaginationMeta(totalItems, page, limit);
 
     return { products, meta };

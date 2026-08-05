@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { QrCode, CheckCircle, LogOut, Clock, Calendar, ShieldCheck, Loader2 } from "lucide-react";
+import { QrCode, CheckCircle, LogOut, Clock, ShieldCheck, Loader2 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { attendanceApi } from "@/lib/endpoints";
 import { toast } from "sonner";
-import QRScanner from "./QRScanner";
 
 interface AttendanceCardProps {
   gymId?: string;
@@ -14,18 +13,14 @@ interface AttendanceCardProps {
 export default function AttendanceCheckInCard({ gymId = "gym-1", branchId = "branch-1", memberId }: AttendanceCardProps) {
   const [currentSession, setCurrentSession] = useState<any | null>(null);
   const [stats, setStats] = useState<any | null>(null);
-  const [history, setHistory] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
 
   const fetchAttendance = async () => {
-    setLoading(true);
     try {
-      const [currRes, statsRes, histRes] = await Promise.all([
+      const [currRes, statsRes] = await Promise.all([
         attendanceApi.getCurrentSession().catch(() => null),
         attendanceApi.getMyStats().catch(() => null),
-        attendanceApi.getMyHistory().catch(() => []),
       ]);
 
       if (currRes && (currRes.session || currRes._id)) {
@@ -34,13 +29,7 @@ export default function AttendanceCheckInCard({ gymId = "gym-1", branchId = "bra
       if (statsRes) {
         setStats(statsRes);
       }
-      if (Array.isArray(histRes)) {
-        setHistory(histRes);
-      }
-    } catch (err) {
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
   };
 
   useEffect(() => {
@@ -55,9 +44,7 @@ export default function AttendanceCheckInCard({ gymId = "gym-1", branchId = "bra
       setCurrentSession(res?.checkIn || { _id: "att-now", checkInTime: new Date().toISOString() });
       fetchAttendance();
     } catch (err: any) {
-      // Fallback mock checkin if offline/mock
-      toast.success("Checked in successfully! Have a great session.");
-      setCurrentSession({ _id: "att-now", checkInTime: new Date().toISOString() });
+      toast.error(err.response?.data?.message || err.message || "Check-in failed. Please try again.");
     } finally {
       setCheckingIn(false);
     }

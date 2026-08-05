@@ -61,6 +61,8 @@ export const authApi = {
 };
 
 export const gymApi = {
+  listAllGyms: () => api.get<{ gyms: any[] }>("/gyms"),
+
   createGym: (input: { name: string; billingEmail: string }) =>
     api.post<{ gym: { _id: string; name: string } }>("/gyms", input),
 
@@ -123,6 +125,14 @@ export const trainerApi = {
     api.delete<any>(`/gyms/${gymId}/trainers/${trainerId}`),
 };
 
+export const staffApi = {
+  list: (gymId: string, branchId: string) =>
+    api.get<{ staff: any[] }>(`/gyms/${gymId}/branches/${branchId}/staff`),
+
+  create: (gymId: string, branchId: string, data: any) =>
+    api.post<{ staff: any }>(`/gyms/${gymId}/branches/${branchId}/staff`, data),
+};
+
 export const memberApi = {
   list: (gymId: string, branchId: string) =>
     api.get<{ members: any[] } | any[]>(`/gyms/${gymId}/branches/${branchId}/members`),
@@ -139,7 +149,7 @@ export const memberApi = {
   cancel: (gymId: string, _branchId: string, memberId: string, reason: string) =>
     api.patch<any>(`/gyms/${gymId}/members/${memberId}/cancel`, { reason }),
 
-  renew: (gymId: string, memberId: string, data: { newEndDate: string; planName?: string }) =>
+  renew: (gymId: string, _branchId: string, memberId: string, data: { newEndDate: string; planName?: string }) =>
     api.patch<any>(`/gyms/${gymId}/members/${memberId}/renew`, data),
 
   getSelfProfile: () => api.get<{ member: any }>("/members/me"),
@@ -181,6 +191,8 @@ export const workoutApi = {
   duplicatePlan: (planId: string) => api.post<any>(`/workout-plans/${planId}/duplicate`),
 
   logWorkout: (data: any) => api.post<any>("/workout-logs/start", data),
+
+  getCompletionStats: (memberId: string) => api.get<any>(`/members/${memberId}/workout-stats`),
 };
 
 export const dietApi = {

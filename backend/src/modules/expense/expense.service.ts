@@ -75,22 +75,6 @@ export class ExpenseService {
       Expense.countDocuments(filter),
     ]);
 
-    if (expenses.length === 0 && filter.branchId) {
-      delete filter.branchId;
-      [expenses, totalItems] = await Promise.all([
-        Expense.find(filter).skip(skip).limit(limit).sort({ expenseDate: -1 }),
-        Expense.countDocuments(filter),
-      ]);
-    }
-
-    if (expenses.length === 0 && filter.gymId) {
-      delete filter.gymId;
-      [expenses, totalItems] = await Promise.all([
-        Expense.find(filter).skip(skip).limit(limit).sort({ expenseDate: -1 }),
-        Expense.countDocuments(filter),
-      ]);
-    }
-
     const meta = buildPaginationMeta(totalItems, page, limit);
 
     return { expenses, meta };

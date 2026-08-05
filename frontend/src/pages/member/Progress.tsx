@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import Modal from "@/components/ui/Modal";
 import { Camera, Upload, Clock3, Plus } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -255,40 +255,35 @@ export default function Progress() {
       </Card>
 
       {/* Log Weight Modal */}
-      {showLogModal &&
-        createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
-            <div className="bg-(--color-surface) border border-(--color-border) rounded-3xl p-6 sm:p-8 w-full max-w-md space-y-5 shadow-2xl relative overflow-hidden">
-              <h3 className="font-display text-lg font-bold text-(--color-text)">Log Weight Entry</h3>
-              <form onSubmit={handleSaveWeight} className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-(--color-text-muted) block mb-1">Body Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={newWeight}
-                    onChange={(e) => setNewWeight(e.target.value)}
-                    className="w-full p-3 rounded-2xl bg-(--color-surface-2) border border-(--color-border) text-base font-bold text-(--color-text) outline-none focus:border-(--color-accent) font-mono"
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowLogModal(false)}
-                    className="px-5 py-2.5 rounded-full text-xs font-semibold text-(--color-text-muted) hover:bg-(--color-surface-2)"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="px-6 py-2.5 rounded-full text-xs font-bold bg-(--color-accent) text-white shadow-md">
-                    Save Weight
-                  </button>
-                </div>
-              </form>
+      {showLogModal && (
+        <Modal onClose={() => setShowLogModal(false)} maxWidth="md" title="Log Weight Entry">
+          <form onSubmit={handleSaveWeight} className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-(--color-text-muted) block mb-1">Body Weight (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                required
+                value={newWeight}
+                onChange={(e) => setNewWeight(e.target.value)}
+                className="w-full p-3 rounded-2xl bg-(--color-surface-2) border border-(--color-border) text-base font-bold text-(--color-text) outline-none focus:border-(--color-accent) font-mono"
+              />
             </div>
-          </div>,
-          document.body
-        )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLogModal(false)}
+                className="px-5 py-2.5 rounded-full text-xs font-semibold text-(--color-text-muted) hover:bg-(--color-surface-2)"
+              >
+                Cancel
+              </button>
+              <button type="submit" className="px-6 py-2.5 rounded-full text-xs font-bold bg-(--color-accent) text-white shadow-md">
+                Save Weight
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

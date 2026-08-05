@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Target, Loader2, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
+import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { leadApi } from "@/lib/endpoints";
@@ -71,9 +72,8 @@ export default function Leads() {
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
-
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
     setSubmittingAdd(true);
     try {
       await leadApi.create(activeGymId, activeBranchId, newLead);
@@ -89,8 +89,8 @@ export default function Leads() {
   };
 
   const handleUpdateStatus = async (leadId: string, status: string) => {
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
     try {
       await leadApi.updateStatus(activeGymId, activeBranchId, leadId, status);
       toast.success(`Lead status updated to ${status}`);
@@ -173,10 +173,8 @@ export default function Leads() {
 
       {/* Add Lead Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleAddLead} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-lg font-bold text-(--color-text)">Register Sales Lead</h3>
-
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Register Sales Lead">
+          <form onSubmit={handleAddLead} className="space-y-4">
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
@@ -243,7 +241,7 @@ export default function Leads() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { FileDown, Eye, X, FileJson, FileSpreadsheet, Loader2, RefreshCw, BarCha
 import clsx from "clsx";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
+import Modal from "@/components/ui/Modal";
 import { reportApi, type DashboardOverview } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -155,8 +156,12 @@ export default function Reports() {
   };
 
   const fetchData = async () => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const activeGymId = user?.gymId || "";
+    const activeBranchId = user?.branchId || "";
+    if (!activeGymId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -164,21 +169,18 @@ export default function Reports() {
         reportApi.getOverview(activeGymId, activeBranchId).catch(() => null),
         reportApi.listReports(activeGymId).catch(() => null),
       ]);
-      const fallbackOverview: DashboardOverview = {
-        totalActiveMembers: 24,
-        totalTrainers: 5,
-        todayCheckIns: 14,
-        revenueThisMonth: 125000,
-        membershipsExpiringIn7Days: 3,
-        avgAttendanceRate30d: 82,
-      };
-      setOverview(ovRes || fallbackOverview);
+      if (ovRes) {
+        setOverview(ovRes);
+      } else {
+        setOverview(null);
+      }
       if (repRes?.reports) {
         setGeneratedReports(repRes.reports);
         setCurrentPage(1);
       }
     } catch {
-      setError(null);
+      setError("Failed to load analytics overview.");
+      setOverview(null);
     } finally {
       setLoading(false);
     }
@@ -220,7 +222,7 @@ export default function Reports() {
   ];
 
   const handleRequestReport = async (type: string) => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeGymId = user?.gymId || "";
     try {
       const now = new Date();
       const past30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -440,10 +442,9 @@ export default function Reports() {
 
       {/* Report Modal */}
       {active && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setActive(null)} />
-          <div className="relative w-full max-w-lg max-h-[80vh] overflow-auto rounded-2xl bg-(--color-surface) border border-(--color-border) shadow-xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border) sticky top-0 bg-(--color-surface)">
+        <Modal onClose={() => setActive(null)} maxWidth="lg" showCloseButton={false}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-(--color-border)">
               <div>
                 <p className="text-sm font-semibold text-(--color-text)">{active.name}</p>
                 <p className="text-xs text-(--color-text-faint)">{active.period}</p>
@@ -491,15 +492,14 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Custom Report View Modal */}
       {viewingReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setViewingReport(null)} />
-          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-auto rounded-2xl bg-(--color-surface) border border-(--color-border) shadow-xl flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border) sticky top-0 bg-(--color-surface)">
+        <Modal onClose={() => setViewingReport(null)} maxWidth="2xl" showCloseButton={false}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-(--color-border)">
               <div>
                 <p className="text-sm font-semibold text-(--color-text)">
                   {viewingReport.reportType ? viewingReport.reportType.replace(/_/g, " ") : "Custom Export Data"}
@@ -520,17 +520,17 @@ export default function Reports() {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-5 overflow-auto text-xs font-mono bg-(--color-surface-2) border-b border-(--color-border) max-h-[50vh]">
               <pre className="whitespace-pre-wrap text-left text-(--color-text-muted)">
-                {viewingReport.format === "pdf" 
+                {viewingReport.format === "pdf"
                   ? `PDF Report is stored in the cloud. Click Download above to open file.`
                   : reportDataToCsv(viewingReport.reportType, viewingReport.reportData)
                 }
               </pre>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

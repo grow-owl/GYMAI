@@ -18,41 +18,25 @@ interface PerformanceChartsProps {
 
 export default function PerformanceCharts({
   weightLogs = [],
-  targetWeightKg = 72,
+  targetWeightKg,
   onLogWeightClick,
-  isLoading = false,
 }: PerformanceChartsProps) {
   const [activeTab, setActiveTab] = useState<"weight" | "volume" | "attendance">("weight");
-  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d">("30d");
 
-  // Fallback mock history if weightLogs is empty
   const displayLogs = useMemo(() => {
     if (weightLogs && weightLogs.length > 0) {
       return [...weightLogs].sort(
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
     }
-    // Generate realistic default mock progress over last 30 days
-    const now = new Date();
-    const mock = [];
-    const baseWeight = 82.5;
-    for (let i = 25; i >= 0; i -= 4) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const randomVar = (25 - i) * 0.2 + (Math.sin(i) * 0.3);
-      mock.push({
-        weightKg: Number((baseWeight - randomVar).toFixed(1)),
-        createdAt: d.toISOString(),
-      });
-    }
-    return mock;
+    return [];
   }, [weightLogs]);
 
   // Calculations for stats summary
-  const latestWeight = displayLogs.length > 0 ? displayLogs[displayLogs.length - 1].weightKg : 78;
-  const initialWeight = displayLogs.length > 0 ? displayLogs[0].weightKg : 82.5;
-  const totalChange = Number((latestWeight - initialWeight).toFixed(1));
-  const diffToTarget = Number((latestWeight - targetWeightKg).toFixed(1));
+  const latestWeight = displayLogs.length > 0 ? displayLogs[displayLogs.length - 1].weightKg : null;
+  const initialWeight = displayLogs.length > 0 ? displayLogs[0].weightKg : null;
+  const totalChange = (latestWeight !== null && initialWeight !== null) ? Number((latestWeight - initialWeight).toFixed(1)) : 0;
+  const diffToTarget = (latestWeight !== null && targetWeightKg) ? Number((latestWeight - targetWeightKg).toFixed(1)) : null;
 
   // Compute SVG coordinates for Weight Chart
   const svgChartData = useMemo(() => {
@@ -63,8 +47,8 @@ export default function PerformanceCharts({
     const padding = 35;
 
     const weights = displayLogs.map((d) => d.weightKg);
-    const minW = Math.min(...weights, targetWeightKg) - 1;
-    const maxW = Math.max(...weights, targetWeightKg) + 1;
+    const minW = Math.min(...weights, ...(targetWeightKg ? [targetWeightKg] : [])) - 1;
+    const maxW = Math.max(...weights, ...(targetWeightKg ? [targetWeightKg] : [])) + 1;
 
     const points = displayLogs.map((d, idx) => {
       const x = padding + (idx / Math.max(1, displayLogs.length - 1)) * (width - 2 * padding);
@@ -84,7 +68,7 @@ export default function PerformanceCharts({
 
     const areaString = `${pathString} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
 
-    const targetY = height - padding - ((targetWeightKg - minW) / (maxW - minW || 1)) * (height - 2 * padding);
+    const targetY = targetWeightKg ? height - padding - ((targetWeightKg - minW) / (maxW - minW || 1)) * (height - 2 * padding) : null;
 
     return { pathString, areaString, points, targetY, minW, maxW };
   }, [displayLogs, targetWeightKg]);
@@ -165,7 +149,10 @@ export default function PerformanceCharts({
 
             <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
               <span className="text-[11px] text-(--color-text-muted) font-medium uppercase tracking-wider">Target Goal</span>
-              <p className="text-xl font-extrabold text-emerald-400 mt-0.5">{targetWeightKg} <span className="text-xs font-normal text-(--color-text-muted)">kg</span></p>
+              <p className="text-xl font-extrabold text-emerald-400 mt-0.5">
+                {targetWeightKg ? `${targetWeightKg} ` : "— "}
+                <span className="text-xs font-normal text-(--color-text-muted)">{targetWeightKg ? "kg" : "Not set"}</span>
+              </p>
             </div>
 
             <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
@@ -179,7 +166,10 @@ export default function PerformanceCharts({
             <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5 flex items-center justify-between">
               <div>
                 <span className="text-[11px] text-(--color-text-muted) font-medium uppercase tracking-wider">Remaining</span>
-                <p className="text-xl font-extrabold text-(--color-accent) mt-0.5">{Math.abs(diffToTarget)} <span className="text-xs font-normal text-(--color-text-muted)">kg</span></p>
+                <p className="text-xl font-extrabold text-(--color-accent) mt-0.5">
+                  {diffToTarget !== null ? `${Math.abs(diffToTarget)} ` : "— "}
+                  <span className="text-xs font-normal text-(--color-text-muted)">{diffToTarget !== null ? "kg" : ""}</span>
+                </p>
               </div>
               <button
                 onClick={onLogWeightClick}
@@ -195,9 +185,11 @@ export default function PerformanceCharts({
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-semibold text-(--color-text-muted)">Weight Curve (kg)</span>
               <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-[11px] text-emerald-400">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" /> Target Line ({targetWeightKg}kg)
-                </span>
+                {targetWeightKg ? (
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400" /> Target Line ({targetWeightKg}kg)
+                  </span>
+                ) : null}
                 <span className="flex items-center gap-1 text-[11px] text-(--color-accent)">
                   <span className="h-2 w-2 rounded-full bg-(--color-accent)" /> Logged History
                 </span>

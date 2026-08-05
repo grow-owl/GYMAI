@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { Sparkles, Send, Bot, User as UserIcon, Loader2, RefreshCw, Zap } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { aiApi } from "@/lib/endpoints";
-import { toast } from "sonner";
 
 interface ChatMessage {
   id?: string;

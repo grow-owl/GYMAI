@@ -57,7 +57,7 @@ export default function AIInsights() {
     };
 
     const loadAtRisk = async () => {
-      const gymId = user?.gymId || "65a000000000000000000001";
+      const gymId = user?.gymId || "";
       setLoadingAtRisk(true);
       try {
         const res = await aiApi.getAtRiskMembers(gymId);

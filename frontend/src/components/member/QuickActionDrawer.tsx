@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Scale, MessageSquare, Shield, Share2, X, Loader2, Star, Download, Check } from "lucide-react";
-import { progressApi, feedbackApi, privacyApi, memberApi } from "@/lib/endpoints";
+import { progressApi, feedbackApi, privacyApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
 interface QuickActionModalProps {
@@ -15,7 +15,7 @@ export default function QuickActionDrawer({
   type,
   onClose,
   memberId = "me",
-  referralCode = "SPARTAN-REF",
+  referralCode = "",
   onWeightSuccess,
 }: QuickActionModalProps) {
   if (!type) return null;
@@ -284,7 +284,7 @@ export default function QuickActionDrawer({
 
             <div className="p-4 rounded-xl bg-(--color-surface-2) border border-white/10 text-center space-y-2">
               <span className="text-[10px] text-(--color-text-muted) uppercase font-bold tracking-wider">Your Referral Code</span>
-              <p className="font-mono text-2xl font-extrabold text-white tracking-wider">{referralCode}</p>
+              <p className="font-mono text-2xl font-extrabold text-white tracking-wider">{referralCode || "Code unavailable"}</p>
             </div>
 
             <button

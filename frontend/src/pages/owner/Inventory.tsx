@@ -4,6 +4,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
+import Modal from "@/components/ui/Modal";
 import { productApi, memberApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
@@ -88,7 +89,7 @@ export default function Inventory() {
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = gymId || "65a000000000000000000001";
+    const activeGymId = gymId || "";
     setSubmittingAdd(true);
     try {
       await productApi.add(activeGymId, {
@@ -131,7 +132,7 @@ export default function Inventory() {
         customerName: formattedCustomerName,
         paymentMethod: salePaymentMethod,
         notes: `Purchased ${saleQuantity}x ${selectedProduct.name}`,
-      });
+      } as any);
       toast.success(`Sold ${saleQuantity}x ${selectedProduct.name}! Payment recorded.`);
       setShowSaleModal(false);
       setSelectedProduct(null);
@@ -257,9 +258,8 @@ export default function Inventory() {
 
       {/* Add Product Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleAddProduct} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-lg font-bold text-(--color-text)">Add Store Product</h3>
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Add Store Product">
+          <form onSubmit={handleAddProduct} className="space-y-4">
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Product Name</label>
@@ -323,17 +323,20 @@ export default function Inventory() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {/* POS Sale Modal */}
       {showSaleModal && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleSellProduct} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-base font-bold text-(--color-text)">
-              Record Sale: {selectedProduct.name}
-            </h3>
-
+        <Modal
+          onClose={() => {
+            setShowSaleModal(false);
+            setSelectedProduct(null);
+          }}
+          maxWidth="md"
+          title={`Record Sale: ${selectedProduct.name}`}
+        >
+          <form onSubmit={handleSellProduct} className="space-y-4">
             <div className="space-y-3 text-xs">
               <div>
                 <CustomSelect
@@ -423,7 +426,7 @@ export default function Inventory() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

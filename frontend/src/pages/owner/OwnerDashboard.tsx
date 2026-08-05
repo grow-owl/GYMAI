@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Sparkles, ArrowRight, TrendingUp, Clock, Award, AlertTriangle, Activity, Loader2, Users } from "lucide-react";
+import { Sparkles, ArrowRight, TrendingUp, Clock, Award, AlertTriangle, Loader2, Users } from "lucide-react";
 import KpiCard from "@/components/ui/KpiCard";
 import QuickAccessCard from "@/components/ui/QuickAccessCard";
 import Card from "@/components/ui/Card";
@@ -98,7 +98,7 @@ export default function OwnerDashboard() {
   const frozenCount = memberList.filter((m) => m.membershipStatus === "FROZEN").length;
   const cancelledCount = memberList.filter((m) => m.membershipStatus === "CANCELLED").length;
 
-  const totalMembersCount = Math.max(overview?.totalActiveMembers || 0, memberList.length, activeCount);
+  const totalMembersCount = overview?.totalActiveMembers ?? memberList.length;
 
   const kpis = overview
     ? [
@@ -109,13 +109,11 @@ export default function OwnerDashboard() {
       ]
     : [];
 
-  const totalSegmented = activeCount + expiredCount + frozenCount + cancelledCount;
-
   const statusSegments = [
-    { label: "Active", value: Math.max(activeCount, totalSegmented === 0 ? 1 : 0), color: "var(--tone-green)" },
-    { label: "Expired", value: Math.max(expiredCount, 0), color: "var(--tone-amber)" },
-    { label: "Frozen", value: Math.max(frozenCount, 0), color: "var(--tone-blue)" },
-    { label: "Cancelled", value: Math.max(cancelledCount, 0), color: "var(--tone-pink)" },
+    { label: "Active", value: activeCount, color: "var(--tone-green)" },
+    { label: "Expired", value: expiredCount, color: "var(--tone-amber)" },
+    { label: "Frozen", value: frozenCount, color: "var(--tone-blue)" },
+    { label: "Cancelled", value: cancelledCount, color: "var(--tone-pink)" },
   ];
 
   const attendanceWeeks = buildAttendanceWeeks(overview?.todayCheckIns ?? 0);
@@ -204,7 +202,7 @@ export default function OwnerDashboard() {
 
       {/* Mini stats footer */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {miniStats.map(({ label, value, note, icon: Icon, tone }) => {
+        {miniStats.map(({ label, value, icon: Icon, tone }) => {
           const { bg, text } = miniStatClasses[tone];
           return (
             <Card key={label} className="flex items-center gap-3">

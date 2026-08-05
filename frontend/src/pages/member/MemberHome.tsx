@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Flame, Scale, MessageSquare, Shield, Share2, Award, Zap, RefreshCw, Loader2, Dumbbell, Calendar } from "lucide-react";
-import { memberApi, workoutApi, dietApi, progressApi, gamificationApi, attendanceApi, notificationApi, paymentApi } from "@/lib/endpoints";
+import { Bell, Scale, MessageSquare, Shield, Share2, AlertCircle } from "lucide-react";
+import { memberApi, progressApi, gamificationApi, attendanceApi, notificationApi, paymentApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { deriveGameStats } from "@/lib/gamification";
 import FitnessScoreGauge from "@/components/member/FitnessScoreGauge";
 import PerformanceCharts from "@/components/member/PerformanceCharts";
 import AIChatWidget from "@/components/member/AIChatWidget";
@@ -11,27 +12,27 @@ import LeaderboardCard from "@/components/member/LeaderboardCard";
 import AttendanceCheckInCard from "@/components/member/AttendanceCheckInCard";
 import WorkoutDietOverview from "@/components/member/WorkoutDietOverview";
 import QuickActionDrawer from "@/components/member/QuickActionDrawer";
-import Card from "@/components/ui/Card";
-import { toast } from "sonner";
 
 export default function MemberHome() {
   const user = useAuthStore((s) => s.user);
   
   // Primary States
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [memberProfile, setMemberProfile] = useState<any | null>(null);
   const [gameProfile, setGameProfile] = useState<any | null>(null);
   const [weightLogs, setWeightLogs] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState<any | null>(null);
-  const [completedWorkoutsCount, setCompletedWorkoutsCount] = useState<number>(12);
+  const [completedWorkoutsCount, setCompletedWorkoutsCount] = useState<number>(0);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
-  const [myPayment, setMyPayment] = useState<any | null>(null);
+  const [, setMyPayment] = useState<any | null>(null);
 
   // Modal State
   const [activeModal, setActiveModal] = useState<"weight" | "feedback" | "privacy" | "referral" | null>(null);
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
+    setProfileError(null);
     try {
       // 1. Get Self Member Profile
       const profRes = await memberApi.getSelfProfile().catch(() => null);
@@ -39,15 +40,21 @@ export default function MemberHome() {
       if (m) setMemberProfile(m);
 
       const memberId = m?._id || user?._id;
-      const gymId = m?.gymId || user?.gymId || "gym-1";
+      const gymId = m?.gymId || user?.gymId;
+      const branchId = m?.branchId || user?.branchId;
+
+      if (!gymId || !branchId) {
+        setProfileError("Couldn't load your profile — please try logging in again.");
+      }
 
       // 2. Fetch parallel endpoints
-      const [gameRes, weightRes, attStatsRes, unreadRes, payRes] = await Promise.all([
+      const [gameRes, weightRes, attStatsRes, unreadRes, payRes, workoutStatsRes] = await Promise.all([
         gamificationApi.getMyProfile().catch(() => null),
-        progressApi.getHistory(memberId).catch(() => null),
+        memberId ? progressApi.getHistory(memberId).catch(() => null) : null,
         attendanceApi.getMyStats().catch(() => null),
         notificationApi.getUnreadCount().catch(() => null),
         gymId ? paymentApi.getMyPayments(gymId).catch(() => null) : null,
+        memberId ? workoutApi.getCompletionStats(memberId).catch(() => null) : null,
       ]);
 
       if (gameRes) setGameProfile(gameRes);
@@ -58,6 +65,10 @@ export default function MemberHome() {
       if (attStatsRes) setAttendanceStats(attStatsRes);
       if (unreadRes) setUnreadNotifications(unreadRes?.unreadCount || 0);
       if (payRes) setMyPayment(payRes);
+      if (workoutStatsRes) {
+        const count = workoutStatsRes?.stats?.totalWorkoutSessions ?? workoutStatsRes?.totalWorkoutSessions ?? 0;
+        setCompletedWorkoutsCount(count);
+      }
 
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -70,14 +81,31 @@ export default function MemberHome() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const memberName = memberProfile?.userId?.fullName || user?.fullName || "Spartan Lifter";
-  const streakDays = gameProfile?.currentStreakDays ?? attendanceStats?.currentStreak ?? 5;
-  const attendanceRate = attendanceStats?.attendanceRate ?? 85;
-  const totalXp = gameProfile?.totalXp ?? 1250;
-  const referralCode = memberProfile?.referralCode || "SPARTAN-REF";
-  const gymId = memberProfile?.gymId || user?.gymId || "gym-1";
-  const branchId = memberProfile?.branchId || user?.branchId || "branch-1";
-  const memberId = memberProfile?._id || user?._id;
+  const memberName = memberProfile?.userId?.fullName || user?.fullName || "Gym Member";
+  const gameStats = deriveGameStats(gameProfile);
+  const streakDays = gameStats.streak || attendanceStats?.currentStreak || 0;
+  const attendanceRate = attendanceStats?.attendanceRate ?? 0;
+  const totalXp = gameStats.totalXp;
+  const referralCode = memberProfile?.referralCode || "";
+  const gymId = memberProfile?.gymId || user?.gymId || "";
+  const branchId = memberProfile?.branchId || user?.branchId || "";
+  const memberId = memberProfile?._id || user?._id || "";
+
+  if (!loading && profileError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-(--color-surface) rounded-2xl border border-(--color-border) text-center space-y-4">
+        <AlertCircle className="h-10 w-10 text-amber-400 animate-bounce" />
+        <h2 className="text-lg font-bold text-(--color-text)">Profile Load Error</h2>
+        <p className="text-xs text-(--color-text-muted) max-w-md">{profileError}</p>
+        <button
+          onClick={fetchDashboardData}
+          className="px-4 py-2 rounded-xl bg-(--color-accent) text-white text-xs font-bold"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12">
@@ -102,7 +130,7 @@ export default function MemberHome() {
             <p className="text-xs text-(--color-text-muted) mt-0.5 flex items-center gap-2">
               <span>{streakDays} Day Workout Streak 🔥</span>
               <span>•</span>
-              <span>Level {gameProfile?.level || 1} Spartan</span>
+              <span>Level {gameStats.level} Spartan</span>
             </p>
           </div>
         </div>
@@ -169,7 +197,7 @@ export default function MemberHome() {
       {/* SECTION 3: Performance & Progress Charts */}
       <PerformanceCharts
         weightLogs={weightLogs}
-        targetWeightKg={memberProfile?.targetWeightKg || 72}
+        targetWeightKg={memberProfile?.targetWeightKg}
         onLogWeightClick={() => setActiveModal("weight")}
         isLoading={loading}
       />
@@ -179,6 +207,7 @@ export default function MemberHome() {
         <div className="lg:col-span-7">
           <StreakGamificationHub
             gameProfile={gameProfile}
+            gameStats={gameStats}
             onProfileUpdate={fetchDashboardData}
           />
         </div>

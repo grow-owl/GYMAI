@@ -3,8 +3,8 @@ import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshC
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import Modal from "@/components/ui/Modal";
 import { memberApi, authApi } from "@/lib/endpoints";
-import { useAuthStore } from "@/store/authStore";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useSearchStore } from "../../store/searchStore";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ export default function Members() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
-  const [activeModalType, setActiveModalType] = useState<"freeze" | "extend" | "cancel" | "view" | null>(null);
+  const [activeModalType, setActiveModalType] = useState<"freeze" | "extend" | "cancel" | "renew" | "view" | null>(null);
 
   // Reset Password Modal
   const [showResetModal, setShowResetModal] = useState(false);
@@ -56,6 +56,8 @@ export default function Members() {
   });
   const [reason, setReason] = useState("");
   const [extendDays, setExtendDays] = useState(30);
+  const [renewPlanName, setRenewPlanName] = useState("");
+  const [renewEndDate, setRenewEndDate] = useState("");
 
   const fetchMembers = async () => {
     if (!gymId || !branchId) {
@@ -69,8 +71,8 @@ export default function Members() {
       const res = await memberApi.list(gymId, branchId);
       const list = Array.isArray(res) ? res : res?.members || [];
       setMemberList(list);
-    } catch {
-      setError("Failed to load members from backend.");
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || "Failed to load members from server");
       setMemberList([]);
     } finally {
       setLoading(false);
@@ -83,8 +85,8 @@ export default function Members() {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
 
     setSubmittingAdd(true);
     try {
@@ -111,7 +113,7 @@ export default function Members() {
     }
   };
 
-  const handleAction = async (type: "freeze" | "extend" | "cancel") => {
+  const handleAction = async (type: "freeze" | "extend" | "cancel" | "renew") => {
     if (!selectedMember || !gymId || !branchId) return;
     const mId = selectedMember._id || selectedMember.id;
     try {
@@ -124,6 +126,10 @@ export default function Members() {
       } else if (type === "cancel") {
         await memberApi.cancel(gymId, branchId, mId, reason || "Member requested cancellation");
         toast.success("Membership cancelled.");
+      } else if (type === "renew") {
+        const targetDate = renewEndDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        await memberApi.renew(gymId, branchId, mId, { newEndDate: targetDate, planName: renewPlanName || selectedMember.planName });
+        toast.success("Membership renewed successfully!");
       }
       setActiveModalType(null);
       setSelectedMember(null);
@@ -270,6 +276,20 @@ export default function Members() {
                     <button
                       onClick={() => {
                         setSelectedMember(m);
+                        setRenewPlanName(m.planName || m.plan || "Monthly Fitness");
+                        const defaultEnd = new Date();
+                        defaultEnd.setMonth(defaultEnd.getMonth() + 1);
+                        setRenewEndDate(defaultEnd.toISOString().split("T")[0]);
+                        setActiveModalType("renew");
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-emerald-400"
+                      title="Renew Membership"
+                    >
+                      <RefreshCw size={15} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
                         setActiveModalType("cancel");
                       }}
                       className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-red-400"
@@ -309,9 +329,8 @@ export default function Members() {
 
       {/* Add Member Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleAddMember} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-lg font-bold text-(--color-text)">Register New Gym Member</h3>
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Register New Gym Member">
+          <form onSubmit={handleAddMember} className="space-y-4">
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
@@ -386,17 +405,20 @@ export default function Members() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {/* Action Modal (Freeze/Extend/Cancel/View) */}
       {activeModalType && selectedMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
-            <h3 className="font-display text-base font-bold text-(--color-text) capitalize">
-              {activeModalType} Membership: {selectedMember.fullName || selectedMember.name || selectedMember.userId?.fullName}
-            </h3>
-
+        <Modal
+          onClose={() => {
+            setActiveModalType(null);
+            setSelectedMember(null);
+          }}
+          maxWidth="sm"
+          title={`${activeModalType.toUpperCase()} Membership: ${selectedMember.fullName || selectedMember.name || selectedMember.userId?.fullName}`}
+        >
+          <div className="space-y-4 text-xs">
             {activeModalType === "view" ? (
               <div className="space-y-2 text-(--color-text-muted) bg-(--color-surface-2) p-3 rounded-xl">
                 <p><strong className="text-(--color-text)">Email:</strong> {selectedMember.email || selectedMember.userId?.email || "N/A"}</p>
@@ -417,16 +439,44 @@ export default function Members() {
                     />
                   </div>
                 )}
-                <div>
-                  <label className="block text-(--color-text-muted) mb-1 font-medium">Reason / Note</label>
-                  <input
-                    type="text"
-                    placeholder="Enter reason..."
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
-                  />
-                </div>
+
+                {activeModalType === "renew" && (
+                  <>
+                    <div>
+                      <label className="block text-(--color-text-muted) mb-1 font-medium">Membership Plan</label>
+                      <input
+                        type="text"
+                        required
+                        value={renewPlanName}
+                        onChange={(e) => setRenewPlanName(e.target.value)}
+                        className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-(--color-text-muted) mb-1 font-medium">New Expiration Date</label>
+                      <input
+                        type="date"
+                        required
+                        value={renewEndDate}
+                        onChange={(e) => setRenewEndDate(e.target.value)}
+                        className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {activeModalType !== "renew" && (
+                  <div>
+                    <label className="block text-(--color-text-muted) mb-1 font-medium">Reason / Note</label>
+                    <input
+                      type="text"
+                      placeholder="Enter reason..."
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -452,16 +502,17 @@ export default function Members() {
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Reset Password Modal */}
       {showResetModal && resetTargetUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleResetPassword} className="w-full max-w-sm rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
-            <h3 className="font-display text-base font-bold text-(--color-text)">
-              Reset Password: {resetTargetUser.fullName || "Member"}
-            </h3>
+        <Modal
+          onClose={() => setShowResetModal(false)}
+          maxWidth="sm"
+          title={`Reset Password: ${resetTargetUser.fullName || "Member"}`}
+        >
+          <form onSubmit={handleResetPassword} className="space-y-4 text-xs">
             <div>
               <label className="block text-(--color-text-muted) mb-1 font-medium">New Password</label>
               <input
@@ -489,7 +540,7 @@ export default function Members() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

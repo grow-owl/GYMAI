@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { GymController } from './gym.controller';
-import { PlatformBillingController } from '../payment/platformBilling.controller';
+import { AuthController } from '../auth/auth.controller';
 import { NotificationController } from '../notification/notification.controller';
-import { recordManualPlatformPaymentSchema } from '../payment/payment.validation';
 import { authenticate } from '../../common/middlewares/auth.middleware';
 import { authorize } from '../../common/middlewares/authorize.middleware';
 import { injectTenantScope } from '../../common/middlewares/tenant.middleware';
@@ -23,7 +22,12 @@ const router = Router();
 router.use(authenticate);
 router.use(injectTenantScope);
 
-// Gym Routes
+router.get(
+  '/',
+  authorize(Role.SUPER_ADMIN),
+  GymController.listAllGyms
+);
+
 router.post(
   '/',
   authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
@@ -61,13 +65,6 @@ router.get(
   '/:gymId/overview',
   authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER),
   GymController.getGymOverview
-);
-
-router.post(
-  '/:gymId/manual-payment',
-  authorize(Role.SUPER_ADMIN),
-  validate(recordManualPlatformPaymentSchema, 'body'),
-  PlatformBillingController.recordManualPlatformPayment
 );
 
 router.get(
@@ -114,6 +111,19 @@ router.patch(
   authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
   validate(assignManagerSchema, 'body'),
   GymController.assignBranchManager
+);
+
+// Staff Routes (Non-trainer staff creation & management)
+router.post(
+  '/:gymId/branches/:branchId/staff',
+  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
+  AuthController.registerStaff
+);
+
+router.get(
+  '/:gymId/branches/:branchId/staff',
+  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER),
+  AuthController.listStaff
 );
 
 export default router;

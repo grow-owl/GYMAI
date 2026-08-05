@@ -17,56 +17,12 @@ import {
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { notificationApi } from "@/lib/endpoints";
 import type { INotificationItem, NotificationPaginationMeta } from "@/lib/endpoints";
 import { toast } from "sonner";
 
-// Demo mock notifications in case backend is empty or user is testing offline
-const MOCK_NOTIFICATIONS: INotificationItem[] = [
-  {
-    _id: "mock-1",
-    title: "3 Memberships Expiring Soon",
-    body: "Memberships for Aman Verma, Priya Sharma, and Rohan Gupta are expiring in the next 3 days. Please review and send renewal reminders.",
-    type: "EXPIRATION",
-    isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-  },
-  {
-    _id: "mock-2",
-    title: "New Lead Assigned to You",
-    body: "A new prospective member 'Sunita Rao' signed up via website enquiry form and has been assigned to your branch.",
-    type: "LEAD",
-    isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-  },
-  {
-    _id: "mock-3",
-    title: "Payment Overdue Warning",
-    body: "Monthly fee payment for member #1042 (Karan Malhotra) is overdue by 5 days. Total pending amount: ₹2,500.",
-    type: "PAYMENT",
-    isRead: true,
-    readAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
-  },
-  {
-    _id: "mock-4",
-    title: "Weekly AI Workout Plan Generated",
-    body: "AI Coach completed generating new hypertrophy workout plans for 12 active member profiles.",
-    type: "WORKOUT",
-    isRead: true,
-    readAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 50).toISOString(),
-  },
-  {
-    _id: "mock-5",
-    title: "Gym Maintenance Announcement",
-    body: "The steam room will undergo routine maintenance on Sunday between 10:00 AM and 2:00 PM. Kindly notify attending members.",
-    type: "ANNOUNCEMENT",
-    isRead: true,
-    readAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 75).toISOString(),
-  },
-];
+
 
 function getNotificationIcon(type?: string) {
   switch (type?.toUpperCase()) {
@@ -163,77 +119,39 @@ export default function Notifications() {
       
       const rawList = res?.notifications || (Array.isArray(res as any) ? (res as any) : []);
       
-      if (rawList && rawList.length > 0) {
-        const list = rawList.map((n) =>
-          readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
-        );
-        
-        let filteredList = list;
-        if (filterTab === "UNREAD") filteredList = list.filter((n) => !n.isRead);
-        if (filterTab === "READ") filteredList = list.filter((n) => n.isRead);
+      const list = rawList.map((n: INotificationItem) =>
+        readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
+      );
+      
+      let filteredList = list;
+      if (filterTab === "UNREAD") filteredList = list.filter((n) => !n.isRead);
+      if (filterTab === "READ") filteredList = list.filter((n) => n.isRead);
 
-        setNotifications(filteredList);
-        if (res?.pagination) {
-          setPaginationMeta({
-            ...res.pagination,
-            totalItems: filteredList.length < list.length ? filteredList.length : res.pagination.totalItems,
-          });
-        } else {
-          setPaginationMeta({
-            page,
-            limit,
-            totalItems: filteredList.length,
-            totalPages: Math.ceil(filteredList.length / limit) || 1,
-            hasNextPage: false,
-            hasPrevPage: false,
-          });
-        }
+      setNotifications(filteredList);
+      if (res?.pagination) {
+        setPaginationMeta({
+          ...res.pagination,
+          totalItems: filteredList.length < list.length ? filteredList.length : res.pagination.totalItems,
+        });
       } else {
-        // Fallback to mock data for demo if backend returns empty feed
-        const mockProcessed = MOCK_NOTIFICATIONS.map((n) =>
-          readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
-        );
-        let filteredMock = mockProcessed;
-        if (filterTab === "UNREAD") filteredMock = mockProcessed.filter((n) => !n.isRead);
-        if (filterTab === "READ") filteredMock = mockProcessed.filter((n) => n.isRead);
-
-        const startIdx = (page - 1) * limit;
-        const pagedMock = filteredMock.slice(startIdx, startIdx + limit);
-        const total = filteredMock.length;
-        const totalPages = Math.ceil(total / limit) || 1;
-
-        setNotifications(pagedMock);
         setPaginationMeta({
           page,
           limit,
-          totalItems: total,
-          totalPages,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
+          totalItems: filteredList.length,
+          totalPages: Math.ceil(filteredList.length / limit) || 1,
+          hasNextPage: false,
+          hasPrevPage: false,
         });
       }
     } catch {
-      // Offline / API error fallback to mock data
-      const mockProcessed = MOCK_NOTIFICATIONS.map((n) =>
-        readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
-      );
-      let filteredMock = mockProcessed;
-      if (filterTab === "UNREAD") filteredMock = mockProcessed.filter((n) => !n.isRead);
-      if (filterTab === "READ") filteredMock = mockProcessed.filter((n) => n.isRead);
-
-      const startIdx = (page - 1) * limit;
-      const pagedMock = filteredMock.slice(startIdx, startIdx + limit);
-      const total = filteredMock.length;
-      const totalPages = Math.ceil(total / limit) || 1;
-
-      setNotifications(pagedMock);
+      setNotifications([]);
       setPaginationMeta({
         page,
         limit,
-        totalItems: total,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
+        totalItems: 0,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
       });
     } finally {
       setLoading(false);
@@ -485,19 +403,20 @@ export default function Notifications() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-(--color-surface) border border-(--color-border) rounded-2xl p-4">
           <div className="flex items-center gap-2 text-xs text-(--color-text-muted)">
             <span>Items per page:</span>
-            <select
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
+            <CustomSelect
+              value={String(limit)}
+              onChange={(v) => {
+                setLimit(Number(v));
                 setPage(1);
               }}
-              className="bg-(--color-surface-2) border border-(--color-border) text-(--color-text) text-xs rounded-lg px-2 py-1 outline-none"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
+              compact
+              options={[
+                { value: "5", label: "5" },
+                { value: "10", label: "10" },
+                { value: "20", label: "20" },
+                { value: "50", label: "50" },
+              ]}
+            />
           </div>
 
           <div className="flex items-center gap-2">

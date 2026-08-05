@@ -3,6 +3,7 @@ import { Plus, DollarSign, Receipt, Loader2, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import CustomSelect from "@/components/ui/CustomSelect";
+import Modal from "@/components/ui/Modal";
 import { expenseApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
@@ -55,8 +56,8 @@ export default function Expenses() {
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
 
     setSubmittingAdd(true);
     try {
@@ -148,9 +149,8 @@ export default function Expenses() {
 
       {/* Add Expense Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleAddExpense} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-lg font-bold text-(--color-text)">Add Gym Expense</h3>
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Add Gym Expense">
+          <form onSubmit={handleAddExpense} className="space-y-4">
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Expense Description</label>
@@ -202,7 +202,7 @@ export default function Expenses() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

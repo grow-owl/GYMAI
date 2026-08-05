@@ -384,4 +384,48 @@ export class AuthService {
 
     logger.info(`🔑 Password reset by admin [Executor: ${executor.id}] for User [Target: ${targetUser._id}]`);
   }
+
+  /**
+   * Gym Owner / Super Admin creation of non-trainer staff account (Branch Manager, Receptionist)
+   */
+  public static async registerStaff(
+    gymId: string,
+    branchId: string,
+    input: { fullName: string; email: string; phone: string; password: string; role?: Role }
+  ): Promise<IUser> {
+    const existing = await User.findOne({ email: input.email.toLowerCase(), isDeleted: false });
+    if (existing) {
+      throw AppError.conflict('An active user account with this email address already exists');
+    }
+
+    const user = new User({
+      fullName: input.fullName,
+      email: input.email.toLowerCase(),
+      phone: input.phone,
+      password: input.password,
+      role: input.role || Role.BRANCH_MANAGER,
+      gymId: new mongoose.Types.ObjectId(gymId),
+      branchId: new mongoose.Types.ObjectId(branchId),
+      isActive: true,
+    });
+
+    await user.save();
+    logger.info(`📋 Staff registered: [User ID: ${user._id}] [Role: ${user.role}] [Gym: ${gymId}]`);
+    return user;
+  }
+
+  /**
+   * List non-trainer staff accounts for a Gym / Branch
+   */
+  public static async listStaff(gymId: string, branchId?: string): Promise<IUser[]> {
+    const filter: any = {
+      gymId: new mongoose.Types.ObjectId(gymId),
+      role: { $in: [Role.BRANCH_MANAGER, Role.KIOSK] },
+      isDeleted: false,
+    };
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+      filter.branchId = new mongoose.Types.ObjectId(branchId);
+    }
+    return User.find(filter).select('-password').sort({ createdAt: -1 });
+  }
 }

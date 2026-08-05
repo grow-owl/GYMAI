@@ -95,21 +95,8 @@ export class DashboardService {
       Attendance.distinct('memberId', attendance30dMatch),
     ]);
 
-    let finalActiveMembers = totalActiveMembers;
-    if (finalActiveMembers === 0 && branchObjectId) {
-      finalActiveMembers = await Member.countDocuments({ gymId: gymObjectId, isDeleted: false, membershipStatus: MembershipStatus.ACTIVE });
-    }
-    if (finalActiveMembers === 0) {
-      finalActiveMembers = await Member.countDocuments({ isDeleted: false, membershipStatus: MembershipStatus.ACTIVE });
-    }
-
-    let finalTrainers = totalTrainers;
-    if (finalTrainers === 0 && branchObjectId) {
-      finalTrainers = await Trainer.countDocuments({ gymId: gymObjectId, isDeleted: false });
-    }
-    if (finalTrainers === 0) {
-      finalTrainers = await Trainer.countDocuments({ isDeleted: false });
-    }
+    const finalActiveMembers = totalActiveMembers;
+    const finalTrainers = totalTrainers;
 
     const revenueThisMonth = revenueResult[0]?.total || 0;
     const activeAttendedCount = distinct30dMembers.length;

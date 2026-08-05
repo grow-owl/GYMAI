@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Phone, MessageCircle, ArrowRightCircle, Plus, Loader2, RefreshCw, Target } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
+import Modal from "@/components/ui/Modal";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { leadApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -33,28 +35,22 @@ export default function ReceptionLeads() {
     interest: "Monthly Fitness",
   });
 
-const mockLeads: LeadRow[] = [
-  { _id: "m1", fullName: "Rahul Sharma", phone: "+91 9876543210", source: "Instagram Ad", status: "NEW", interest: "Personal Training" },
-  { _id: "m2", fullName: "Ananya Patel", phone: "+91 9876543211", source: "Website Inquiry", status: "CONTACTED", interest: "Yoga Classes" },
-  { _id: "m3", fullName: "Sameer Khan", phone: "+91 9876543212", source: "Walk-in", status: "TRIAL", interest: "Weight Loss Program" },
-  { _id: "m4", fullName: "Pooja Verma", phone: "+91 9876543213", source: "Referral", status: "CONVERTED", interest: "Annual Membership" },
-];
-
   const fetchLeads = async () => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    if (!user?.gymId || !user?.branchId) {
+      setError("Branch configuration missing.");
+      setLeads([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await leadApi.list(activeGymId, activeBranchId);
+      const res = await leadApi.list(user.gymId, user.branchId);
       const list = Array.isArray(res) ? res : (res as any)?.leads || [];
-      if (list && list.length > 0) {
-        setLeads(list as LeadRow[]);
-      } else {
-        setLeads(mockLeads);
-      }
+      setLeads(list as LeadRow[]);
     } catch {
-      setLeads(mockLeads);
+      setError("Failed to load leads from backend.");
+      setLeads([]);
     } finally {
       setLoading(false);
     }
@@ -88,10 +84,8 @@ const mockLeads: LeadRow[] = [
     toast.success(`Lead ${lead.fullName} status updated to ${nextStatus}`);
 
     try {
-      const activeGymId = user?.gymId || "65a000000000000000000001";
-      const activeBranchId = user?.branchId || "65a000000000000000000002";
-      if (!lead._id.startsWith("m")) {
-        await leadApi.updateStatus(activeGymId, activeBranchId, lead._id, nextStatus);
+      if (user?.gymId && user?.branchId && !lead._id.startsWith("m")) {
+        await leadApi.updateStatus(user.gymId, user.branchId, lead._id, nextStatus);
       }
     } catch {}
   };
@@ -198,58 +192,53 @@ const mockLeads: LeadRow[] = [
 
       {/* Add Lead Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">Add Reception Prospect</h3>
-            <form onSubmit={handleAddLead} className="space-y-3">
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Prospect Name</label>
-                <input
-                  required
-                  value={newLead.fullName}
-                  onChange={(e) => setNewLead({ ...newLead, fullName: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="e.g. Rahul Sharma"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Phone Number</label>
-                <input
-                  required
-                  value={newLead.phone}
-                  onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="+91 9876543210"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Source</label>
-                <select
-                  value={newLead.source}
-                  onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="Walk-in">Walk-in Inquiry</option>
-                  <option value="Phone Call">Phone Inquiry</option>
-                  <option value="Instagram Ad">Instagram Ad</option>
-                  <option value="Referral">Member Referral</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white">
-                  Save Lead
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Add Reception Prospect">
+          <form onSubmit={handleAddLead} className="space-y-3">
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Prospect Name</label>
+              <input
+                required
+                value={newLead.fullName}
+                onChange={(e) => setNewLead({ ...newLead, fullName: e.target.value })}
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                placeholder="e.g. Rahul Sharma"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Phone Number</label>
+              <input
+                required
+                value={newLead.phone}
+                onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                placeholder="+91 9876543210"
+              />
+            </div>
+            <CustomSelect
+              label="Source"
+              value={newLead.source}
+              onChange={(v) => setNewLead({ ...newLead, source: v })}
+              options={[
+                { value: "Walk-in", label: "Walk-in Inquiry" },
+                { value: "Phone Call", label: "Phone Inquiry" },
+                { value: "Instagram Ad", label: "Instagram Ad" },
+                { value: "Referral", label: "Member Referral" },
+              ]}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
+              >
+                Cancel
+              </button>
+              <button type="submit" className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white">
+                Save Lead
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

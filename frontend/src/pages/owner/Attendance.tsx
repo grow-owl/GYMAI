@@ -12,8 +12,8 @@ export default function Attendance() {
   const [todayLog, setTodayLog] = useState<any[]>([]);
 
   const fetchAttendance = async () => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const activeGymId = user?.gymId || "";
+    const activeBranchId = user?.branchId || "";
     setLoading(true);
     try {
       const res = await attendanceApi.getToday(activeGymId, activeBranchId);

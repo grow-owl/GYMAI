@@ -1,32 +1,32 @@
 import { useState, useEffect } from "react";
-import { Flame, Trophy, Award, Zap, CheckCircle2, ChevronRight, Loader2, Sparkles } from "lucide-react";
+import { Flame, Trophy, Zap, CheckCircle2, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import Card from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { gamificationApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
+import { deriveGameStats, type GameStats } from "@/lib/gamification";
+
 interface GamificationHubProps {
   gameProfile?: any;
+  gameStats?: GameStats;
   onProfileUpdate?: () => void;
 }
 
-export default function StreakGamificationHub({ gameProfile, onProfileUpdate }: GamificationHubProps) {
+export default function StreakGamificationHub({ gameProfile, gameStats, onProfileUpdate }: GamificationHubProps) {
   const [challenges, setChallenges] = useState<any[]>([]);
   const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [joiningId, setJoiningId] = useState<string | null>(null);
 
-  const level = gameProfile?.level ?? 1;
-  const streak = gameProfile?.currentStreakDays ?? 5;
-  const totalXp = gameProfile?.totalXp ?? 1250;
-  const xpToNext = Math.pow(level, 2) * 100 || 2000;
+  const { level, streak, totalXp, xpToNext } = gameStats || deriveGameStats(gameProfile);
 
   useEffect(() => {
     setLoadingChallenges(true);
     gamificationApi
       .listChallenges()
       .then((res) => {
-        const list = Array.isArray(res) ? res : res?.challenges || [];
+        const list = Array.isArray(res) ? res : (res as any)?.challenges || [];
         setChallenges(list);
       })
       .catch(() => {

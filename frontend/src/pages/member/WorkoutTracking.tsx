@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dumbbell, Plus, CheckCircle, Loader2, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { workoutApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
@@ -92,21 +93,19 @@ export default function WorkoutTracking() {
               <div key={idx} className="p-3 rounded-xl bg-(--color-surface-2) space-y-2">
                 <div className="flex items-center justify-between">
                   {exercises.length > 0 ? (
-                    <select
+                    <CustomSelect
                       value={set.exerciseName}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         const updated = [...loggedSets];
-                        updated[idx].exerciseName = e.target.value;
+                        updated[idx].exerciseName = v;
                         setLoggedSets(updated);
                       }}
-                      className="bg-transparent font-medium text-sm text-(--color-text) outline-none"
-                    >
-                      {exercises.map((ex) => (
-                        <option key={ex._id || ex.id} value={ex.name} className="bg-(--color-surface)">
-                          {ex.name} ({ex.category || "General"})
-                        </option>
-                      ))}
-                    </select>
+                      compact
+                      options={exercises.map((ex) => ({
+                        value: ex.name,
+                        label: `${ex.name} (${ex.category || "General"})`,
+                      }))}
+                    />
                   ) : (
                     <input
                       value={set.exerciseName}

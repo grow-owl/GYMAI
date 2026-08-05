@@ -3,6 +3,7 @@ import { Building2, Users, Bell, ShieldCheck, CreditCard, Plus, Loader2, Downloa
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import Modal from "@/components/ui/Modal";
 import { gymApi, privacyApi, notificationApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -112,7 +113,11 @@ export default function Settings() {
   });
 
   const fetchData = async () => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeGymId = user?.gymId || "";
+    if (!activeGymId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [bRes, gRes, waRes] = await Promise.all([
@@ -146,7 +151,7 @@ export default function Settings() {
 
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeGymId = user?.gymId || "";
     setSubmittingBranch(true);
 
     const newBranchObj = {
@@ -530,107 +535,104 @@ export default function Settings() {
 
       {/* Add Branch Modal */}
       {showAddBranchModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">Add New Gym Branch</h3>
-            <form onSubmit={handleCreateBranch} className="space-y-3">
+        <Modal onClose={() => setShowAddBranchModal(false)} maxWidth="md" title="Add New Gym Branch">
+          <form onSubmit={handleCreateBranch} className="space-y-3">
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Branch Name</label>
+              <input
+                required
+                value={branchForm.name}
+                onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                placeholder="e.g. Downtown Branch"
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Contact Phone</label>
+              <input
+                required
+                value={branchForm.contactPhone}
+                onChange={(e) => setBranchForm({ ...branchForm, contactPhone: e.target.value })}
+                placeholder="+91 9876543210"
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Address Line 1</label>
+              <input
+                required
+                value={branchForm.line1}
+                onChange={(e) => setBranchForm({ ...branchForm, line1: e.target.value })}
+                placeholder="123 Fitness Street"
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-(--color-text-muted)">Branch Name</label>
+                <label className="text-xs text-(--color-text-muted)">City</label>
                 <input
                   required
-                  value={branchForm.name}
-                  onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
-                  placeholder="e.g. Downtown Branch"
+                  value={branchForm.city}
+                  onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
+                  placeholder="Mumbai"
                   className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
                 />
               </div>
-
               <div>
-                <label className="text-xs text-(--color-text-muted)">Contact Phone</label>
+                <label className="text-xs text-(--color-text-muted)">State</label>
                 <input
                   required
-                  value={branchForm.contactPhone}
-                  onChange={(e) => setBranchForm({ ...branchForm, contactPhone: e.target.value })}
-                  placeholder="+91 9876543210"
+                  value={branchForm.state}
+                  onChange={(e) => setBranchForm({ ...branchForm, state: e.target.value })}
+                  placeholder="Maharashtra"
                   className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-(--color-text-muted)">Address Line 1</label>
+                <label className="text-xs text-(--color-text-muted)">Pincode</label>
                 <input
                   required
-                  value={branchForm.line1}
-                  onChange={(e) => setBranchForm({ ...branchForm, line1: e.target.value })}
-                  placeholder="123 Fitness Street"
+                  value={branchForm.pincode}
+                  onChange={(e) => setBranchForm({ ...branchForm, pincode: e.target.value })}
+                  placeholder="400001"
                   className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-(--color-text-muted)">City</label>
-                  <input
-                    required
-                    value={branchForm.city}
-                    onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
-                    placeholder="Mumbai"
-                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-(--color-text-muted)">State</label>
-                  <input
-                    required
-                    value={branchForm.state}
-                    onChange={(e) => setBranchForm({ ...branchForm, state: e.target.value })}
-                    placeholder="Maharashtra"
-                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  />
-                </div>
+              <div>
+                <label className="text-xs text-(--color-text-muted)">Timezone</label>
+                <input
+                  required
+                  value={branchForm.timezone}
+                  onChange={(e) => setBranchForm({ ...branchForm, timezone: e.target.value })}
+                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                />
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-(--color-text-muted)">Pincode</label>
-                  <input
-                    required
-                    value={branchForm.pincode}
-                    onChange={(e) => setBranchForm({ ...branchForm, pincode: e.target.value })}
-                    placeholder="400001"
-                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-(--color-text-muted)">Timezone</label>
-                  <input
-                    required
-                    value={branchForm.timezone}
-                    onChange={(e) => setBranchForm({ ...branchForm, timezone: e.target.value })}
-                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddBranchModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingBranch}
-                  className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
-                >
-                  {submittingBranch ? "Creating..." : "Create Branch"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddBranchModal(false)}
+                className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingBranch}
+                className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
+              >
+                {submittingBranch ? "Creating..." : "Create Branch"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

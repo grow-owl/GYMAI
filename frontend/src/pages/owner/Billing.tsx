@@ -3,60 +3,12 @@ import { CheckCircle2, Shield, Zap, Mail, PhoneCall } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import Modal from "@/components/ui/Modal";
 import { paymentApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
-const plans = [
-  {
-    id: "starter",
-    name: "Starter Gym",
-    price: "₹2,499",
-    period: "/month",
-    features: ["Up to 150 Active Members", "1 Branch Support", "QR Check-in System", "Basic Reports"],
-    popular: false,
-  },
-  {
-    id: "pro",
-    name: "Pro AI SaaS",
-    price: "₹4,999",
-    period: "/month",
-    features: [
-      "Unlimited Members & Trainers",
-      "Up to 3 Gym Branches",
-      "AI Coach & Supplement Upsell Engine",
-      "Lead CRM & WhatsApp Integration",
-      "POS Store & Inventory System",
-    ],
-    popular: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise Chain",
-    price: "₹9,999",
-    period: "/month",
-    features: [
-      "Unlimited Branches & Franchises",
-      "Dedicated AI Business Advisor",
-      "Custom Brand White-Labeling",
-      "24/7 Priority Support & Setup",
-    ],
-    popular: false,
-  },
-];
-
-const CARD_ID_TO_GYM_PLAN: Record<string, string> = {
-  starter: "BASIC",
-  pro: "PRO",
-  enterprise: "ENTERPRISE",
-};
-
-const GYM_PLAN_TO_CARD_ID: Record<string, string> = {
-  TRIAL: "starter",
-  BASIC: "starter",
-  PRO: "pro",
-  ENTERPRISE: "enterprise",
-};
+import { plans, CARD_ID_TO_GYM_PLAN, GYM_PLAN_TO_CARD_ID } from "@/data/pricing";
 
 export default function Billing() {
   const user = useAuthStore((s) => s.user);
@@ -201,15 +153,12 @@ export default function Billing() {
 
       {/* Offline Upgrade/Downgrade Request Guidance Modal */}
       {selectedPlanForUpgrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <div className="flex items-center gap-2">
-              <Zap className="text-(--color-accent)" size={20} />
-              <h3 className="text-base font-semibold text-(--color-text)">
-                Subscription Request: {selectedPlanForUpgrade.name} ({selectedPlanForUpgrade.price})
-              </h3>
-            </div>
-
+        <Modal
+          onClose={() => setSelectedPlanForUpgrade(null)}
+          maxWidth="md"
+          title={`Subscription Request: ${selectedPlanForUpgrade.name} (${selectedPlanForUpgrade.price})`}
+        >
+          <div className="space-y-4">
             <p className="text-xs text-(--color-text-muted) leading-relaxed">
               Platform subscription modifications are verified directly by Super Admin. Downgrade requests can be revoked directly from your dashboard at any time.
             </p>
@@ -244,7 +193,7 @@ export default function Billing() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

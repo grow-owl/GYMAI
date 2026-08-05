@@ -91,4 +91,9 @@ export class GymController {
     );
     return sendSuccess(res, { branch }, 'Branch manager assigned successfully');
   });
+
+  public static listAllGyms = asyncHandler(async (req: Request, res: Response) => {
+    const result = await GymService.listAllGyms();
+    return sendSuccess(res, result, 'All gyms retrieved successfully');
+  });
 }

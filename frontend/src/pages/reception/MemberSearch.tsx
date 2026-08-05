@@ -25,8 +25,8 @@ export default function MemberSearch() {
   const [search, setSearch] = useState("");
 
   const fetchMembers = async () => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const activeGymId = user?.gymId || "";
+    const activeBranchId = user?.branchId || "";
     setLoading(true);
     setError(null);
     try {

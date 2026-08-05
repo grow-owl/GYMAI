@@ -90,36 +90,61 @@ export default function MobileShell() {
 
         <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-(--color-navbar-border) bg-(--color-navbar) px-2 py-2 md:hidden">
           <div className="flex items-center justify-between">
-            {memberNav.map((item) => {
-              const Icon = (icons as unknown as Record<string, icons.LucideIcon>)[item.icon] ?? icons.Circle;
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.path === "/member"}
-                  className={({ isActive }) =>
-                    clsx(
-                      "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium transition-colors",
-                      isActive ? "text-(--color-accent)" : "text-(--color-navbar-text-muted)"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <span
-                        className={clsx(
-                          "flex h-8 w-8 items-center justify-center rounded-full",
-                          isActive && "bg-white/10"
-                        )}
-                      >
-                        <Icon size={18} strokeWidth={2} />
-                      </span>
-                      {item.label}
-                    </>
-                  )}
-                </NavLink>
-              );
-            })}
+            {memberNav
+              .filter((item) => ["/member", "/member/workout-plan", "/member/ai-coach", "/member/progress"].includes(item.path))
+              .map((item) => {
+                const Icon = (icons as unknown as Record<string, icons.LucideIcon>)[item.icon] ?? icons.Circle;
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.path === "/member"}
+                    className={({ isActive }) =>
+                      clsx(
+                        "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium transition-colors",
+                        isActive ? "text-(--color-accent)" : "text-(--color-navbar-text-muted)"
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <span
+                          className={clsx(
+                            "flex h-8 w-8 items-center justify-center rounded-full",
+                            isActive && "bg-white/10"
+                          )}
+                        >
+                          <Icon size={18} strokeWidth={2} />
+                        </span>
+                        {item.label}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            <button
+              onClick={() => setMobileOpen(true)}
+              className={clsx(
+                "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium transition-colors",
+                memberNav
+                  .filter((item) => !["/member", "/member/workout-plan", "/member/ai-coach", "/member/progress"].includes(item.path))
+                  .some((item) => location.pathname.startsWith(item.path))
+                  ? "text-(--color-accent)"
+                  : "text-(--color-navbar-text-muted)"
+              )}
+            >
+              <span
+                className={clsx(
+                  "flex h-8 w-8 items-center justify-center rounded-full",
+                  memberNav
+                    .filter((item) => !["/member", "/member/workout-plan", "/member/ai-coach", "/member/progress"].includes(item.path))
+                    .some((item) => location.pathname.startsWith(item.path)) && "bg-white/10"
+                )}
+              >
+                <icons.Menu size={18} strokeWidth={2} />
+              </span>
+              More
+            </button>
           </div>
         </nav>
       </div>

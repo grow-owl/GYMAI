@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink, Building2 } from "lucide-react";
-import { gym } from "@/data/mock";
 import { notificationApi, gymApi } from "@/lib/endpoints";
 import type { INotificationItem } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
@@ -14,30 +13,6 @@ interface NavEntry {
   path: string;
   icon: string;
 }
-
-const defaultNotifications: INotificationItem[] = [
-  {
-    _id: "n1",
-    title: "3 memberships expiring this week",
-    body: "Memberships for Aman Verma, Priya Sharma, and Rohan Gupta are expiring.",
-    isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-  },
-  {
-    _id: "n2",
-    title: "New lead assigned to you",
-    body: "Sunita Rao requested a trial pass.",
-    isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-  },
-  {
-    _id: "n3",
-    title: "Payment overdue for Aman Verma",
-    body: "Monthly fee payment is 5 days overdue.",
-    isRead: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-  },
-];
 
 const READ_KEY = "gymai.read_notifications";
 
@@ -147,7 +122,8 @@ export default function TopBar({
       }
     } catch {}
 
-    const gymId = user?.gymId || "65a000000000000000000001";
+    const gymId = user?.gymId || "";
+    if (!gymId) return;
     try {
       const res = await gymApi.listBranches(gymId);
       const bList = Array.isArray(res) ? res : res?.branches || [];
@@ -191,7 +167,7 @@ export default function TopBar({
       ]);
 
       const rawList = listRes?.notifications || (Array.isArray(listRes as any) ? (listRes as any) : []);
-      const baseList = rawList && rawList.length > 0 ? rawList : defaultNotifications;
+      const baseList = rawList || [];
       
       const processedList = baseList.map((n) =>
         readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
@@ -206,11 +182,8 @@ export default function TopBar({
         setUnreadCount(realUnread);
       }
     } catch {
-      const processedList = defaultNotifications.map((n) =>
-        readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
-      );
-      setNotifications(processedList);
-      setUnreadCount(processedList.filter((n) => !n.isRead).length);
+      setNotifications([]);
+      setUnreadCount(0);
     }
   }, []);
 
@@ -474,7 +447,7 @@ export default function TopBar({
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-(--color-accent) text-[11px] font-semibold text-white">
                 {avatarInitial}
               </span>
-              <span className="text-xs text-(--color-text-muted)">{gym.name}</span>
+              <span className="text-xs text-(--color-text-muted)">{String(user?.gymName || "My Gym")}</span>
             </button>
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-52 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden z-30">

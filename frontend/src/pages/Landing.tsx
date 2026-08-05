@@ -110,44 +110,7 @@ const roleCards = [
   },
 ];
 
-const plans = [
-  {
-    name: "Trial",
-    price: "Free",
-    period: "1 week, full access",
-    features: ["Up to 20 members", "Owner dashboard", "QR attendance"],
-    cta: "Start free trial",
-    tone: "ghost",
-  },
-  {
-    name: "Basic",
-    price: "₹2999",
-    period: "/month",
-    sub: "For single-trainer gyms",
-    features: ["Up to 150 members", "Membership & payment tracking", "QR attendance & reports"],
-    cta: "Choose Basic",
-    tone: "ghost",
-  },
-  {
-    name: "Standard",
-    price: "₹5,999",
-    period: "/month",
-    sub: "For growing multi-trainer gyms",
-    features: ["Up to 500 members", "Everything in Basic", "AI workout & diet plan builder", "Multiple trainer accounts"],
-    cta: "Choose Standard",
-    tone: "accent",
-    popular: true,
-  },
-  {
-    name: "Professional",
-    price: "₹10,999",
-    period: "/month",
-    sub: "For multi-branch gym chains",
-    features: ["Unlimited members", "Everything in Standard", "AI progress analytics", "Dedicated account manager"],
-    cta: "Choose Professional",
-    tone: "ghost",
-  },
-];
+import { landingPlans as plans } from "@/data/pricing";
 
 const toneBg: Record<string, string> = {
   blue: "bg-(--tone-blue)",

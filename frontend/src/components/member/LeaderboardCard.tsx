@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Trophy, Flame, Award, Shield, Loader2, User as UserIcon } from "lucide-react";
+import { Trophy, Flame, Shield, Loader2 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { gamificationApi } from "@/lib/endpoints";
 
@@ -20,7 +20,7 @@ interface LeaderboardEntry {
   isCurrentUser?: boolean;
 }
 
-export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCardProps) {
+export default function LeaderboardCard({ gymId }: LeaderboardCardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"xp" | "streak" | "score">("xp");
@@ -34,15 +34,7 @@ export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCar
         setLeaderboard(list);
       })
       .catch(() => {
-        // Fallback default realistic gym leaderboard entries
-        setLeaderboard([
-          { rank: 1, fullName: "Vikram Malhotra", totalXp: 4850, level: 7, currentStreakDays: 19 },
-          { rank: 2, fullName: "Ananya Sharma", totalXp: 4120, level: 6, currentStreakDays: 14 },
-          { rank: 3, fullName: "Rohan Verma", totalXp: 3790, level: 5, currentStreakDays: 12 },
-          { rank: 4, fullName: "Priya Patel", totalXp: 3450, level: 5, currentStreakDays: 9 },
-          { rank: 5, fullName: "You (Spartan)", totalXp: 1250, level: 2, currentStreakDays: 5, isCurrentUser: true },
-          { rank: 6, fullName: "Devendra Singh", totalXp: 1100, level: 2, currentStreakDays: 4 },
-        ]);
+        setLeaderboard([]);
       })
       .finally(() => setLoading(false));
   }, [gymId]);
@@ -89,6 +81,10 @@ export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCar
       {loading ? (
         <div className="flex items-center justify-center py-8 text-xs text-(--color-text-muted) gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-(--color-accent)" /> Fetching leaderboard...
+        </div>
+      ) : leaderboard.length === 0 ? (
+        <div className="text-center py-8 text-xs text-(--color-text-muted)">
+          No members on leaderboard yet. Check in to earn XP and rank up!
         </div>
       ) : (
         <div className="space-y-2">

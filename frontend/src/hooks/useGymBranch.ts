@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { gymApi } from "@/lib/endpoints";
 
-const DEFAULT_GYM_ID = "65a000000000000000000001";
-const DEFAULT_BRANCH_ID = "65a000000000000000000002";
+
 
 function extractId(val: any): string | null {
   if (!val) return null;
@@ -20,25 +19,23 @@ function isValidMongoId(id: string | null | undefined): boolean {
 
 export function useGymBranch() {
   const user = useAuthStore((s) => s.user);
-  const rawGymId = extractId(user?.gymId);
-  const rawBranchId = extractId(user?.branchId);
+  const rawGymId = extractId(user?.gymId) || "";
+  const rawBranchId = extractId(user?.branchId) || "";
 
-  const initialGymId = isValidMongoId(rawGymId) ? rawGymId! : DEFAULT_GYM_ID;
-
-  const [gymId, setGymId] = useState<string>(initialGymId);
+  const [gymId, setGymId] = useState<string>(rawGymId);
   const [branchId, setBranchId] = useState<string>(() => {
     try {
       const stored = localStorage.getItem("gymai.selected_branch_id");
       if (stored && isValidMongoId(stored)) return stored;
-      if (stored) localStorage.removeItem("gymai.selected_branch_id");
     } catch {}
-    return isValidMongoId(rawBranchId) ? rawBranchId! : DEFAULT_BRANCH_ID;
+    return rawBranchId;
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const resolveBranch = () => {
-    const activeGymId = isValidMongoId(rawGymId) ? rawGymId! : DEFAULT_GYM_ID;
+    const activeGymId = extractId(user?.gymId) || "";
+    const activeBranchId = extractId(user?.branchId) || "";
     setGymId(activeGymId);
 
     try {
@@ -48,13 +45,16 @@ export function useGymBranch() {
         setLoading(false);
         return;
       }
-      if (stored) {
-        localStorage.removeItem("gymai.selected_branch_id");
-      }
     } catch {}
 
-    if (isValidMongoId(rawBranchId)) {
-      setBranchId(rawBranchId!);
+    if (isValidMongoId(activeBranchId)) {
+      setBranchId(activeBranchId);
+      setLoading(false);
+      return;
+    }
+
+    if (!activeGymId) {
+      setBranchId("");
       setLoading(false);
       return;
     }
@@ -68,12 +68,12 @@ export function useGymBranch() {
         if (firstBranch) {
           setBranchId(firstBranch._id || firstBranch.id);
         } else {
-          setBranchId(DEFAULT_BRANCH_ID);
+          setBranchId("");
         }
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : "Failed to load branch");
-        setBranchId(DEFAULT_BRANCH_ID);
+        setBranchId("");
       })
       .finally(() => setLoading(false));
   };
@@ -88,11 +88,11 @@ export function useGymBranch() {
       window.removeEventListener("gymai-branch-changed", handleBranchChange);
       window.removeEventListener("storage", handleBranchChange);
     };
-  }, [rawGymId, rawBranchId]);
+  }, [user]);
 
   return {
-    gymId: isValidMongoId(gymId) ? gymId : DEFAULT_GYM_ID,
-    branchId: isValidMongoId(branchId) ? branchId : DEFAULT_BRANCH_ID,
+    gymId,
+    branchId,
     loading,
     error,
   };

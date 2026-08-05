@@ -13,11 +13,11 @@ interface FitnessScoreProps {
 }
 
 export default function FitnessScoreGauge({
-  attendanceRate = 85,
-  streakDays = 5,
-  completedWorkoutsCount = 12,
-  hasWeightLogs = true,
-  totalXp = 1250,
+  attendanceRate = 0,
+  streakDays = 0,
+  completedWorkoutsCount = 0,
+  hasWeightLogs = false,
+  totalXp = 0,
   onRefresh,
   isLoading = false,
 }: FitnessScoreProps) {

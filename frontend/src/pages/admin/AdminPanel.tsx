@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { ShieldCheck, Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap, UserPlus, KeyRound } from "lucide-react";
+import { Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap, UserPlus, KeyRound, Copy, Check } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { paymentApi, authApi } from "@/lib/endpoints";
+import Modal from "@/components/ui/Modal";
+import CustomSelect from "@/components/ui/CustomSelect";
+import { paymentApi, authApi, gymApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
 export default function AdminPanel() {
@@ -11,6 +13,11 @@ export default function AdminPanel() {
   const [error, setError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<any | null>(null);
   const [upgradeRequests, setUpgradeRequests] = useState<any[]>([]);
+  const [gymsList, setGymsList] = useState<any[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Newly Provisioned Gym Modal State
+  const [createdGymDetails, setCreatedGymDetails] = useState<any | null>(null);
 
   // Manual Platform Payment Modal
   const [showRecordModal, setShowRecordModal] = useState(false);
@@ -44,13 +51,33 @@ export default function AdminPanel() {
     plan: "PRO",
   });
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(text);
+    toast.success(`${label} copied to clipboard!`);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   const handleCreateOwner = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittingOwner(true);
     try {
       const res = await authApi.registerOwner(ownerFormData);
-      toast.success(`Gym Owner created successfully! Gym ID: ${res.gym._id}`);
+      toast.success(`Gym Owner created! Gym ID: ${res.gym?._id || res.gym?.id}`);
       setShowCreateOwnerModal(false);
+      
+      setCreatedGymDetails({
+        gymName: ownerFormData.gymName,
+        gymId: res.gym?._id || res.gym?.id,
+        branchName: ownerFormData.branchName,
+        branchId: res.primaryBranch?._id || res.primaryBranch?.id,
+        ownerName: ownerFormData.fullName,
+        ownerEmail: ownerFormData.email,
+        ownerPhone: ownerFormData.phone,
+        password: ownerFormData.password,
+        plan: ownerFormData.plan,
+      });
+
       setOwnerFormData({
         fullName: "",
         email: "",
@@ -72,13 +99,17 @@ export default function AdminPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [analyticsRes, reqsRes] = await Promise.all([
+      const [analyticsRes, reqsRes, gymsRes] = await Promise.all([
         paymentApi.getPlatformAnalyticsOverview().catch(() => null),
         paymentApi.listUpgradeRequests().catch(() => null),
+        gymApi.listAllGyms().catch(() => null),
       ]);
       setAnalytics(analyticsRes);
       const reqList = Array.isArray(reqsRes) ? reqsRes : reqsRes?.upgradeRequests || [];
       setUpgradeRequests(reqList);
+
+      const gList = Array.isArray(gymsRes) ? gymsRes : gymsRes?.gyms || [];
+      setGymsList(gList);
     } catch {
       setError("Failed to load platform analytics overview.");
     } finally {
@@ -103,46 +134,46 @@ export default function AdminPanel() {
         billingCycle: formData.billingCycle,
         amount: Number(formData.amount),
         method: formData.method,
-        transactionRef: formData.transactionRef || undefined,
-        notes: formData.notes || undefined,
+        transactionRef: formData.transactionRef.trim() || undefined,
+        notes: formData.notes.trim() || undefined,
       });
-      toast.success("Manual platform payment recorded successfully! Gym plan updated.");
+      toast.success("Manual platform SaaS payment recorded!");
       setShowRecordModal(false);
       fetchData();
-    } catch {
-      toast.error("Failed to record manual platform payment.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to record payment");
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleFulfillRequest = async (reqItem: any) => {
+    const gymId = reqItem.gymId?._id || reqItem.gymId;
+    setFormData((prev) => ({
+      ...prev,
+      gymId: gymId ? String(gymId) : "",
+      targetPlan: reqItem.requestedPlan || "PRO",
+    }));
+    setShowRecordModal(true);
+  };
+
   const handleSuperAdminResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!superResetTargetId.trim()) {
-      toast.error("Please enter a valid User ID");
+      toast.error("User ID is required");
       return;
     }
     setResettingUserPass(true);
     try {
-      await authApi.adminResetPassword(superResetTargetId.trim(), superResetPasswordVal);
-      toast.success("User password reset successfully by Super Admin!");
+      await authApi.adminResetPassword(superResetTargetId.trim(), superResetPasswordVal.trim());
+      toast.success("User password reset successfully!");
       setShowSuperAdminResetModal(false);
       setSuperResetTargetId("");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to reset user password");
+      toast.error(err.response?.data?.message || err.message || "Failed to reset password");
     } finally {
       setResettingUserPass(false);
     }
-  };
-
-  const handleFulfillRequest = (reqItem: any) => {
-    const targetGymId = reqItem.gymId?._id || reqItem.gymId || "";
-    setFormData({
-      ...formData,
-      gymId: String(targetGymId),
-      targetPlan: reqItem.requestedPlan || "PRO",
-    });
-    setShowRecordModal(true);
   };
 
   return (
@@ -214,13 +245,99 @@ export default function AdminPanel() {
             <Card>
               <div className="flex items-center gap-2 mb-1">
                 <Building2 size={16} className="text-amber-400" />
-                <p className="text-xs text-(--color-text-muted)">Active Paying Gyms</p>
+                <p className="text-xs text-(--color-text-muted)">Active Registered Gyms</p>
               </div>
               <p className="font-display text-2xl font-bold text-(--color-text)">
-                {analytics?.activePayingGymsCount ?? 0}
+                {gymsList.length || analytics?.activePayingGymsCount || 0}
               </p>
             </Card>
           </div>
+
+          {/* Registered Gym Organizations & Unique Tenant IDs */}
+          <Card className="space-y-3">
+            <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-2">
+              <div className="flex items-center gap-2">
+                <Building2 size={16} className="text-(--color-accent)" />
+                <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-faint)">
+                  Registered Gym Organizations & Unique Tenant IDs ({gymsList.length})
+                </p>
+              </div>
+              <button
+                onClick={fetchData}
+                className="text-xs text-(--color-text-muted) hover:text-(--color-text) flex items-center gap-1"
+              >
+                <RefreshCw size={12} /> Refresh
+              </button>
+            </div>
+
+            {gymsList.length === 0 ? (
+              <p className="text-xs text-(--color-text-faint) py-4 text-center">No gym organizations registered yet.</p>
+            ) : (
+              <div className="divide-y divide-(--color-border-soft) text-xs">
+                {gymsList.map((gItem: any) => {
+                  const gId = String(gItem._id || gItem.id);
+                  const ownerName = gItem.owner?.fullName || gItem.owner?.email || "Gym Owner";
+                  const ownerContact = gItem.owner?.phone || gItem.owner?.email || "";
+                  const branches = gItem.branches || [];
+
+                  return (
+                    <div key={gId} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-(--color-text)">{gItem.name}</span>
+                          <Badge tone="good">{gItem.plan || "PRO"}</Badge>
+                        </div>
+                        <p className="text-(--color-text-muted)">
+                          Owner: <strong className="text-(--color-text)">{ownerName}</strong> {ownerContact ? `(${ownerContact})` : ""}
+                        </p>
+                        
+                        {/* Gym & Branch ID Displays */}
+                        <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono">
+                          <div className="flex items-center gap-1.5 bg-(--color-surface-2) px-2.5 py-1 rounded-lg border border-white/5">
+                            <span className="text-(--color-text-faint)">Gym ID:</span>
+                            <span className="text-amber-400 font-bold">{gId}</span>
+                            <button
+                              onClick={() => copyToClipboard(gId, "Gym ID")}
+                              className="ml-1 text-(--color-text-muted) hover:text-(--color-accent)"
+                              title="Copy Gym ID"
+                            >
+                              {copiedId === gId ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                            </button>
+                          </div>
+
+                          {branches.map((b: any) => {
+                            const bId = String(b._id || b.id);
+                            return (
+                              <div key={bId} className="flex items-center gap-1.5 bg-(--color-surface-2) px-2.5 py-1 rounded-lg border border-white/5">
+                                <span className="text-(--color-text-faint)">Branch ({b.name || "Main"}):</span>
+                                <span className="text-indigo-400 font-bold">{bId}</span>
+                                <button
+                                  onClick={() => copyToClipboard(bId, "Branch ID")}
+                                  className="ml-1 text-(--color-text-muted) hover:text-(--color-accent)"
+                                  title="Copy Branch ID"
+                                >
+                                  {copiedId === bId ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleFulfillRequest({ gymId: gId, requestedPlan: gItem.plan })}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-(--color-surface-2) border border-(--color-border) text-(--color-text) hover:bg-(--color-surface-3)"
+                        >
+                          Record Payment
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
 
           {/* Pending Upgrade Requests Section */}
           <Card className="space-y-3">
@@ -267,329 +384,346 @@ export default function AdminPanel() {
               </div>
             )}
           </Card>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Card className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-faint)">Revenue by Plan</p>
-              {analytics?.revenueByPlan && Object.keys(analytics.revenueByPlan).length > 0 ? (
-                <div className="space-y-2">
-                  {Object.entries(analytics.revenueByPlan).map(([plan, amount]) => (
-                    <div key={plan} className="flex items-center justify-between p-2.5 rounded-xl bg-(--color-surface-2)">
-                      <span className="text-xs font-medium text-(--color-text) uppercase">{plan}</span>
-                      <span className="font-mono text-xs font-semibold text-(--color-text)">
-                        ₹{Number(amount).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-(--color-text-faint) py-4 text-center">No plan breakdown available</p>
-              )}
-            </Card>
-
-            <Card className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-faint)">Revenue by Payment Method</p>
-              {analytics?.revenueByMethod && Object.keys(analytics.revenueByMethod).length > 0 ? (
-                <div className="space-y-2">
-                  {Object.entries(analytics.revenueByMethod).map(([method, amount]) => (
-                    <div key={method} className="flex items-center justify-between p-2.5 rounded-xl bg-(--color-surface-2)">
-                      <span className="text-xs font-medium text-(--color-text) uppercase">{method}</span>
-                      <span className="font-mono text-xs font-semibold text-(--color-text)">
-                        ₹{Number(amount).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-(--color-text-faint) py-4 text-center">No payment method breakdown available</p>
-              )}
-            </Card>
-          </div>
         </div>
+      )}
+
+      {/* Newly Provisioned Gym Credentials Modal */}
+      {createdGymDetails && (
+        <Modal
+          onClose={() => setCreatedGymDetails(null)}
+          maxWidth="md"
+          title="Gym Owner Workspace Provisioned Successfully!"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 space-y-1">
+              <p className="font-bold text-sm">✓ Account & Gym Organization Created</p>
+              <p className="text-xs">Give these unique IDs and login details to the Gym Owner.</p>
+            </div>
+
+            <div className="space-y-2 bg-(--color-surface-2) p-4 rounded-xl border border-white/5 font-mono">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Gym Name:</span>
+                <span className="font-bold text-(--color-text)">{createdGymDetails.gymName}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Unique Gym ID:</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-bold text-amber-400">{createdGymDetails.gymId}</span>
+                  <button
+                    onClick={() => copyToClipboard(createdGymDetails.gymId, "Gym ID")}
+                    className="text-(--color-text-muted) hover:text-(--color-accent)"
+                  >
+                    <Copy size={13} />
+                  </button>
+                </div>
+              </div>
+              {createdGymDetails.branchId && (
+                <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                  <span className="text-(--color-text-muted)">Main Branch ID:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-bold text-indigo-400">{createdGymDetails.branchId}</span>
+                    <button
+                      onClick={() => copyToClipboard(createdGymDetails.branchId, "Branch ID")}
+                      className="text-(--color-text-muted) hover:text-(--color-accent)"
+                    >
+                      <Copy size={13} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Owner Email:</span>
+                <span className="font-bold text-(--color-text)">{createdGymDetails.ownerEmail}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-(--color-text-muted)">Initial Password:</span>
+                <span className="font-bold text-amber-400">{createdGymDetails.password}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = `Gym Name: ${createdGymDetails.gymName}\nGym ID: ${createdGymDetails.gymId}\nBranch ID: ${createdGymDetails.branchId}\nOwner Email: ${createdGymDetails.ownerEmail}\nPassword: ${createdGymDetails.password}`;
+                  copyToClipboard(summary, "Gym Owner Credentials & IDs");
+                }}
+                className="py-2.5 px-4 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center gap-1.5"
+              >
+                <Copy size={14} /> Copy All Details
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatedGymDetails(null)}
+                className="py-2.5 px-4 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Manual Platform Payment Modal */}
       {showRecordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="text-(--color-accent)" size={20} />
-              <h3 className="text-base font-semibold text-(--color-text)">Record Manual Platform Payment</h3>
+        <Modal onClose={() => setShowRecordModal(false)} maxWidth="md" title="Record Manual Platform Payment">
+          <form onSubmit={handleRecordPayment} className="space-y-3">
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Gym ID (MongoDB ObjectId)</label>
+              <input
+                required
+                value={formData.gymId}
+                onChange={(e) => setFormData({ ...formData, gymId: e.target.value })}
+                placeholder="e.g. 64f1a2b3c4d5e6f7a8b9c0d1"
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono"
+              />
             </div>
-            <form onSubmit={handleRecordPayment} className="space-y-3">
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Gym ID (MongoDB ObjectId)</label>
-                <input
-                  required
-                  value={formData.gymId}
-                  onChange={(e) => setFormData({ ...formData, gymId: e.target.value })}
-                  placeholder="e.g. 64f1a2b3c4d5e6f7a8b9c0d1"
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono"
-                />
-              </div>
 
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Target SaaS Plan</label>
-                <select
-                  value={formData.targetPlan}
-                  onChange={(e) => setFormData({ ...formData, targetPlan: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="BASIC">BASIC</option>
-                  <option value="PRO">PRO</option>
-                  <option value="ENTERPRISE">ENTERPRISE</option>
-                </select>
-              </div>
+            <CustomSelect
+              label="Target SaaS Plan"
+              value={formData.targetPlan}
+              onChange={(v) => setFormData({ ...formData, targetPlan: v })}
+              options={[
+                { value: "BASIC", label: "BASIC" },
+                { value: "PRO", label: "PRO" },
+                { value: "ENTERPRISE", label: "ENTERPRISE" },
+              ]}
+            />
 
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Billing Cycle</label>
-                <select
-                  value={formData.billingCycle}
-                  onChange={(e) => setFormData({ ...formData, billingCycle: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="MONTHLY">MONTHLY (30 Days)</option>
-                  <option value="YEARLY">YEARLY (365 Days)</option>
-                </select>
-              </div>
+            <CustomSelect
+              label="Billing Cycle"
+              value={formData.billingCycle}
+              onChange={(v) => setFormData({ ...formData, billingCycle: v })}
+              options={[
+                { value: "MONTHLY", label: "MONTHLY (30 Days)" },
+                { value: "YEARLY", label: "YEARLY (365 Days)" },
+              ]}
+            />
 
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Amount (₹)</label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                />
-              </div>
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Amount (₹)</label>
+              <input
+                type="number"
+                required
+                min={1}
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+              />
+            </div>
 
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Payment Method</label>
-                <select
-                  value={formData.method}
-                  onChange={(e) => setFormData({ ...formData, method: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="upi">UPI</option>
-                  <option value="cash">Cash</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+            <CustomSelect
+              label="Payment Method"
+              value={formData.method}
+              onChange={(v) => setFormData({ ...formData, method: v })}
+              options={[
+                { value: "bank_transfer", label: "Bank Transfer" },
+                { value: "upi", label: "UPI" },
+                { value: "cash", label: "Cash" },
+                { value: "cheque", label: "Cheque" },
+                { value: "other", label: "Other" },
+              ]}
+            />
 
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Transaction Ref / UTR (Optional)</label>
-                <input
-                  value={formData.transactionRef}
-                  onChange={(e) => setFormData({ ...formData, transactionRef: e.target.value })}
-                  placeholder="e.g. UTR-99887766"
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                />
-              </div>
+            <div>
+              <label className="text-xs text-(--color-text-muted)">Transaction Ref / UTR (Optional)</label>
+              <input
+                value={formData.transactionRef}
+                onChange={(e) => setFormData({ ...formData, transactionRef: e.target.value })}
+                placeholder="e.g. UTR-99887766"
+                className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+              />
+            </div>
 
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowRecordModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
-                >
-                  {submitting ? "Processing..." : "Record SaaS Payment"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="flex justify-end gap-2 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowRecordModal(false)}
+                className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
+              >
+                {submitting ? "Processing..." : "Record SaaS Payment"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Create Gym Owner Modal (Super Admin Exclusive) */}
       {showCreateOwnerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center gap-2">
-              <UserPlus className="text-(--color-accent)" size={20} />
-              <h3 className="text-base font-semibold text-(--color-text)">Provision New Gym Owner & Gym Workspace</h3>
+        <Modal
+          onClose={() => setShowCreateOwnerModal(false)}
+          maxWidth="lg"
+          title="Provision New Gym Owner & Gym Workspace"
+          subtitle="As Super Admin, create a new Gym Owner user account and provision their initial Gym organization and primary branch."
+        >
+          <form onSubmit={handleCreateOwner} className="space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-(--color-text-muted)">Owner Full Name</label>
+                <input
+                  required
+                  value={ownerFormData.fullName}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, fullName: e.target.value })}
+                  placeholder="e.g. Vikram Sharma"
+                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-(--color-text-muted)">Phone Number</label>
+                <input
+                  required
+                  value={ownerFormData.phone}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, phone: e.target.value })}
+                  placeholder="+91 9876543210"
+                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                />
+              </div>
             </div>
-            <p className="text-xs text-(--color-text-muted)">
-              As Super Admin, create a new Gym Owner user account and provision their initial Gym organization and primary branch.
-            </p>
-            <form onSubmit={handleCreateOwner} className="space-y-3">
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-(--color-text-muted)">Owner Full Name</label>
-                  <input
-                    required
-                    value={ownerFormData.fullName}
-                    onChange={(e) => setOwnerFormData({ ...ownerFormData, fullName: e.target.value })}
-                    placeholder="e.g. Vikram Sharma"
-                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-(--color-text-muted)">Phone Number</label>
-                  <input
-                    required
-                    value={ownerFormData.phone}
-                    onChange={(e) => setOwnerFormData({ ...ownerFormData, phone: e.target.value })}
-                    placeholder="+91 9876543210"
-                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-                  />
-                </div>
-              </div>
 
+            <div>
+              <label className="text-xs font-medium text-(--color-text-muted)">Owner Email Address</label>
+              <input
+                type="email"
+                required
+                value={ownerFormData.email}
+                onChange={(e) => setOwnerFormData({ ...ownerFormData, email: e.target.value })}
+                placeholder="owner@gym.com"
+                className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-(--color-text-muted)">Initial Password</label>
+              <input
+                type="password"
+                required
+                value={ownerFormData.password}
+                onChange={(e) => setOwnerFormData({ ...ownerFormData, password: e.target.value })}
+                placeholder="At least 8 chars (letters & numbers)"
+                className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+              />
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3 border-t border-(--color-border-soft) pt-3">
               <div>
-                <label className="text-xs font-medium text-(--color-text-muted)">Owner Email Address</label>
+                <label className="text-xs font-medium text-(--color-text-muted)">Gym Name</label>
                 <input
-                  type="email"
                   required
-                  value={ownerFormData.email}
-                  onChange={(e) => setOwnerFormData({ ...ownerFormData, email: e.target.value })}
-                  placeholder="owner@gym.com"
+                  value={ownerFormData.gymName}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, gymName: e.target.value })}
+                  placeholder="e.g. Apex Fitness Club"
                   className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
                 />
               </div>
-
               <div>
-                <label className="text-xs font-medium text-(--color-text-muted)">Initial Password</label>
+                <label className="text-xs font-medium text-(--color-text-muted)">Main Branch Name</label>
                 <input
-                  type="password"
-                  required
-                  value={ownerFormData.password}
-                  onChange={(e) => setOwnerFormData({ ...ownerFormData, password: e.target.value })}
-                  placeholder="At least 8 chars (letters & numbers)"
+                  value={ownerFormData.branchName}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, branchName: e.target.value })}
+                  placeholder="Main Branch"
                   className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
                 />
               </div>
+            </div>
 
-              <div className="grid sm:grid-cols-2 gap-3 border-t border-(--color-border-soft) pt-3">
-                <div>
-                  <label className="text-xs font-medium text-(--color-text-muted)">Gym Name</label>
-                  <input
-                    required
-                    value={ownerFormData.gymName}
-                    onChange={(e) => setOwnerFormData({ ...ownerFormData, gymName: e.target.value })}
-                    placeholder="e.g. Apex Fitness Club"
-                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-(--color-text-muted)">Main Branch Name</label>
-                  <input
-                    value={ownerFormData.branchName}
-                    onChange={(e) => setOwnerFormData({ ...ownerFormData, branchName: e.target.value })}
-                    placeholder="Main Branch"
-                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-                  />
-                </div>
-              </div>
+            <CustomSelect
+              label="SaaS Plan"
+              value={ownerFormData.plan}
+              onChange={(v) => setOwnerFormData({ ...ownerFormData, plan: v })}
+              options={[
+                { value: "TRIAL", label: "TRIAL (14 Days Free)" },
+                { value: "BASIC", label: "BASIC (Single Branch)" },
+                { value: "PRO", label: "PRO (Multi Branch)" },
+                { value: "ENTERPRISE", label: "ENTERPRISE (Custom)" },
+              ]}
+            />
 
-              <div>
-                <label className="text-xs font-medium text-(--color-text-muted)">SaaS Plan</label>
-                <select
-                  value={ownerFormData.plan}
-                  onChange={(e) => setOwnerFormData({ ...ownerFormData, plan: e.target.value })}
-                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                >
-                  <option value="TRIAL">TRIAL (14 Days Free)</option>
-                  <option value="BASIC">BASIC (Single Branch)</option>
-                  <option value="PRO">PRO (Multi Branch)</option>
-                  <option value="ENTERPRISE">ENTERPRISE (Custom)</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-(--color-border-soft)">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateOwnerModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingOwner}
-                  className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:bg-(--color-accent-strong) disabled:opacity-50"
-                >
-                  {submittingOwner ? "Creating Gym Owner..." : "Create Gym Owner & Gym"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="flex justify-end gap-2 pt-4 border-t border-(--color-border-soft)">
+              <button
+                type="button"
+                onClick={() => setShowCreateOwnerModal(false)}
+                className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingOwner}
+                className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:bg-(--color-accent-strong) disabled:opacity-50"
+              >
+                {submittingOwner ? "Creating Gym Owner..." : "Create Gym Owner & Gym"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Super Admin Reset Any User Password Modal */}
       {showSuperAdminResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 w-full max-w-md space-y-4">
-            <div className="flex items-center gap-2">
-              <KeyRound className="text-amber-400" size={20} />
-              <h3 className="text-base font-semibold text-(--color-text)">Reset Any User Password</h3>
+        <Modal
+          onClose={() => setShowSuperAdminResetModal(false)}
+          maxWidth="md"
+          title="Reset Any User Password"
+          subtitle="As Super Admin, reset the password for any Gym Owner, Member, Trainer, or Staff across the platform."
+        >
+          <form onSubmit={handleSuperAdminResetPassword} className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-(--color-text-muted)">Target User ID (MongoDB ObjectId)</label>
+              <input
+                required
+                value={superResetTargetId}
+                onChange={(e) => setSuperResetTargetId(e.target.value)}
+                placeholder="e.g. 65a000000000000000000001"
+                className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono focus:border-(--color-accent)"
+              />
             </div>
-            <p className="text-xs text-(--color-text-muted)">
-              As Super Admin, reset the password for any Gym Owner, Member, Trainer, or Staff across the platform.
-            </p>
-            <form onSubmit={handleSuperAdminResetPassword} className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-(--color-text-muted)">Target User ID (MongoDB ObjectId)</label>
-                <input
-                  required
-                  value={superResetTargetId}
-                  onChange={(e) => setSuperResetTargetId(e.target.value)}
-                  placeholder="e.g. 65a000000000000000000001"
-                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono focus:border-(--color-accent)"
-                />
-              </div>
 
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-(--color-text-muted)">New Password</label>
-                  <button
-                    type="button"
-                    onClick={() => setSuperResetPasswordVal(`Owner@${Math.floor(1000 + Math.random() * 9000)}`)}
-                    className="text-[11px] text-(--color-accent-text) hover:underline"
-                  >
-                    Auto-generate
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={superResetPasswordVal}
-                  onChange={(e) => setSuperResetPasswordVal(e.target.value)}
-                  placeholder="Min 8 chars (letters & numbers)"
-                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono focus:border-(--color-accent)"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-(--color-border-soft)">
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-(--color-text-muted)">New Password</label>
                 <button
                   type="button"
-                  onClick={() => setShowSuperAdminResetModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
+                  onClick={() => setSuperResetPasswordVal(`Owner@${Math.floor(1000 + Math.random() * 9000)}`)}
+                  className="text-[11px] text-(--color-accent-text) hover:underline"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={resettingUserPass}
-                  className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 disabled:opacity-50"
-                >
-                  {resettingUserPass ? "Resetting Password..." : "Reset User Password"}
+                  Auto-generate
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
+              <input
+                type="text"
+                required
+                value={superResetPasswordVal}
+                onChange={(e) => setSuperResetPasswordVal(e.target.value)}
+                placeholder="Min 8 chars (letters & numbers)"
+                className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono focus:border-(--color-accent)"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-(--color-border-soft)">
+              <button
+                type="button"
+                onClick={() => setShowSuperAdminResetModal(false)}
+                className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={resettingUserPass}
+                className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 disabled:opacity-50"
+              >
+                {resettingUserPass ? "Resetting Password..." : "Reset User Password"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

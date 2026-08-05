@@ -27,6 +27,7 @@ import Inventory from "@/pages/owner/Inventory";
 import Expenses from "@/pages/owner/Expenses";
 import Equipment from "@/pages/owner/Equipment";
 import Billing from "@/pages/owner/Billing";
+import Staff from "@/pages/owner/Staff";
 
 import TrainerDashboard from "@/pages/trainer/TrainerDashboard";
 import MyClients from "@/pages/trainer/MyClients";
@@ -64,13 +65,18 @@ function OwnerShell() {
   const { user } = useAuth();
   const firstName = user?.fullName?.split(" ")[0] ?? gym.ownerName;
   const initial = (user?.fullName?.[0] ?? "D").toUpperCase();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const secondaryNav = isSuperAdmin
+    ? [{ label: "Admin Panel", path: "/admin", icon: "ShieldCheck" }, ...ownerNavSecondary]
+    : ownerNavSecondary;
+
   return (
     <DashboardShell
       primary={ownerNav}
-      secondary={ownerNavSecondary}
-      roleLabel="Owner / Admin"
+      secondary={secondaryNav}
+      roleLabel={isSuperAdmin ? "Super Admin" : "Owner / Admin"}
       greeting={`Good Morning, ${firstName} 👋`}
-      subtitle={String(user?.gymName || gym.name)}
+      subtitle={String(user?.gymName || "My Gym")}
       avatarInitial={initial}
     />
   );
@@ -136,6 +142,7 @@ export default function App() {
                 <Route index element={<OwnerDashboard />} />
                 <Route path="members" element={<Members />} />
                 <Route path="trainers" element={<Trainers />} />
+                <Route path="staff" element={<Staff />} />
                 <Route path="attendance" element={<OwnerAttendance />} />
                 <Route path="payments" element={<OwnerPayments />} />
                 <Route path="leads" element={<OwnerLeads />} />

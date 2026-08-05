@@ -40,7 +40,7 @@ interface AuthState {
 // Maps a logged-in user's role to the dashboard section they own.
 export const roleHome: Record<string, string> = {
   GYM_OWNER: "/owner",
-  SUPER_ADMIN: "/owner",
+  SUPER_ADMIN: "/admin",
   BRANCH_MANAGER: "/reception",
   TRAINER: "/trainer",
   MEMBER: "/member",

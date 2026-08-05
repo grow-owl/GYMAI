@@ -136,4 +136,19 @@ export class AuthController {
     );
     return sendSuccess(res, null, 'User password reset successfully by administrator', 200);
   });
+
+  public static registerStaff = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user!.gymId;
+    const branchId = req.params.branchId || req.user!.branchId;
+    const user = await AuthService.registerStaff(gymId, branchId, req.body);
+    const safeUser = user.toSafeJSON ? user.toSafeJSON() : user;
+    return sendSuccess(res, { staff: safeUser }, 'Staff member created successfully', 201);
+  });
+
+  public static listStaff = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user!.gymId;
+    const branchId = req.params.branchId || req.query.branchId as string;
+    const staff = await AuthService.listStaff(gymId, branchId);
+    return sendSuccess(res, { staff }, 'Staff members retrieved successfully', 200);
+  });
 }

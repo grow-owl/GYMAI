@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search, KeyRound } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
+import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { trainerApi, memberApi, authApi } from "@/lib/endpoints";
@@ -96,8 +97,8 @@ export default function Trainers() {
 
   const handleAddTrainer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "";
+    const activeBranchId = branchId || "";
 
     setSubmittingAdd(true);
     try {
@@ -193,8 +194,8 @@ export default function Trainers() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Trainers & Staff Management"
-        subtitle="Gym Staff, Personal Trainers & Client Assignments"
+        title="Trainers Management"
+        subtitle="Personal Trainers, Workloads & Client Assignments"
         backTo="/owner"
         action={
           <div className="flex items-center gap-2">
@@ -209,7 +210,7 @@ export default function Trainers() {
               onClick={() => setShowAddModal(true)}
               className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 shadow-sm"
             >
-              <Plus size={15} /> Add Trainer / Staff
+              <Plus size={15} /> Add Trainer
             </button>
           </div>
         }
@@ -245,8 +246,8 @@ export default function Trainers() {
       ) : filteredTrainers.length === 0 ? (
         <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
           <Dumbbell className="w-8 h-8 mx-auto text-(--color-text-faint)" />
-          <p className="text-sm font-medium text-(--color-text)">No trainers or staff found</p>
-          <p className="text-xs text-(--color-text-muted)">Click "Add Trainer / Staff" to register new trainer profiles.</p>
+          <p className="text-sm font-medium text-(--color-text)">No trainers found</p>
+          <p className="text-xs text-(--color-text-muted)">Click "Add Trainer" to register a new trainer profile.</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -321,9 +322,8 @@ export default function Trainers() {
 
       {/* Add Trainer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleAddTrainer} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-lg font-bold text-(--color-text)">Register New Trainer / Staff</h3>
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Register New Trainer">
+          <form onSubmit={handleAddTrainer} className="space-y-4">
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
@@ -399,17 +399,17 @@ export default function Trainers() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {/* Assign Client Modal */}
       {showAssignModal && selectedTrainer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleAssignClientSubmit} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
-            <h3 className="font-display text-base font-bold text-(--color-text)">
-              Assign Client to: {selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName}
-            </h3>
-
+        <Modal
+          onClose={() => setShowAssignModal(false)}
+          maxWidth="md"
+          title={`Assign Client to: ${selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName}`}
+        >
+          <form onSubmit={handleAssignClientSubmit} className="space-y-4">
             <div className="space-y-2 text-xs">
               <label className="block text-(--color-text-muted) font-medium">Select Gym Member</label>
               <input
@@ -450,16 +450,17 @@ export default function Trainers() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {/* Reset Password Modal */}
       {showResetModal && resetTargetUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form onSubmit={handleResetPassword} className="w-full max-w-sm rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
-            <h3 className="font-display text-base font-bold text-(--color-text)">
-              Reset Password: {resetTargetUser.fullName || "Trainer"}
-            </h3>
+        <Modal
+          onClose={() => setShowResetModal(false)}
+          maxWidth="sm"
+          title={`Reset Password: ${resetTargetUser.fullName || "Trainer"}`}
+        >
+          <form onSubmit={handleResetPassword} className="space-y-4 text-xs">
             <div>
               <label className="block text-(--color-text-muted) mb-1 font-medium">New Password</label>
               <input
@@ -487,7 +488,7 @@ export default function Trainers() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

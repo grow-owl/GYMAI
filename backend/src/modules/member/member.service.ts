@@ -221,36 +221,6 @@ export class MemberService {
       Member.countDocuments(filter),
     ]);
 
-    // If zero members returned for specific branch filter, try querying without branch filter
-    if (members.length === 0 && filter.branchId) {
-      delete filter.branchId;
-      [members, totalItems] = await Promise.all([
-        Member.find(filter)
-          .populate('userId', 'fullName email phone isActive')
-          .populate('branchId', 'name')
-          .populate({ path: 'assignedTrainerId', populate: { path: 'userId', select: 'fullName' } })
-          .skip(skip)
-          .limit(limit)
-          .sort({ createdAt: -1 }),
-        Member.countDocuments(filter),
-      ]);
-    }
-
-    // If still zero members returned for specific gym filter, query all active members in DB
-    if (members.length === 0 && filter.gymId) {
-      delete filter.gymId;
-      [members, totalItems] = await Promise.all([
-        Member.find(filter)
-          .populate('userId', 'fullName email phone isActive')
-          .populate('branchId', 'name')
-          .populate({ path: 'assignedTrainerId', populate: { path: 'userId', select: 'fullName' } })
-          .skip(skip)
-          .limit(limit)
-          .sort({ createdAt: -1 }),
-        Member.countDocuments(filter),
-      ]);
-    }
-
     const meta = buildPaginationMeta(totalItems, page, limit);
 
     return { members, meta };
