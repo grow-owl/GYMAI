@@ -52,13 +52,13 @@ import ReceptionDashboard from "@/pages/reception/ReceptionDashboard";
 import MemberSearch from "@/pages/reception/MemberSearch";
 import CheckIn from "@/pages/reception/CheckIn";
 import ReceptionLeads from "@/pages/reception/Leads";
-import ReceptionPayments from "@/pages/reception/Payments";
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AdminPanel from "@/pages/admin/AdminPanel";
 
 import BranchComparison from "@/pages/owner/BranchComparison";
 import Notifications from "@/pages/Notifications";
+import NotFound from "@/pages/NotFound";
 
 function OwnerShell() {
   const { user } = useAuth();
@@ -193,6 +193,9 @@ export default function App() {
                 <Route path="notifications" element={<Notifications />} />
               </Route>
             </Route>
+
+            {/* Catch-all 404 Route */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </div>
