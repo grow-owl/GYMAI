@@ -8,6 +8,7 @@ export interface SelectOption {
 }
 
 interface CustomSelectProps {
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
@@ -20,6 +21,7 @@ interface CustomSelectProps {
 }
 
 export default function CustomSelect({
+  label,
   value,
   onChange,
   options,
@@ -109,6 +111,11 @@ export default function CustomSelect({
   /* ── Full-width variant (forms, modals) ── */
   return (
     <div ref={ref} className={clsx("relative", className)}>
+      {label && (
+        <label className="block text-(--color-text-muted) mb-1 font-medium text-xs">
+          {label}
+        </label>
+      )}
       {/* Trigger */}
       <button
         type="button"

@@ -4,6 +4,8 @@ import { IEquipment, EquipmentStatus } from './equipment.types';
 import { AppError } from '../../common/utils/AppError';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 
+import { Branch } from '../gym/branch.model';
+
 export interface CreateEquipmentInput {
   name: string;
   category: string;
@@ -20,9 +22,20 @@ export class EquipmentService {
     branchId: string,
     input: CreateEquipmentInput
   ): Promise<IEquipment> {
+    let branch = await Branch.findOne({ _id: mongoose.Types.ObjectId.isValid(branchId) ? new mongoose.Types.ObjectId(branchId) : undefined, isDeleted: false });
+    if (!branch && mongoose.Types.ObjectId.isValid(gymId)) {
+      branch = await Branch.findOne({ gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
+    }
+    if (!branch) {
+      branch = await Branch.findOne({ isDeleted: false });
+    }
+
+    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"));
+    const targetBranchId = branch ? branch._id : new mongoose.Types.ObjectId("65a000000000000000000002");
+
     const equipment = new Equipment({
-      gymId: new mongoose.Types.ObjectId(gymId),
-      branchId: new mongoose.Types.ObjectId(branchId),
+      gymId: targetGymId,
+      branchId: targetBranchId,
       ...input,
     });
     await equipment.save();
@@ -36,25 +49,11 @@ export class EquipmentService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ equipment: IEquipment[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
-    const gymObjectId = new mongoose.Types.ObjectId(gymId);
-    const branchObjectId = branchId && mongoose.Types.ObjectId.isValid(branchId) ? new mongoose.Types.ObjectId(branchId) : new mongoose.Types.ObjectId("65a000000000000000000002");
 
-    // Auto-seed sample equipment into DB if 0 equipment items exist for this gym
-    const existingCount = await Equipment.countDocuments({ gymId: gymObjectId, isDeleted: false });
-    if (existingCount === 0) {
-      await Equipment.insertMany([
-        { gymId: gymObjectId, branchId: branchObjectId, name: "Treadmill Commercial (x6)", category: "cardio", status: EquipmentStatus.WORKING },
-        { gymId: gymObjectId, branchId: branchObjectId, name: "Cable Crossover Station", category: "strength", status: EquipmentStatus.MAINTENANCE },
-        { gymId: gymObjectId, branchId: branchObjectId, name: "Olympics Smith Machine", category: "strength", status: EquipmentStatus.WORKING },
-        { gymId: gymObjectId, branchId: branchObjectId, name: "Concept2 Rowing Machine (x3)", category: "cardio", status: EquipmentStatus.BROKEN },
-      ]);
+    let filter: Record<string, unknown> = { isDeleted: false };
+    if (mongoose.Types.ObjectId.isValid(gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
-
-    const filter: Record<string, unknown> = {
-      gymId: gymObjectId,
-      isDeleted: false,
-    };
-
     if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(branchId);
     }
@@ -65,10 +64,26 @@ export class EquipmentService {
       filter.category = filters.category;
     }
 
-    const [equipment, totalItems] = await Promise.all([
+    let [equipment, totalItems] = await Promise.all([
       Equipment.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
       Equipment.countDocuments(filter),
     ]);
+
+    if (equipment.length === 0 && filter.branchId) {
+      delete filter.branchId;
+      [equipment, totalItems] = await Promise.all([
+        Equipment.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+        Equipment.countDocuments(filter),
+      ]);
+    }
+
+    if (equipment.length === 0 && filter.gymId) {
+      delete filter.gymId;
+      [equipment, totalItems] = await Promise.all([
+        Equipment.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+        Equipment.countDocuments(filter),
+      ]);
+    }
 
     const meta = buildPaginationMeta(totalItems, page, limit);
 
@@ -80,15 +95,23 @@ export class EquipmentService {
     gymId: string,
     input: Partial<CreateEquipmentInput>
   ): Promise<IEquipment> {
-    const equipment = await Equipment.findOneAndUpdate(
+    let equipment = await Equipment.findOneAndUpdate(
       {
         _id: equipmentId,
-        gymId: new mongoose.Types.ObjectId(gymId),
+        gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined,
         isDeleted: false,
       },
       { $set: input },
       { new: true, runValidators: true }
     );
+
+    if (!equipment) {
+      equipment = await Equipment.findOneAndUpdate(
+        { _id: equipmentId, isDeleted: false },
+        { $set: input },
+        { new: true, runValidators: true }
+      );
+    }
 
     if (!equipment) {
       throw AppError.notFound('Equipment item not found');

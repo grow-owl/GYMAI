@@ -1,61 +1,80 @@
 import { useState, useEffect } from "react";
-import { Plus, DollarSign, Receipt } from "lucide-react";
+import { Plus, DollarSign, Receipt, Loader2, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
-import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { expenseApi } from "@/lib/endpoints";
-import { useAuthStore } from "@/store/authStore";
+import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 
-const mockExpenses = [
-  { _id: "1", title: "Staff Salaries", category: "salary", amount: 142000, date: "2026-08-01" },
-  { _id: "2", title: "Equipment Maintenance", category: "maintenance", amount: 18500, date: "2026-08-02" },
-  { _id: "3", title: "Gym Rent", category: "rent", amount: 65000, date: "2026-08-01" },
-  { _id: "4", title: "Electricity & AC Utilities", category: "utilities", amount: 12300, date: "2026-08-03" },
+const expenseCategoryOptions = [
+  { value: "UTILITIES", label: "Electricity & Utilities" },
+  { value: "SALARY", label: "Staff Salaries" },
+  { value: "RENT", label: "Gym Rent" },
+  { value: "MAINTENANCE", label: "Equipment Maintenance" },
+  { value: "EQUIPMENT_PURCHASE", label: "Equipment Purchase" },
+  { value: "MARKETING", label: "Marketing & Promotions" },
+  { value: "OTHER", label: "Other Expense" },
 ];
 
 export default function Expenses() {
-  const user = useAuthStore((s) => s.user);
+  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [expenseList, setExpenseList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [submittingAdd, setSubmittingAdd] = useState(false);
 
   const [newExpense, setNewExpense] = useState({
     title: "",
-    category: "utilities",
+    category: "UTILITIES",
     amount: 5000,
     notes: "",
   });
 
   const fetchExpenses = async () => {
+    if (!gymId) {
+      setExpenseList([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      if (user?.gymId) {
-        const res = await expenseApi.list(user.gymId);
-        if (Array.isArray(res) && res.length > 0) {
-          setExpenseList(res);
-          return;
-        }
-      }
-      setExpenseList(mockExpenses);
+      const res = await expenseApi.list(gymId);
+      const list = Array.isArray(res) ? res : (res as any)?.expenses || [];
+      setExpenseList(list);
     } catch {
-      setExpenseList(mockExpenses);
+      setExpenseList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchExpenses();
-  }, [user]);
+  }, [gymId, branchId]);
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    const activeGymId = gymId || "65a000000000000000000001";
+    const activeBranchId = branchId || "65a000000000000000000002";
+
+    setSubmittingAdd(true);
     try {
-      if (user?.gymId) {
-        await expenseApi.add(user.gymId, newExpense);
-      }
-      toast.success(`Expense ₹${newExpense.amount} added!`);
+      await expenseApi.add(activeGymId, {
+        branchId: activeBranchId,
+        description: newExpense.title || "Operating Expense",
+        category: newExpense.category,
+        amount: Number(newExpense.amount),
+        notes: newExpense.notes,
+      });
+      toast.success(`Expense ₹${newExpense.amount} recorded!`);
       setShowAddModal(false);
+      setNewExpense({ title: "", category: "UTILITIES", amount: 5000, notes: "" });
       fetchExpenses();
-    } catch {
-      toast.error("Failed to add expense.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to add expense.");
+    } finally {
+      setSubmittingAdd(false);
     }
   };
 
@@ -68,12 +87,21 @@ export default function Expenses() {
         subtitle="Monthly Operating Costs & Expenses"
         backTo="/owner"
         action={
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
-          >
-            <Plus size={15} /> Add expense
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchExpenses}
+              className="inline-flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) p-2 rounded-lg bg-(--color-surface-2)"
+              title="Refresh Expenses"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
+            >
+              <Plus size={15} /> Add expense
+            </button>
+          </div>
         }
       />
 
@@ -81,7 +109,7 @@ export default function Expenses() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-(--color-text-muted) mb-1">Total Expenses This Month</p>
-            <p className="font-display text-3xl font-semibold text-rose-400 font-mono">₹{totalExpense.toLocaleString()}</p>
+            <p className="font-display text-3xl font-semibold text-rose-400 font-mono">₹{totalExpense.toLocaleString("en-IN")}</p>
           </div>
           <div className="p-3 rounded-full bg-rose-500/10 text-rose-400">
             <DollarSign size={24} />
@@ -89,78 +117,91 @@ export default function Expenses() {
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="divide-y divide-(--color-border-soft)">
-          {expenseList.map((e) => (
-            <div key={e._id} className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2)/50 transition-colors">
-              <div className="flex items-center gap-3">
-                <Receipt className="w-5 h-5 text-(--color-text-muted) shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-(--color-text)">{e.title || e.name}</p>
-                  <p className="text-xs text-(--color-text-faint) capitalize">{e.category || "General"}</p>
+      {resolvingBranch || loading ? (
+        <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading expense records from backend...
+        </Card>
+      ) : expenseList.length === 0 ? (
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
+          <Receipt className="w-8 h-8 mx-auto text-(--color-text-faint)" />
+          <p className="text-sm font-medium text-(--color-text)">No expenses recorded for this month</p>
+          <p className="text-xs text-(--color-text-muted)">Click "Add expense" to log operational expenses.</p>
+        </Card>
+      ) : (
+        <Card className="p-0 overflow-hidden">
+          <div className="divide-y divide-(--color-border-soft)">
+            {expenseList.map((e) => (
+              <div key={e._id || e.id} className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2)/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Receipt className="w-5 h-5 text-(--color-text-muted) shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-(--color-text)">{e.description || e.title || e.name}</p>
+                    <p className="text-xs text-(--color-text-faint) capitalize">{e.category || "General"}</p>
+                  </div>
                 </div>
+                <p className="font-mono text-sm font-bold text-rose-400">₹{(e.amount || 0).toLocaleString("en-IN")}</p>
               </div>
-              <p className="text-sm font-semibold text-(--color-text) font-mono">₹{(e.amount || 0).toLocaleString()}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Add Expense Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">Add Expense</h3>
-            <form onSubmit={handleAddExpense} className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleAddExpense} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
+            <h3 className="font-display text-lg font-bold text-(--color-text)">Add Gym Expense</h3>
+            <div className="space-y-3 text-xs">
               <div>
-                <label className="text-xs text-(--color-text-muted)">Expense Title</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Expense Description</label>
                 <input
+                  type="text"
                   required
+                  placeholder="e.g. Electricity Bill & AC Servicing"
                   value={newExpense.title}
                   onChange={(e) => setNewExpense({ ...newExpense, title: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="e.g. AC Repair"
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
                 />
               </div>
+
               <div>
-                <label className="text-xs text-(--color-text-muted)">Category</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Category</label>
                 <CustomSelect
                   value={newExpense.category}
                   onChange={(val) => setNewExpense({ ...newExpense, category: val })}
-                  className="mt-1"
-                  options={[
-                    { value: "rent", label: "Rent" },
-                    { value: "utilities", label: "Utilities & Electricity" },
-                    { value: "salary", label: "Staff Salary" },
-                    { value: "maintenance", label: "Equipment Maintenance" },
-                    { value: "marketing", label: "Marketing & Ads" },
-                  ]}
+                  options={expenseCategoryOptions}
                 />
               </div>
+
               <div>
-                <label className="text-xs text-(--color-text-muted)">Amount (₹)</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Amount (₹)</label>
                 <input
                   type="number"
                   required
                   value={newExpense.amount}
                   onChange={(e) => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white">
-                  Save Expense
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingAdd}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Record Expense"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

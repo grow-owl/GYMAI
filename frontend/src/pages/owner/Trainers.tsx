@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search } from "lucide-react";
+import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search, KeyRound } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
 import { useGymBranch } from "@/hooks/useGymBranch";
-import { trainerApi, memberApi } from "@/lib/endpoints";
+import { trainerApi, memberApi, authApi } from "@/lib/endpoints";
 import { useSearchStore } from "../../store/searchStore";
 import { toast } from "sonner";
 
@@ -19,98 +19,72 @@ interface TrainerRow {
   assignedMembersCount?: number;
   activeClientsCount?: number;
   status?: string;
-  userId?: { fullName?: string; email?: string; phone?: string };
+  userId?: { _id?: string; fullName?: string; email?: string; phone?: string } | any;
   specializations?: string[];
   maxMemberCapacity?: number;
 }
 
-const STORAGE_KEY = "gymai.trainers_list";
-
-function getStoredTrainers(): TrainerRow[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
-  return [];
-}
-
-function saveStoredTrainers(list: TrainerRow[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch {}
-}
-
-function mergeTrainerList(backendList: TrainerRow[], storedList: TrainerRow[]): TrainerRow[] {
-  const map = new Map<string, TrainerRow>();
-  for (const item of storedList) {
-    if (item._id) map.set(item._id, item);
-  }
-  for (const item of backendList) {
-    if (item._id) {
-      const existing = map.get(item._id);
-      map.set(item._id, existing ? { ...existing, ...item } : item);
-    }
-  }
-  return Array.from(map.values());
-}
-
 export default function Trainers() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
-  const [trainers, setTrainers] = useState<TrainerRow[]>(() => getStoredTrainers());
+  const [trainers, setTrainers] = useState<TrainerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
 
+  // Clear old cached mock localStorage items on mount
+  useEffect(() => {
+    try {
+      localStorage.removeItem("gymai.trainers_list");
+    } catch {}
+  }, []);
+
   const [showAddModal, setShowAddModal] = useState(false);
+  const [submittingAdd, setSubmittingAdd] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTrainer, setSelectedTrainer] = useState<TrainerRow | null>(null);
+
+  // Reset Password Modal
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetTargetUser, setResetTargetUser] = useState<any | null>(null);
+  const [newPasswordVal, setNewPasswordVal] = useState("Trainer@123");
+  const [resettingPass, setResettingPass] = useState(false);
 
   // Members dropdown list for assigning
   const [membersList, setMembersList] = useState<any[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
-const filteredMembersDropdown = membersList.filter((m) => {
-  const q = memberSearchQuery.toLowerCase().trim();
-  if (!q) return true;
-  const name = (m.fullName || m.name || m.userId?.fullName || "").toLowerCase();
-  const phone = (m.phone || m.userId?.phone || "").toLowerCase();
-  return name.includes(q) || phone.includes(q);
-});
+
+  const filteredMembersDropdown = membersList.filter((m) => {
+    const q = memberSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const name = (m.fullName || m.name || m.userId?.fullName || "").toLowerCase();
+    const phone = (m.phone || m.userId?.phone || "").toLowerCase();
+    return name.includes(q) || phone.includes(q);
+  });
 
   const [newTrainer, setNewTrainer] = useState({
     fullName: "",
     email: "",
     phone: "",
+    password: "Trainer@123",
     specializations: "Strength & Conditioning",
   });
 
   const fetchTrainers = async () => {
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    if (!gymId || !branchId) {
+      setTrainers([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const [tRes, mRes] = await Promise.all([
-        trainerApi.list(activeGymId, activeBranchId).catch(() => null),
-        memberApi.list(activeGymId, activeBranchId).catch(() => null),
-      ]);
-      const list = Array.isArray(tRes) ? tRes : (tRes as any)?.trainers || [];
-      const merged = mergeTrainerList(list as TrainerRow[], getStoredTrainers());
-      setTrainers(merged);
-      saveStoredTrainers(merged);
-
-      const mArray = Array.isArray(mRes) ? mRes : (mRes as any)?.members || [];
-      setMembersList(mArray);
+      const res = await trainerApi.list(gymId, branchId);
+      const list = Array.isArray(res) ? res : (res as any)?.trainers || [];
+      setTrainers(list);
     } catch {
-      const stored = getStoredTrainers();
-      if (stored.length > 0) {
-        setTrainers(stored);
-      } else {
-        setError("Failed to load trainers from backend.");
-      }
+      setError("Failed to load trainers from backend.");
+      setTrainers([]);
     } finally {
       setLoading(false);
     }
@@ -125,158 +99,139 @@ const filteredMembersDropdown = membersList.filter((m) => {
     const activeGymId = gymId || "65a000000000000000000001";
     const activeBranchId = branchId || "65a000000000000000000002";
 
-    const newTrainerObj: TrainerRow = {
-      _id: `tr-${Date.now()}`,
-      fullName: newTrainer.fullName,
-      email: newTrainer.email,
-      phone: newTrainer.phone,
-      specializations: newTrainer.specializations.split(",").map((s) => s.trim()),
-      assignedMembersCount: 0,
-      activeClientsCount: 0,
-      status: "ACTIVE",
-    };
-
-    const updated = [newTrainerObj, ...trainers];
-    setTrainers(updated);
-    saveStoredTrainers(updated);
-    toast.success(`Trainer ${newTrainer.fullName} added successfully!`);
-    setShowAddModal(false);
-
+    setSubmittingAdd(true);
     try {
-      await trainerApi.create(activeGymId, activeBranchId, {
+      const specsArray = typeof newTrainer.specializations === 'string'
+        ? newTrainer.specializations.split(',').map((s) => s.trim()).filter(Boolean)
+        : newTrainer.specializations;
+
+      const payload = {
         ...newTrainer,
-        specializations: newTrainer.specializations.split(",").map((s) => s.trim()),
-      });
+        specializations: specsArray,
+        branchId: activeBranchId,
+      };
+
+      await trainerApi.create(activeGymId, activeBranchId, payload);
+      toast.success(`Trainer ${newTrainer.fullName} registered successfully!`);
+      setShowAddModal(false);
+      setNewTrainer({ fullName: "", email: "", phone: "", password: "Trainer@123", specializations: "Strength & Conditioning" });
       fetchTrainers();
-    } catch (err) {
-      console.warn("Backend add trainer warning:", err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to create trainer");
+    } finally {
+      setSubmittingAdd(false);
     }
   };
 
-  const handleAssignClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTrainer || !selectedMemberId) {
-      toast.error("Please select a member to assign");
-      return;
-    }
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
-    const chosenMem = membersList.find((m) => m._id === selectedMemberId || m.id === selectedMemberId);
-    const chosenName = chosenMem?.fullName || chosenMem?.name || chosenMem?.userId?.fullName || "Member";
-
-    const prevTrainerId = chosenMem?.assignedTrainerId?._id || chosenMem?.assignedTrainerId || chosenMem?.trainerId;
-
-    if (prevTrainerId === selectedTrainer._id) {
-      toast.error(`${chosenName} is already assigned to ${selectedTrainer.fullName || selectedTrainer.name || "this trainer"}!`);
-      return;
-    }
-
-    // Update trainers list counts (decrement previous trainer, increment new trainer)
-    const updatedTrainers = trainers.map((t) => {
-      if (t._id === selectedTrainer._id) {
-        return {
-          ...t,
-          assignedMembersCount: (t.assignedMembersCount || t.clients || 0) + 1,
-          clients: (t.clients || t.assignedMembersCount || 0) + 1,
-        };
-      }
-      if (prevTrainerId && (t._id === prevTrainerId || (t as any).id === prevTrainerId)) {
-        return {
-          ...t,
-          assignedMembersCount: Math.max(0, (t.assignedMembersCount || t.clients || 1) - 1),
-          clients: Math.max(0, (t.clients || t.assignedMembersCount || 1) - 1),
-        };
-      }
-      return t;
-    });
-
-    // Update members list state with new assignedTrainerId
-    const updatedMembers = membersList.map((m) =>
-      m._id === selectedMemberId || m.id === selectedMemberId
-        ? { ...m, assignedTrainerId: selectedTrainer._id }
-        : m
-    );
-    setMembersList(updatedMembers);
-
-    setTrainers(updatedTrainers);
-    saveStoredTrainers(updatedTrainers);
-
-    const targetTrainerName = selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName || "Trainer";
-    if (prevTrainerId) {
-      toast.success(`Reassigned ${chosenName} to ${targetTrainerName}! (Previous trainer assignment removed)`);
-    } else {
-      toast.success(`Assigned ${chosenName} to trainer ${targetTrainerName}!`);
-    }
-
-    setShowAssignModal(false);
+  const handleOpenAssign = async (t: TrainerRow) => {
+    setSelectedTrainer(t);
     setSelectedMemberId("");
-
-    try {
-      if (!selectedTrainer._id.startsWith("tr-")) {
-        await trainerApi.assignClient(activeGymId, activeBranchId, selectedTrainer._id, selectedMemberId);
-      }
-    } catch (err) {
-      console.warn("Backend assign client warning:", err);
+    setMemberSearchQuery("");
+    setShowAssignModal(true);
+    if (gymId && branchId) {
+      try {
+        const res = await memberApi.list(gymId, branchId);
+        const mList = Array.isArray(res) ? res : (res as any)?.members || [];
+        setMembersList(mList);
+      } catch {}
     }
   };
 
-  const handleDeleteTrainer = async (trainerId: string, trainerName: string) => {
-    if (!window.confirm(`Are you sure you want to remove trainer "${trainerName}"?`)) return;
-    const activeGymId = gymId || "65a000000000000000000001";
-    const updated = trainers.filter((t) => t._id !== trainerId);
-    setTrainers(updated);
-    saveStoredTrainers(updated);
-    toast.success(`Trainer ${trainerName} deleted!`);
-
+  const handleAssignClientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTrainer || !selectedMemberId || !gymId || !branchId) {
+      toast.error("Please select a valid member to assign.");
+      return;
+    }
+    const tId = selectedTrainer._id;
     try {
-      if (!trainerId.startsWith("tr-")) {
-        await trainerApi.delete(activeGymId, trainerId);
-      }
-    } catch (err) {
-      console.warn("Backend delete trainer warning:", err);
+      await trainerApi.assignClient(gymId, branchId, tId, selectedMemberId);
+      toast.success("Client assigned to trainer successfully!");
+      setShowAssignModal(false);
+      fetchTrainers();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to assign client");
+    }
+  };
+
+  const handleDeleteTrainer = async (tId: string) => {
+    if (!gymId) return;
+    if (!confirm("Are you sure you want to remove this trainer?")) return;
+    try {
+      await trainerApi.delete(gymId, tId);
+      toast.success("Trainer removed.");
+      fetchTrainers();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to delete trainer");
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetTargetUser?._id) return;
+    setResettingPass(true);
+    try {
+      await authApi.adminResetPassword(resetTargetUser._id, newPasswordVal);
+      toast.success(`Password reset for ${resetTargetUser.fullName || "trainer"}!`);
+      setShowResetModal(false);
+      setResetTargetUser(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to reset password");
+    } finally {
+      setResettingPass(false);
     }
   };
 
   const filteredTrainers = trainers.filter((t) => {
-    const q = search.toLowerCase().trim();
-    if (!q) return true;
-    const name = (t.fullName || t.name || t.userId?.fullName || "").toLowerCase();
-    const spec = (t.specialization || t.specializations?.join(", ") || "").toLowerCase();
-    const phone = (t.phone || t.userId?.phone || "").toLowerCase();
-    const email = (t.email || t.userId?.email || "").toLowerCase();
-    return name.includes(q) || spec.includes(q) || phone.includes(q) || email.includes(q);
+    const name = t.fullName || t.name || t.userId?.fullName || "";
+    const phone = t.phone || t.userId?.phone || "";
+    const spec = (t.specializations || []).join(" ") || t.specialization || "";
+    const q = search.toLowerCase();
+    return name.toLowerCase().includes(q) || phone.toLowerCase().includes(q) || spec.toLowerCase().includes(q);
   });
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Trainers"
-        subtitle={`${filteredTrainers.length} showing · Active trainers`}
+        title="Trainers & Staff Management"
+        subtitle="Gym Staff, Personal Trainers & Client Assignments"
         backTo="/owner"
         action={
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 transition-opacity"
-          >
-            <Plus size={15} /> Add trainer
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchTrainers}
+              className="inline-flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) p-2 rounded-lg bg-(--color-surface-2)"
+              title="Refresh Trainers"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 shadow-sm"
+            >
+              <Plus size={15} /> Add Trainer / Staff
+            </button>
+          </div>
         }
       />
 
-      <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-4 py-2 text-sm text-(--color-text) max-w-sm">
-        <Search size={15} className="text-(--color-text-faint)" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search trainers by name..."
-          className="bg-transparent outline-none w-full placeholder:text-(--color-text-faint)"
-        />
-      </div>
-
-      {(resolvingBranch || loading) ? (
-        <div className="flex items-center gap-2 text-sm text-(--color-text-faint) py-10 justify-center">
-          <Loader2 size={16} className="animate-spin text-(--color-accent)" /> Loading trainers…
+      <Card className="p-3">
+        <div className="relative">
+          <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-faint)" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search trainers by name, phone, specialization..."
+            className="w-full rounded-xl border border-(--color-border) bg-(--color-base) pl-9 pr-4 py-2 text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+          />
         </div>
+      </Card>
+
+      {resolvingBranch || loading ? (
+        <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading trainer profiles...
+        </Card>
       ) : error ? (
         <Card className="text-center py-8">
           <p className="text-sm text-(--color-danger) mb-3">{error}</p>
@@ -287,72 +242,75 @@ const filteredMembersDropdown = membersList.filter((m) => {
             <RefreshCw size={14} /> Retry
           </button>
         </Card>
-      ) : trainers.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center py-12 text-center">
-          <Dumbbell className="w-8 h-8 text-(--color-text-faint) mb-2 opacity-50" />
-          <p className="text-sm font-medium text-(--color-text)">No trainers registered yet</p>
-          <p className="text-xs text-(--color-text-faint) mt-1 max-w-xs">
-            Click the "Add trainer" button above to onboard your gym's personal trainers.
-          </p>
-        </Card>
       ) : filteredTrainers.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center py-12 text-center">
-          <Search className="w-8 h-8 text-(--color-text-faint) mb-2 opacity-50" />
-          <p className="text-sm font-medium text-(--color-text)">No trainers match your search</p>
-          <p className="text-xs text-(--color-text-faint) mt-1 max-w-xs">
-            Try adjusting your search terms or clear the filter.
-          </p>
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
+          <Dumbbell className="w-8 h-8 mx-auto text-(--color-text-faint)" />
+          <p className="text-sm font-medium text-(--color-text)">No trainers or staff found</p>
+          <p className="text-xs text-(--color-text-muted)">Click "Add Trainer / Staff" to register new trainer profiles.</p>
         </Card>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTrainers.map((t, idx) => {
-            const name = t.fullName || t.name || t.userId?.fullName || "Unnamed Trainer";
-            const spec = t.specialization || t.specializations?.join(", ") || "Fitness & Bodybuilding";
-            const clientsCount = t.assignedMembersCount ?? t.clients ?? 0;
-            const phone = t.phone || t.userId?.phone || "+91 9876543202";
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredTrainers.map((t) => {
+            const tId = t._id;
+            const name = t.fullName || t.name || t.userId?.fullName || "Trainer";
+            const email = t.email || t.userId?.email || "";
+            const phone = t.phone || t.userId?.phone || "N/A";
+            const specs = Array.isArray(t.specializations) && t.specializations.length > 0
+              ? t.specializations.join(", ")
+              : t.specialization || "General Fitness";
+            const clientsCount = t.clients ?? t.assignedMembersCount ?? t.activeClientsCount ?? 0;
 
             return (
-              <Card key={t._id || idx} className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
+              <Card key={tId} className="p-4 space-y-3 flex flex-col justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-(--color-surface-3) text-sm font-semibold text-(--color-text)">
-                      {name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-(--color-text)">{name}</p>
-                      <p className="text-xs text-(--color-text-faint)">{spec}</p>
+                    <div className="w-10 h-10 rounded-full bg-(--color-surface-2) flex items-center justify-center font-bold text-sm text-(--color-text) shrink-0">
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-display font-semibold text-sm text-(--color-text) truncate">{name}</h4>
+                      <p className="text-xs text-(--color-accent) font-medium truncate">{specs}</p>
+                      {email && <p className="text-[11px] text-(--color-text-muted) truncate">{email}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
+
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
-                      title="Assign Member Client"
                       onClick={() => {
-                        setSelectedTrainer(t);
-                        setShowAssignModal(true);
+                        setResetTargetUser(t.userId?._id ? t.userId : { _id: t.userId || tId, fullName: name });
+                        setShowResetModal(true);
                       }}
-                      className="p-2 rounded-lg border border-(--color-border) text-(--color-text-muted) hover:bg-(--color-accent-soft) hover:text-(--color-accent-text)"
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-amber-400"
+                      title="Reset Trainer Password"
+                    >
+                      <KeyRound size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleOpenAssign(t)}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-accent)"
+                      title="Assign Client"
                     >
                       <UserPlus size={15} />
                     </button>
                     <button
+                      onClick={() => handleDeleteTrainer(tId)}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-red-400"
                       title="Delete Trainer"
-                      onClick={() => handleDeleteTrainer(t._id, name)}
-                      className="p-2 rounded-lg border border-(--color-border) text-rose-400 hover:bg-rose-500/10 hover:text-rose-500"
                     >
                       <Trash2 size={15} />
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className="rounded-xl bg-(--color-surface-2) py-2.5">
-                    <Award size={14} className="mx-auto mb-1 text-(--color-text-faint)" />
-                    <p className="text-sm font-semibold text-(--color-text)">{clientsCount}</p>
-                    <p className="text-[10px] text-(--color-text-faint)">Clients assigned</p>
+                <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                  <div className="p-2.5 rounded-xl bg-(--color-surface-2)/50">
+                    <Award className="w-4 h-4 mx-auto text-amber-400 mb-0.5" />
+                    <p className="font-bold text-(--color-text)">{clientsCount}</p>
+                    <p className="text-[10px] text-(--color-text-muted)">Clients assigned</p>
                   </div>
-                  <div className="rounded-xl bg-(--color-surface-2) py-2.5">
-                    <p className="text-sm font-semibold text-(--color-text) truncate px-1">{phone}</p>
-                    <p className="text-[10px] text-(--color-text-faint)">Phone</p>
+                  <div className="p-2.5 rounded-xl bg-(--color-surface-2)/50">
+                    <p className="font-mono text-xs font-semibold text-(--color-text) truncate mt-1">{phone}</p>
+                    <p className="text-[10px] text-(--color-text-muted)">Phone</p>
                   </div>
                 </div>
               </Card>
@@ -363,112 +321,172 @@ const filteredMembersDropdown = membersList.filter((m) => {
 
       {/* Add Trainer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">Add Trainer</h3>
-            <form onSubmit={handleAddTrainer} className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleAddTrainer} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
+            <h3 className="font-display text-lg font-bold text-(--color-text)">Register New Trainer / Staff</h3>
+            <div className="space-y-3 text-xs">
               <div>
-                <label className="text-xs text-(--color-text-muted)">Full Name</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
                 <input
+                  type="text"
                   required
+                  placeholder="e.g. Rajesh Sharma"
                   value={newTrainer.fullName}
                   onChange={(e) => setNewTrainer({ ...newTrainer, fullName: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="e.g. Karan Johar"
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
                 />
               </div>
               <div>
-                <label className="text-xs text-(--color-text-muted)">Email</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Email Address</label>
                 <input
                   type="email"
                   required
+                  placeholder="rajesh@gym.com"
                   value={newTrainer.email}
                   onChange={(e) => setNewTrainer({ ...newTrainer, email: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="karan@gym.com"
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
                 />
               </div>
               <div>
-                <label className="text-xs text-(--color-text-muted)">Specialization</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Phone Number</label>
                 <input
-                  value={newTrainer.specializations}
-                  onChange={(e) => setNewTrainer({ ...newTrainer, specializations: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="Crossfit, Weight Loss"
+                  type="text"
+                  required
+                  placeholder="+91 9876543210"
+                  value={newTrainer.phone}
+                  onChange={(e) => setNewTrainer({ ...newTrainer, phone: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white">
-                  Save Trainer
-                </button>
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Account Password</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Trainer@123"
+                  value={newTrainer.password}
+                  onChange={(e) => setNewTrainer({ ...newTrainer, password: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
               </div>
-            </form>
-          </div>
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Specializations</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Strength, Bodybuilding, Weight Loss"
+                  value={newTrainer.specializations}
+                  onChange={(e) => setNewTrainer({ ...newTrainer, specializations: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingAdd}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register Trainer"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
-      {/* Assign Client Modal with Searchable Member Dropdown */}
+      {/* Assign Client Modal */}
       {showAssignModal && selectedTrainer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-xl space-y-4 overflow-visible">
-            <h3 className="text-base font-semibold text-(--color-text)">
-              Assign Client to {selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleAssignClientSubmit} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
+            <h3 className="font-display text-base font-bold text-(--color-text)">
+              Assign Client to: {selectedTrainer.fullName || selectedTrainer.name || selectedTrainer.userId?.fullName}
             </h3>
-            <form onSubmit={handleAssignClient} className="space-y-3">
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Search & Select Member</label>
-                <div className="flex items-center gap-2 rounded-lg border border-(--color-border) bg-(--color-surface-2) px-3 py-1.5 my-1">
-                  <Search size={14} className="text-(--color-text-faint)" />
-                  <input
-                    value={memberSearchQuery}
-                    onChange={(e) => setMemberSearchQuery(e.target.value)}
-                    placeholder="Search member by name..."
-                    className="bg-transparent text-xs text-(--color-text) outline-none w-full"
-                  />
-                </div>
-                <CustomSelect
-                  value={selectedMemberId}
-                  onChange={setSelectedMemberId}
-                  placeholder="-- Choose Member --"
-                  required
-                  options={[
-                    ...filteredMembersDropdown.map((m) => {
-                      const mName = m.fullName || m.name || m.userId?.fullName || "Member";
-                      const mPhone = m.phone || m.userId?.phone || "";
-                      const mAssignedTrainer = m.assignedTrainerId?.fullName || m.assignedTrainerId?.name || (m.assignedTrainerId ? "Another Trainer" : null);
-                      const tag = mAssignedTrainer ? ` (Assigned to ${mAssignedTrainer} - Reassign)` : " (Unassigned)";
-                      return {
-                        value: m._id || m.id || "",
-                        label: `${mName}${mPhone ? ` [${mPhone}]` : ""}${tag}`,
-                      };
-                    }),
-                  ]}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAssignModal(false);
-                    setSelectedMemberId("");
-                  }}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white">
-                  Assign Client
-                </button>
-              </div>
-            </form>
-          </div>
+
+            <div className="space-y-2 text-xs">
+              <label className="block text-(--color-text-muted) font-medium">Select Gym Member</label>
+              <input
+                type="text"
+                placeholder="Search member by name or phone..."
+                value={memberSearchQuery}
+                onChange={(e) => setMemberSearchQuery(e.target.value)}
+                className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) outline-none focus:border-(--color-accent)"
+              />
+              <CustomSelect
+                value={selectedMemberId}
+                onChange={(val) => setSelectedMemberId(val)}
+                placeholder="-- Click to choose a member --"
+                options={filteredMembersDropdown.map((m) => {
+                  const name = m.fullName || m.name || m.userId?.fullName || "Member";
+                  const phone = m.phone || m.userId?.phone || "";
+                  return {
+                    value: m._id || m.id,
+                    label: `${name} ${phone ? `(${phone})` : ""}`,
+                  };
+                })}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md"
+              >
+                Confirm Assignment
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetModal && resetTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleResetPassword} className="w-full max-w-sm rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
+            <h3 className="font-display text-base font-bold text-(--color-text)">
+              Reset Password: {resetTargetUser.fullName || "Trainer"}
+            </h3>
+            <div>
+              <label className="block text-(--color-text-muted) mb-1 font-medium">New Password</label>
+              <input
+                type="text"
+                required
+                value={newPasswordVal}
+                onChange={(e) => setNewPasswordVal(e.target.value)}
+                className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={resettingPass}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-bold shadow-md flex items-center justify-center gap-1"
+              >
+                {resettingPass ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reset Password"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Sparkles, ArrowRight, TrendingUp, Clock, Award, AlertTriangle, Activity, Loader2 } from "lucide-react";
+import { Sparkles, ArrowRight, TrendingUp, Clock, Award, AlertTriangle, Activity, Loader2, Users } from "lucide-react";
 import KpiCard from "@/components/ui/KpiCard";
 import QuickAccessCard from "@/components/ui/QuickAccessCard";
 import Card from "@/components/ui/Card";
@@ -26,18 +26,18 @@ const miniStatClasses: Record<string, { bg: string; text: string }> = {
   pink: { bg: "bg-(--tone-pink)", text: "text-white" },
 };
 
-function buildAttendanceWeeks(liveCheckIns: number = 14): HeatmapCell[][] {
+function buildAttendanceWeeks(liveCheckIns: number = 0): HeatmapCell[][] {
   const weeks: HeatmapCell[][] = [];
   let seed = 7;
   const now = new Date();
-  const scale = liveCheckIns > 0 ? liveCheckIns * 5 : 50;
+  const scale = liveCheckIns > 0 ? liveCheckIns * 5 : 10;
   for (let w = 13; w >= 0; w--) {
     const week: HeatmapCell[] = [];
     for (let d = 0; d < 7; d++) {
       seed = (seed * 9301 + 49297) % 233280;
       const rand = seed / 233280;
       const weekday = d > 0 && d < 6;
-      const value = Math.round(rand * (weekday ? scale : scale * 0.4));
+      const value = liveCheckIns > 0 ? Math.round(rand * (weekday ? scale : scale * 0.4)) : 0;
 
       const cellDate = new Date(now.getTime() - (w * 7 + (6 - d)) * 24 * 60 * 60 * 1000);
       const dateStr = cellDate.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
@@ -48,6 +48,7 @@ function buildAttendanceWeeks(liveCheckIns: number = 14): HeatmapCell[][] {
   }
   return weeks;
 }
+
 export default function OwnerDashboard() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
@@ -55,43 +56,35 @@ export default function OwnerDashboard() {
   const [weeklyDigest, setWeeklyDigest] = useState<string | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [digestLoading, setDigestLoading] = useState(true);
-  const [digestError, setDigestError] = useState(false);
-
-  const defaultDigest =
-    "📊 Gym Executive Summary:\n• Peak Attendance: 6:00 PM – 8:00 PM evening rush saw 82% equipment capacity utilization.\n• Supplement Sales: Whey Protein & Creatine sales rose 18% this week.\n• Member Retention: 3 memberships expiring in the next 7 days — automated renewal reminders sent.";
 
   useEffect(() => {
-    const activeGymId = gymId || "65a000000000000000000001";
-    const activeBranchId = branchId || "65a000000000000000000002";
+    if (!gymId) return;
 
     setLoadingOverview(true);
     setDigestLoading(true);
-    setDigestError(false);
 
     Promise.all([
-      reportApi.getOverview(activeGymId, activeBranchId).catch(() => null),
-      memberApi.list(activeGymId, activeBranchId).catch(() => []),
-      aiApi.getWeeklyDigest(activeGymId).catch(() => {
-        return null;
-      }),
+      reportApi.getOverview(gymId, branchId ?? undefined).catch(() => null),
+      branchId ? memberApi.list(gymId, branchId).catch(() => []) : Promise.resolve([]),
+      aiApi.getWeeklyDigest(gymId).catch(() => null),
     ])
       .then(([ovRes, memRes, digestRes]) => {
-        const fallbackOverview: DashboardOverview = {
-          totalActiveMembers: 24,
-          totalTrainers: 5,
-          todayCheckIns: 14,
-          revenueThisMonth: 125000,
-          membershipsExpiringIn7Days: 3,
-          avgAttendanceRate30d: 82,
+        const zeroOverview: DashboardOverview = {
+          totalActiveMembers: 0,
+          totalTrainers: 0,
+          todayCheckIns: 0,
+          revenueThisMonth: 0,
+          membershipsExpiringIn7Days: 0,
+          avgAttendanceRate30d: 0,
         };
-        setOverview(ovRes || fallbackOverview);
+        setOverview(ovRes || zeroOverview);
 
         const mList = Array.isArray(memRes) ? memRes : memRes?.members || [];
         setMemberList(mList);
         if (digestRes?.weeklyDigest) {
           setWeeklyDigest(digestRes.weeklyDigest);
         } else {
-          setWeeklyDigest(defaultDigest);
+          setWeeklyDigest("No AI weekly digest available yet. Add members and check-ins to generate insights.");
         }
       })
       .finally(() => {
@@ -100,54 +93,78 @@ export default function OwnerDashboard() {
       });
   }, [gymId, branchId]);
 
+  const activeCount = memberList.filter((m) => m.membershipStatus === "ACTIVE" || !m.membershipStatus).length;
+  const expiredCount = memberList.filter((m) => m.membershipStatus === "EXPIRED").length;
+  const frozenCount = memberList.filter((m) => m.membershipStatus === "FROZEN").length;
+  const cancelledCount = memberList.filter((m) => m.membershipStatus === "CANCELLED").length;
+
+  const totalMembersCount = Math.max(overview?.totalActiveMembers || 0, memberList.length, activeCount);
+
   const kpis = overview
     ? [
-        { label: "Members", value: String(overview.totalActiveMembers), icon: "Users" },
-        { label: "Revenue (this month)", value: `₹${overview.revenueThisMonth.toLocaleString("en-IN")}`, icon: "IndianRupee" },
+        { label: "Members", value: String(totalMembersCount), icon: "Users" },
+        { label: "Revenue (this month)", value: `₹${(overview.revenueThisMonth || 0).toLocaleString("en-IN")}`, icon: "IndianRupee" },
         { label: "Trainers", value: String(overview.totalTrainers), icon: "Dumbbell" },
         { label: "Expiring in 7d", value: String(overview.membershipsExpiringIn7Days), icon: "AlertTriangle" },
       ]
     : [];
 
-  const planCounts = memberList.reduce<Record<string, number>>((acc, m) => {
-    const planName = m.planName || m.plan || "Standard Plan";
-    acc[planName] = (acc[planName] ?? 0) + 1;
-    return acc;
-  }, {});
+  const totalSegmented = activeCount + expiredCount + frozenCount + cancelledCount;
 
-  const planColors: Record<string, string> = {
-    "Premium Annual": "var(--tone-purple)",
-    Quarterly: "var(--tone-blue)",
-    Monthly: "var(--tone-amber)",
-  };
-  const planSegments = Object.entries(planCounts).map(([label, value]) => ({
-    label,
-    value,
-    color: planColors[label] ?? "var(--tone-teal)",
-  }));
+  const statusSegments = [
+    { label: "Active", value: Math.max(activeCount, totalSegmented === 0 ? 1 : 0), color: "var(--tone-green)" },
+    { label: "Expired", value: Math.max(expiredCount, 0), color: "var(--tone-amber)" },
+    { label: "Frozen", value: Math.max(frozenCount, 0), color: "var(--tone-blue)" },
+    { label: "Cancelled", value: Math.max(cancelledCount, 0), color: "var(--tone-pink)" },
+  ];
+
+  const attendanceWeeks = buildAttendanceWeeks(overview?.todayCheckIns ?? 0);
 
   return (
     <div className="space-y-6">
-      {(resolvingBranch || loadingOverview) && (
-        <div className="flex items-center gap-2 text-sm text-(--color-text-faint) py-4">
-          <Loader2 size={16} className="animate-spin text-(--color-accent)" /> Loading live dashboard data…
+      {resolvingBranch || loadingOverview ? (
+        <div className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading dashboard metrics...
         </div>
-      )}
-
-      {!resolvingBranch && !loadingOverview && !overview && (
-        <div className="rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-4 text-sm text-(--color-text-muted)">
-          Couldn't load live metrics for your gym yet — metrics will populate once your gym & branch are configured.
-        </div>
-      )}
-
-      {overview && (
+      ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {kpis.map((kpi, i) => (
-            <KpiCard key={kpi.label} {...kpi} tone={kpiTones[i % kpiTones.length]} />
+          {kpis.map((k, i) => (
+            <KpiCard key={k.label} {...k} tone={kpiTones[i % kpiTones.length]} />
           ))}
         </div>
       )}
 
+      {/* AI Assistant Banner */}
+      <Card sweep className="border-(--color-accent)/20 bg-gradient-to-r from-(--color-accent)/5 to-transparent">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--color-accent) text-white shadow-md">
+              <Sparkles size={20} strokeWidth={2} />
+            </span>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-(--color-accent-text)">AI Gym Co-Pilot</span>
+                <span className="rounded-full bg-(--color-accent-soft) px-2 py-0.5 text-[10px] font-semibold text-(--color-accent-text)">LIVE</span>
+              </div>
+              {digestLoading ? (
+                <p className="text-xs text-(--color-text-muted) flex items-center gap-1.5 py-1">
+                  <Loader2 size={13} className="animate-spin text-(--color-accent)" /> Generating AI weekly digest...
+                </p>
+              ) : (
+                <p className="text-sm font-medium text-(--color-text) leading-relaxed whitespace-pre-line">{weeklyDigest}</p>
+              )}
+            </div>
+          </div>
+          <Link
+            to="/owner/ai-insights"
+            className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-4 py-2 hover:opacity-90 transition-opacity shrink-0"
+          >
+            AI Insights <ArrowRight size={14} />
+          </Link>
+        </div>
+      </Card>
+
+      {/* Quick Access */}
       <div>
         <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Quick access</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -157,95 +174,50 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card>
-          <div className="flex items-center gap-2 mb-4">
-            <Activity size={15} className="text-(--tone-blue-text)" />
-            <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">
-              Attendance heatmap · last 14 weeks
-            </p>
+      {/* Charts section */}
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+        <Card className="flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-(--color-border)/60">
+            <div>
+              <p className="text-xs font-bold tracking-wider text-(--color-text-faint) uppercase flex items-center gap-2">
+                <Users size={15} className="text-(--color-accent)" /> Member Status Distribution
+              </p>
+              <p className="text-[11px] text-(--color-text-muted) mt-0.5">Live breakdown across active membership tiers</p>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-(--color-accent)/10 text-(--color-accent)">
+              {memberList.length} Members
+            </span>
           </div>
-          <Heatmap weeks={buildAttendanceWeeks(overview?.todayCheckIns ?? 14)} />
-          <div className="flex items-center gap-1.5 mt-4 text-[10px] text-(--color-text-faint)">
-            <span>Less</span>
-            <span className="h-3 w-3 rounded-[3px] bg-(--color-surface-3)" />
-            <span className="h-3 w-3 rounded-[3px] bg-(--tone-orange)/25" />
-            <span className="h-3 w-3 rounded-[3px] bg-(--tone-orange)/50" />
-            <span className="h-3 w-3 rounded-[3px] bg-(--tone-orange)/75" />
-            <span className="h-3 w-3 rounded-[3px] bg-(--tone-orange)" />
-            <span>More</span>
-          </div>
+          <DonutChart segments={statusSegments} centerValue={String(memberList.length)} centerLabel="Total Members" />
         </Card>
 
         <Card>
-          <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase mb-4">
-            Membership plan split
-          </p>
-          {planSegments.length === 0 ? (
-            <div className="py-8 text-center text-xs text-(--color-text-faint)">
-              No members registered to calculate plan breakdown
-            </div>
-          ) : (
-            <DonutChart segments={planSegments} centerLabel="Active members" centerValue={String(memberList.length)} />
-          )}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Check-in frequency (14 Weeks)</p>
+            <span className="font-mono text-xs text-(--color-text-muted)">
+              Avg {overview?.avgAttendanceRate30d || 0}% active
+            </span>
+          </div>
+          <Heatmap weeks={attendanceWeeks} />
         </Card>
       </div>
 
-      <Card sweep className="border-(--color-accent)/25">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={16} className="text-(--color-accent)" />
-          <p className="text-xs font-semibold tracking-wide text-(--color-accent-text) uppercase">AI Owner Insights</p>
-        </div>
-
-        {digestLoading ? (
-          <div className="flex items-center gap-2 text-xs text-(--color-text-muted) py-4">
-            <Loader2 size={14} className="animate-spin text-(--color-accent)" /> Generating weekly AI executive digest...
-          </div>
-        ) : digestError ? (
-          <div className="text-xs text-(--color-danger) py-2">
-            Failed to load AI weekly insights. Please try again later.
-          </div>
-        ) : !weeklyDigest ? (
-          <div className="text-xs text-(--color-text-muted) py-2">
-            Not enough data yet for this week's insights.
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-(--color-text) leading-relaxed mb-4 whitespace-pre-line">{weeklyDigest}</p>
-            <Link
-              to="/owner/ai-insights"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-accent-text) hover:gap-2.5 transition-all"
-            >
-              View full analysis <ArrowRight size={15} />
-            </Link>
-          </>
-        )}
-      </Card>
-
-      <div>
-        <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">
-          Revenue: {overview ? `₹${overview.revenueThisMonth.toLocaleString("en-IN")}` : "—"} this month
-        </p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {miniStats.map(({ label, value, note, icon: Icon, tone }) => {
-            const t = miniStatClasses[tone];
-            return (
-              <div
-                key={label}
-                data-tone={tone}
-                className="glow-hover rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-4 flex flex-col gap-2"
-              >
-                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.bg} ${t.text}`}>
-                  <Icon size={15} />
-                </span>
-                <p className="font-display text-lg font-semibold text-(--color-text)">{value}</p>
-                <p className="text-xs text-(--color-text-muted)">
-                  {label} <span className="text-(--color-text-faint)">· {note}</span>
-                </p>
+      {/* Mini stats footer */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {miniStats.map(({ label, value, note, icon: Icon, tone }) => {
+          const { bg, text } = miniStatClasses[tone];
+          return (
+            <Card key={label} className="flex items-center gap-3">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg} ${text}`}>
+                <Icon size={18} strokeWidth={2} />
+              </span>
+              <div className="min-w-0">
+                <p className="font-display text-sm font-semibold text-(--color-text) truncate">{value}</p>
+                <p className="text-[11px] text-(--color-text-muted) truncate">{label}</p>
               </div>
-            );
-          })}
-        </div>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

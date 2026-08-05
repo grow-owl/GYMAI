@@ -121,4 +121,19 @@ export class AuthController {
     const safeUser = user.toSafeJSON ? user.toSafeJSON() : user;
     return sendSuccess(res, { user: safeUser }, 'User profile retrieved successfully', 200);
   });
+
+  public static registerOwner = asyncHandler(async (req: Request, res: Response) => {
+    const result = await AuthService.registerGymOwnerBySuperAdmin(req.body);
+    const safeUser = result.user.toSafeJSON ? result.user.toSafeJSON() : result.user;
+    return sendSuccess(res, { user: safeUser, gym: result.gym, primaryBranch: result.primaryBranch }, 'Gym Owner and Gym Organization created successfully by Super Admin', 201);
+  });
+
+  public static adminResetPassword = asyncHandler(async (req: Request, res: Response) => {
+    await AuthService.adminResetUserPassword(
+      { id: req.user!.id, role: req.user!.role as any, gymId: req.user!.gymId },
+      req.params.userId,
+      req.body.newPassword
+    );
+    return sendSuccess(res, null, 'User password reset successfully by administrator', 200);
+  });
 }

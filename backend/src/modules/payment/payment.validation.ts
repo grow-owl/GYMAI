@@ -7,7 +7,7 @@ export const createPlatformOrderSchema = z.object({
 
 export const recordMemberPaymentSchema = z.object({
   memberId: z.string().min(1, 'Member ID is required'),
-  branchId: z.string().min(1, 'Branch ID is required'),
+  branchId: z.string().optional(),
   amount: z.number().positive('Amount must be greater than 0'),
   purpose: z.enum(['membership_fee', 'personal_training', 'merchandise', 'other']),
   method: z.enum(['cash', 'card', 'upi', 'bank_transfer']),

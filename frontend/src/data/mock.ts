@@ -1,8 +1,8 @@
 import type { Member, Trainer, Session, Lead, Exercise } from "@/types";
 
 export const gym = {
-  name: "IronFit Gym",
-  branch: "Kolkata Branch",
+  name: "Spartan Fitness",
+  branch: "Connaught Place Branch",
   ownerName: "Dhiraj",
   trainerName: "Rahul",
   memberName: "Dhiraj",

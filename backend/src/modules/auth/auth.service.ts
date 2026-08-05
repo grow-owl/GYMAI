@@ -9,9 +9,11 @@ import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
 import { notificationTemplates } from '../notification/notificationTemplates';
 import { logger } from '../../config/logger';
-import { env } from '../../config/env';
 
 import { Member } from '../member/member.model';
+import { GymService } from '../gym/gym.service';
+
+import { Gym } from '../gym/gym.model';
 
 const REFRESH_TOKEN_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -24,13 +26,9 @@ export class AuthService {
     input: Partial<IUser> & { referralCode?: string; ownerInviteCode?: string },
     ipAddress?: string
   ): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
-    // Public self-registration is only ever meant to be usable by someone who
-    // already knows the secret invite code. If OWNER_INVITE_CODE isn't
-    // configured, owner self-registration is disabled outright (fail closed).
+    // GYM_OWNER accounts can ONLY be created by Super Admin via /api/v1/auth/register-owner
     if (input.role === Role.GYM_OWNER) {
-      if (!env.OWNER_INVITE_CODE || input.ownerInviteCode !== env.OWNER_INVITE_CODE) {
-        throw AppError.forbidden('A valid invite code is required to create an owner account.');
-      }
+      throw AppError.forbidden('Self-registration for GYM_OWNER is disabled. Gym Owner accounts must be created by Super Admin.');
     }
 
     const existing = await User.findOne({ email: input.email?.toLowerCase(), isDeleted: false });
@@ -154,8 +152,16 @@ export class AuthService {
 
     logger.info(`🔓 User logged in: [ID: ${user._id}] [Role: ${user.role}]`);
 
+    const userObj: any = user.toObject();
+    if (user.gymId) {
+      const gymDoc = await Gym.findById(user.gymId);
+      if (gymDoc) {
+        userObj.gymName = gymDoc.name;
+      }
+    }
+
     return {
-      user,
+      user: userObj,
       accessToken,
       refreshToken,
     };
@@ -309,5 +315,73 @@ export class AuthService {
     await RefreshToken.updateMany({ userId: user._id, revoked: false }, { revoked: true });
 
     logger.info(`🔐 Password reset successful for User ID: ${user._id}`);
+  }
+
+  /**
+   * Super Admin exclusive creation of Gym Owner account & linked Gym organization
+   */
+  public static async registerGymOwnerBySuperAdmin(input: {
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    gymName: string;
+    branchName?: string;
+    plan?: any;
+  }): Promise<{ user: IUser; gym: any; primaryBranch: any }> {
+    const existing = await User.findOne({ email: input.email.toLowerCase(), isDeleted: false });
+    if (existing) {
+      throw AppError.conflict('An active user account with this email address already exists');
+    }
+
+    const user = new User({
+      fullName: input.fullName,
+      email: input.email.toLowerCase(),
+      phone: input.phone,
+      password: input.password,
+      role: Role.GYM_OWNER,
+      isActive: true,
+    });
+    await user.save();
+
+    const { gym, primaryBranch } = await GymService.createGymForOwner(user._id.toString(), {
+      name: input.gymName,
+      billingEmail: input.email,
+      branchName: input.branchName || 'Main Branch',
+      plan: input.plan || 'TRIAL',
+      contactPhone: input.phone,
+    });
+
+    logger.info(`👑 Gym Owner created by SuperAdmin: [Owner ID: ${user._id}] [Gym: ${gym.name}]`);
+    return { user, gym, primaryBranch };
+  }
+
+  /**
+   * Admin/Owner forced password reset for Members, Trainers, or Staff within their Gym
+   */
+  public static async adminResetUserPassword(
+    executor: { id: string; role: Role; gymId?: string },
+    targetUserId: string,
+    newPassword: string
+  ): Promise<void> {
+    const targetUser = await User.findOne({ _id: targetUserId, isDeleted: false });
+    if (!targetUser) {
+      throw AppError.notFound('Target user account not found');
+    }
+
+    if (executor.role !== Role.SUPER_ADMIN) {
+      if (!executor.gymId || targetUser.gymId?.toString() !== executor.gymId) {
+        throw AppError.forbidden('You can only reset passwords for users in your own Gym organization');
+      }
+    }
+
+    targetUser.password = newPassword;
+    targetUser.failedLoginAttempts = 0;
+    targetUser.lockUntil = undefined;
+    await targetUser.save();
+
+    await RefreshToken.updateMany({ userId: targetUser._id, revoked: false }, { revoked: true });
+
+    logger.info(`🔑 Password reset by admin [Executor: ${executor.id}] for User [Target: ${targetUser._id}]`);
   }
 }

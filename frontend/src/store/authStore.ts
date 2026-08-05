@@ -41,7 +41,7 @@ interface AuthState {
 export const roleHome: Record<string, string> = {
   GYM_OWNER: "/owner",
   SUPER_ADMIN: "/owner",
-  BRANCH_MANAGER: "/owner",
+  BRANCH_MANAGER: "/reception",
   TRAINER: "/trainer",
   MEMBER: "/member",
   KIOSK: "/reception",
@@ -105,8 +105,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: normalizedEmail,
         phone: input.phone,
         password: input.password,
-        role: "GYM_OWNER",
-        ownerInviteCode: input.ownerInviteCode,
+        role: "MEMBER",
       });
       setAccessToken(accessToken);
       set({ user: newUser, isAuthenticated: true });

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users } from "lucide-react";
+import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { memberApi } from "@/lib/endpoints";
+import { memberApi, authApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useGymBranch } from "@/hooks/useGymBranch";
 import { useSearchStore } from "../../store/searchStore";
 import { toast } from "sonner";
 
@@ -19,78 +20,58 @@ const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
   FROZEN: "accent",
 };
 
-const STORAGE_KEY = "gymai.members_list";
-
-function getStoredMembers(): any[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
-  return [];
-}
-
-function saveStoredMembers(list: any[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch {}
-}
-
-function mergeMemberList(backendList: any[], storedList: any[]): any[] {
-  const map = new Map<string, any>();
-  // Put stored items first
-  for (const item of storedList) {
-    const key = item._id || item.id;
-    if (key) map.set(String(key), item);
-  }
-  // Put backend items over stored items if backend has fuller data
-  for (const item of backendList) {
-    const key = item._id || item.id;
-    if (key) {
-      const existing = map.get(String(key));
-      map.set(String(key), existing ? { ...existing, ...item } : item);
-    }
-  }
-  return Array.from(map.values());
-}
-
 export default function Members() {
-  const user = useAuthStore((s) => s.user);
-  const [memberList, setMemberList] = useState<any[]>(() => getStoredMembers());
+  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
+  const [memberList, setMemberList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
 
+  // Clear old cached mock localStorage items on mount
+  useEffect(() => {
+    try {
+      localStorage.removeItem("gymai.members_list");
+    } catch {}
+  }, []);
+
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [submittingAdd, setSubmittingAdd] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [activeModalType, setActiveModalType] = useState<"freeze" | "extend" | "cancel" | "view" | null>(null);
 
+  // Reset Password Modal
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetTargetUser, setResetTargetUser] = useState<any | null>(null);
+  const [newPasswordVal, setNewPasswordVal] = useState("Member@123");
+  const [resettingPass, setResettingPass] = useState(false);
+
   // Form states
-  const [formData, setFormData] = useState({ fullName: "", email: "", phone: "", planName: "Monthly Fitness" });
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "Member@123",
+    planName: "Monthly Fitness",
+  });
   const [reason, setReason] = useState("");
   const [extendDays, setExtendDays] = useState(30);
 
   const fetchMembers = async () => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    if (!gymId || !branchId) {
+      setMemberList([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await memberApi.list(activeGymId, activeBranchId);
+      const res = await memberApi.list(gymId, branchId);
       const list = Array.isArray(res) ? res : res?.members || [];
-      const merged = mergeMemberList(list, getStoredMembers());
-      setMemberList(merged);
-      saveStoredMembers(merged);
+      setMemberList(list);
     } catch {
-      const stored = getStoredMembers();
-      if (stored.length > 0) {
-        setMemberList(stored);
-      } else {
-        setError("Failed to load members from backend.");
-      }
+      setError("Failed to load members from backend.");
+      setMemberList([]);
     } finally {
       setLoading(false);
     }
@@ -98,393 +79,416 @@ export default function Members() {
 
   useEffect(() => {
     fetchMembers();
-  }, [user]);
+  }, [gymId, branchId]);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "65a000000000000000000001";
+    const activeBranchId = branchId || "65a000000000000000000002";
 
-    const newMemObj = {
-      _id: `mem-${Date.now()}`,
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      planName: formData.planName,
-      status: "ACTIVE",
-      membershipStartDate: new Date().toISOString(),
-      membershipEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-
-    const updated = [newMemObj, ...memberList];
-    setMemberList(updated);
-    saveStoredMembers(updated);
-    toast.success(`Member ${formData.fullName} added successfully!`);
-    setShowAddModal(false);
-
+    setSubmittingAdd(true);
     try {
-      await memberApi.create(activeGymId, activeBranchId, formData);
+      const now = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + 1);
+
+      const payload = {
+        ...formData,
+        branchId: activeBranchId,
+        membershipStartDate: now.toISOString(),
+        membershipEndDate: endDate.toISOString(),
+      };
+
+      await memberApi.create(activeGymId, activeBranchId, payload);
+      toast.success(`Member ${formData.fullName} registered successfully!`);
+      setShowAddModal(false);
+      setFormData({ fullName: "", email: "", phone: "", password: "Member@123", planName: "Monthly Fitness" });
       fetchMembers();
-    } catch (err) {
-      console.warn("Backend add member warning:", err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to register member");
+    } finally {
+      setSubmittingAdd(false);
     }
   };
 
-  const handleFreeze = async () => {
-    if (!selectedMember) return;
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
-    const targetId = selectedMember.id || selectedMember._id;
-
-    const updated = memberList.map((m) =>
-      m._id === targetId || m.id === targetId ? { ...m, status: "FROZEN" } : m
-    );
-    setMemberList(updated);
-    saveStoredMembers(updated);
-    toast.success(`Membership for ${selectedMember.fullName || selectedMember.name || "Member"} frozen successfully!`);
-    setActiveModalType(null);
-
+  const handleAction = async (type: "freeze" | "extend" | "cancel") => {
+    if (!selectedMember || !gymId || !branchId) return;
+    const mId = selectedMember._id || selectedMember.id;
     try {
-      if (!String(targetId).startsWith("mem-")) {
-        await memberApi.freeze(
-          activeGymId,
-          activeBranchId,
-          targetId,
-          reason || "Medical break",
-          undefined,
-          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        );
+      if (type === "freeze") {
+        await memberApi.freeze(gymId, branchId, mId, reason || "Member requested freeze");
+        toast.success("Membership frozen.");
+      } else if (type === "extend") {
+        await memberApi.extend(gymId, branchId, mId, Number(extendDays), reason || "Manual extension");
+        toast.success(`Membership extended by ${extendDays} days.`);
+      } else if (type === "cancel") {
+        await memberApi.cancel(gymId, branchId, mId, reason || "Member requested cancellation");
+        toast.success("Membership cancelled.");
       }
-    } catch (err) {
-      console.warn("Backend freeze warning:", err);
+      setActiveModalType(null);
+      setSelectedMember(null);
+      fetchMembers();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Operation failed");
     }
   };
 
-  const handleExtend = async () => {
-    if (!selectedMember) return;
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
-    const targetId = selectedMember.id || selectedMember._id;
-
-    const updated = memberList.map((m) => {
-      if (m._id === targetId || m.id === targetId) {
-        const currentEnd = m.membershipEndDate ? new Date(m.membershipEndDate) : new Date();
-        const newEnd = new Date(currentEnd.getTime() + extendDays * 24 * 60 * 60 * 1000);
-        return { ...m, membershipEndDate: newEnd.toISOString(), status: "ACTIVE" };
-      }
-      return m;
-    });
-    setMemberList(updated);
-    saveStoredMembers(updated);
-    toast.success(`Extended membership by ${extendDays} days!`);
-    setActiveModalType(null);
-
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetTargetUser?._id) return;
+    setResettingPass(true);
     try {
-      if (!String(targetId).startsWith("mem-")) {
-        await memberApi.extend(activeGymId, activeBranchId, targetId, extendDays, reason || "Renewal extension");
-      }
-    } catch (err) {
-      console.warn("Backend extend warning:", err);
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!selectedMember) return;
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
-    const targetId = selectedMember.id || selectedMember._id;
-
-    const updated = memberList.map((m) =>
-      m._id === targetId || m.id === targetId ? { ...m, status: "CANCELLED" } : m
-    );
-    setMemberList(updated);
-    saveStoredMembers(updated);
-    toast.success(`Membership cancelled.`);
-    setActiveModalType(null);
-
-    try {
-      if (!String(targetId).startsWith("mem-")) {
-        await memberApi.cancel(activeGymId, activeBranchId, targetId, reason || "Member request");
-      }
-    } catch (err) {
-      console.warn("Backend cancel warning:", err);
+      await authApi.adminResetPassword(resetTargetUser._id, newPasswordVal);
+      toast.success(`Password reset for ${resetTargetUser.fullName || "member"}!`);
+      setShowResetModal(false);
+      setResetTargetUser(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to reset password");
+    } finally {
+      setResettingPass(false);
     }
   };
 
   const filteredMembers = memberList.filter((m) => {
-    const q = search.toLowerCase().trim();
-    if (!q) return true;
-    const name = (m.name || m.fullName || m.userId?.fullName || "").toLowerCase();
-    const email = (m.email || m.userId?.email || "").toLowerCase();
-    const phone = (m.phone || m.userId?.phone || "").toLowerCase();
-    const plan = (m.planName || m.plan || "").toLowerCase();
-    return name.includes(q) || email.includes(q) || phone.includes(q) || plan.includes(q);
+    const name = m.fullName || m.name || m.userId?.fullName || "";
+    const phone = m.phone || m.userId?.phone || "";
+    const q = search.toLowerCase();
+    return name.toLowerCase().includes(q) || phone.toLowerCase().includes(q);
   });
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Members"
-        subtitle={`${filteredMembers.length} showing · Total active gym members`}
+        title="Member Management"
+        subtitle="Active Subscriptions & Profiles"
         backTo="/owner"
         action={
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 transition-opacity"
-          >
-            <Plus size={15} /> Add member
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchMembers}
+              className="inline-flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) p-2 rounded-lg bg-(--color-surface-2)"
+              title="Refresh Members"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 shadow-sm"
+            >
+              <Plus size={15} /> Add member
+            </button>
+          </div>
         }
       />
 
-      <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-4 py-2 text-sm text-(--color-text) max-w-sm">
-        <Search size={15} className="text-(--color-text-faint)" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search members by name..."
-          className="bg-transparent outline-none w-full placeholder:text-(--color-text-faint)"
-        />
-      </div>
-
-      <Card className="p-0 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-(--color-accent)" /> Loading members...
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-            <p className="text-sm text-(--color-danger) mb-3">{error}</p>
-            <button
-              onClick={fetchMembers}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-full bg-(--color-surface-3) text-(--color-text)"
-            >
-              <RefreshCw size={14} /> Retry
-            </button>
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-            <Users className="w-8 h-8 text-(--color-text-faint) mb-2 opacity-50" />
-            <p className="text-sm font-medium text-(--color-text)">No gym members registered yet</p>
-            <p className="text-xs text-(--color-text-faint) mt-1 max-w-xs">
-              Click the "Add member" button above to register your first gym member.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-(--color-border-soft)">
-            {filteredMembers.map((m) => {
-              const name = m.name || m.fullName || m.userId?.fullName || "Member";
-              const plan = m.plan || m.planName || "Monthly Plan";
-              const status = m.membershipStatus || m.status || "active";
-              const trainerName = m.assignedTrainerId?.userId?.fullName || m.trainer || "Unassigned";
-              const initials = name
-                .split(" ")
-                .map((n: string) => n[0])
-                .join("")
-                .slice(0, 2);
-
-              return (
-                <div
-                  key={m.id || m._id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2)/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-3) text-sm font-semibold text-(--color-text)">
-                      {initials}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-(--color-text) truncate">{name}</p>
-                      <p className="text-xs text-(--color-text-faint)">
-                        {plan} · Trainer: {trainerName}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                    {m.churnRisk === "high" && <Badge tone="danger">Churn risk</Badge>}
-                    <Badge tone={statusTone[status] || "good"}>{status}</Badge>
-
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-1 ml-2">
-                      <button
-                        title="Freeze Membership"
-                        onClick={() => {
-                          setSelectedMember(m);
-                          setActiveModalType("freeze");
-                        }}
-                        className="p-1.5 rounded-lg border border-(--color-border) text-(--color-text-muted) hover:bg-sky-500/10 hover:text-sky-400 hover:border-sky-500/30"
-                      >
-                        <Snowflake size={14} />
-                      </button>
-                      <button
-                        title="Extend Membership"
-                        onClick={() => {
-                          setSelectedMember(m);
-                          setActiveModalType("extend");
-                        }}
-                        className="p-1.5 rounded-lg border border-(--color-border) text-(--color-text-muted) hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30"
-                      >
-                        <CalendarPlus size={14} />
-                      </button>
-                      <button
-                        title="Cancel Membership"
-                        onClick={() => {
-                          setSelectedMember(m);
-                          setActiveModalType("cancel");
-                        }}
-                        className="p-1.5 rounded-lg border border-(--color-border) text-(--color-text-muted) hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30"
-                      >
-                        <XCircle size={14} />
-                      </button>
-                      <button
-                        title="View Profile"
-                        onClick={() => {
-                          setSelectedMember(m);
-                          setActiveModalType("view");
-                        }}
-                        className="p-1.5 rounded-lg border border-(--color-border) text-(--color-text-muted) hover:bg-(--color-accent-soft) hover:text-(--color-accent-text)"
-                      >
-                        <User size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      <Card className="p-3">
+        <div className="relative">
+          <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-faint)" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, phone number..."
+            className="w-full rounded-xl border border-(--color-border) bg-(--color-base) pl-9 pr-4 py-2 text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+          />
+        </div>
       </Card>
 
-      {/* Add Member Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">Add New Member</h3>
-            <form onSubmit={handleAddMember} className="space-y-3">
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Full Name</label>
-                <input
-                  required
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="e.g. Rahul Sharma"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="rahul@example.com"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Phone Number</label>
-                <input
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="+91 9876543210"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white"
-                >
-                  Save Member
-                </button>
-              </div>
-            </form>
-          </div>
+      {resolvingBranch || loading ? (
+        <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading member records from backend...
+        </Card>
+      ) : error ? (
+        <Card className="text-center py-8">
+          <p className="text-sm text-(--color-danger) mb-3">{error}</p>
+          <button
+            onClick={fetchMembers}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-full bg-(--color-surface-3) text-(--color-text)"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
+        </Card>
+      ) : filteredMembers.length === 0 ? (
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
+          <Users className="w-8 h-8 mx-auto text-(--color-text-faint)" />
+          <p className="text-sm font-medium text-(--color-text)">No members found in database</p>
+          <p className="text-xs text-(--color-text-muted)">Click "Add Member" to register a new member account.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {filteredMembers.map((m) => {
+            const mId = m._id || m.id;
+            const name = m.fullName || m.name || m.userId?.fullName || "Member";
+            const plan = m.planName || m.plan || "Monthly Fitness";
+            const trainer = m.assignedTrainerId?.userId?.fullName || m.assignedTrainerId?.name || m.trainerName || "Unassigned";
+            const status = m.membershipStatus || "ACTIVE";
+            const initials = name
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .substring(0, 2)
+              .toUpperCase();
+
+            return (
+              <Card key={mId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-2) font-display text-xs font-bold text-(--color-text)">
+                    {initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display text-sm font-semibold text-(--color-text) truncate">{name}</p>
+                    <p className="text-xs text-(--color-text-muted) truncate mt-0.5">
+                      {plan} · Trainer: <span className="font-medium text-(--color-text)">{trainer}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                  <Badge tone={statusTone[status] || "good"}>{status}</Badge>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setActiveModalType("freeze");
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+                      title="Freeze Membership"
+                    >
+                      <Snowflake size={15} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setActiveModalType("extend");
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+                      title="Extend Membership"
+                    >
+                      <CalendarPlus size={15} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setActiveModalType("cancel");
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-red-400"
+                      title="Cancel Membership"
+                    >
+                      <XCircle size={15} />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setResetTargetUser(m.userId?._id ? m.userId : { _id: m.userId || mId, fullName: name });
+                        setShowResetModal(true);
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-amber-400"
+                      title="Reset Member Password"
+                    >
+                      <KeyRound size={15} />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setActiveModalType("view");
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+                      title="View Details"
+                    >
+                      <User size={15} />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* Action Modals */}
+      {/* Add Member Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleAddMember} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
+            <h3 className="font-display text-lg font-bold text-(--color-text)">Register New Gym Member</h3>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rahul Sharma"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="rahul@gmail.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Phone Number</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="+91 9876543210"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Account Password</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Member@123"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Membership Plan</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.planName}
+                  onChange={(e) => setFormData({ ...formData, planName: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingAdd}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register Member"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Action Modal (Freeze/Extend/Cancel/View) */}
       {activeModalType && selectedMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">
-              {activeModalType === "freeze" && "Freeze Membership"}
-              {activeModalType === "extend" && "Extend Membership"}
-              {activeModalType === "cancel" && "Cancel Membership"}
-              {activeModalType === "view" && "Member Profile"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
+            <h3 className="font-display text-base font-bold text-(--color-text) capitalize">
+              {activeModalType} Membership: {selectedMember.fullName || selectedMember.name || selectedMember.userId?.fullName}
             </h3>
 
             {activeModalType === "view" ? (
-              <div className="space-y-2 text-sm text-(--color-text)">
-                <p><span className="text-(--color-text-muted)">Name:</span> {selectedMember.name || selectedMember.fullName || selectedMember.userId?.fullName}</p>
-                <p><span className="text-(--color-text-muted)">Plan:</span> {selectedMember.plan || selectedMember.planName || "Annual Fitness"}</p>
-                <p><span className="text-(--color-text-muted)">Status:</span> {selectedMember.membershipStatus || selectedMember.status || "Active"}</p>
-                <p><span className="text-(--color-text-muted)">Trainer:</span> {selectedMember.assignedTrainerId?.userId?.fullName || selectedMember.trainer || "Unassigned"}</p>
-                <div className="pt-3 flex justify-end">
-                  <button
-                    onClick={() => setActiveModalType(null)}
-                    className="px-4 py-1.5 text-xs rounded-full bg-(--color-surface-3) text-(--color-text)"
-                  >
-                    Close
-                  </button>
-                </div>
+              <div className="space-y-2 text-(--color-text-muted) bg-(--color-surface-2) p-3 rounded-xl">
+                <p><strong className="text-(--color-text)">Email:</strong> {selectedMember.email || selectedMember.userId?.email || "N/A"}</p>
+                <p><strong className="text-(--color-text)">Phone:</strong> {selectedMember.phone || selectedMember.userId?.phone || "N/A"}</p>
+                <p><strong className="text-(--color-text)">Plan:</strong> {selectedMember.planName || selectedMember.plan}</p>
+                <p><strong className="text-(--color-text)">Status:</strong> {selectedMember.membershipStatus || "ACTIVE"}</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {activeModalType === "extend" && (
                   <div>
-                    <label className="text-xs text-(--color-text-muted)">Days to Extend</label>
+                    <label className="block text-(--color-text-muted) mb-1 font-medium">Days to Extend</label>
                     <input
                       type="number"
                       value={extendDays}
                       onChange={(e) => setExtendDays(Number(e.target.value))}
-                      className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                      className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
                     />
                   </div>
                 )}
                 <div>
-                  <label className="text-xs text-(--color-text-muted)">Reason / Notes</label>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Reason / Note</label>
                   <input
+                    type="text"
+                    placeholder="Enter reason..."
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="Enter reason..."
-                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
                   />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveModalType(null)}
-                    className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={
-                      activeModalType === "freeze"
-                        ? handleFreeze
-                        : activeModalType === "extend"
-                        ? handleExtend
-                        : handleCancel
-                    }
-                    className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white"
-                  >
-                    Confirm Action
-                  </button>
                 </div>
               </div>
             )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveModalType(null);
+                  setSelectedMember(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Close
+              </button>
+              {activeModalType !== "view" && (
+                <button
+                  type="button"
+                  onClick={() => handleAction(activeModalType)}
+                  className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md capitalize"
+                >
+                  Confirm {activeModalType}
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetModal && resetTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleResetPassword} className="w-full max-w-sm rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
+            <h3 className="font-display text-base font-bold text-(--color-text)">
+              Reset Password: {resetTargetUser.fullName || "Member"}
+            </h3>
+            <div>
+              <label className="block text-(--color-text-muted) mb-1 font-medium">New Password</label>
+              <input
+                type="text"
+                required
+                value={newPasswordVal}
+                onChange={(e) => setNewPasswordVal(e.target.value)}
+                className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={resettingPass}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-bold shadow-md flex items-center justify-center gap-1"
+              >
+                {resettingPass ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reset Password"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -2,9 +2,13 @@ import { Router } from 'express';
 import { AuthController } from './auth.controller';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { authenticate } from '../../common/middlewares/auth.middleware';
+import { authorize } from '../../common/middlewares/authorize.middleware';
 import { authLimiter } from '../../common/middlewares/rateLimiter.middleware';
+import { Role } from '../../common/constants/roles.enum';
 import {
   registerSchema,
+  registerOwnerSchema,
+  adminResetPasswordSchema,
   loginSchema,
   refreshTokenSchema,
   forgotPasswordSchema,
@@ -27,5 +31,21 @@ router.use(authenticate);
 router.get('/me', AuthController.getMe);
 router.post('/logout-all', AuthController.logoutAll);
 router.patch('/change-password', validate(changePasswordSchema, 'body'), AuthController.changePassword);
+
+// Hidden Super Admin endpoint to register Gym Owners (not exposed on public UI)
+router.post(
+  '/register-owner',
+  authorize(Role.SUPER_ADMIN),
+  validate(registerOwnerSchema, 'body'),
+  AuthController.registerOwner
+);
+
+// Admin/Owner forced password reset for Members, Trainers, or Staff in their Gym
+router.patch(
+  '/users/:userId/reset-password',
+  authorize(Role.SUPER_ADMIN, Role.GYM_OWNER, Role.BRANCH_MANAGER),
+  validate(adminResetPasswordSchema, 'body'),
+  AuthController.adminResetPassword
+);
 
 export default router;

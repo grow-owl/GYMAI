@@ -58,6 +58,10 @@ const memberPaymentSchema = new Schema<IMemberPayment>(
       ref: 'User',
       required: true,
     },
+    customerName: {
+      type: String,
+      trim: true,
+    },
     relatedMembershipRenewal: {
       type: Boolean,
       default: false,

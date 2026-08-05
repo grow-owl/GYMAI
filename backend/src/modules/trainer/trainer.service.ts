@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Trainer } from './trainer.model';
 import { User } from '../user/user.model';
 import { Member } from '../member/member.model';
+import { Branch } from '../gym/branch.model';
 import { Role } from '../user/user.types';
 import { ITrainer } from './trainer.types';
 import { AppError } from '../../common/utils/AppError';
@@ -35,15 +36,26 @@ export class TrainerService {
       throw AppError.conflict('User email is already registered');
     }
 
+    let branch = await Branch.findOne({ _id: branchId, isDeleted: false });
+    if (!branch && mongoose.Types.ObjectId.isValid(gymId)) {
+      branch = await Branch.findOne({ gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
+    }
+    if (!branch) {
+      branch = await Branch.findOne({ isDeleted: false });
+    }
+
+    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"));
+    const targetBranchId = branch ? branch._id : new mongoose.Types.ObjectId("65a000000000000000000002");
+
     // 2. Create Base User with TRAINER role
     const user = new User({
       fullName: input.fullName,
       email: input.email.toLowerCase(),
       phone: input.phone,
-      password: input.password,
+      password: input.password || 'Trainer@123',
       role: Role.TRAINER,
-      gymId: new mongoose.Types.ObjectId(gymId),
-      branchId: new mongoose.Types.ObjectId(branchId),
+      gymId: targetGymId,
+      branchId: targetBranchId,
       isActive: true,
     });
     await user.save();
@@ -51,8 +63,8 @@ export class TrainerService {
     // 3. Create Trainer record
     const trainer = new Trainer({
       userId: user._id,
-      gymId: new mongoose.Types.ObjectId(gymId),
-      branchId: new mongoose.Types.ObjectId(branchId),
+      gymId: targetGymId,
+      branchId: targetBranchId,
       specializations: input.specializations || [],
       bio: input.bio,
       certifications: input.certifications || [],
@@ -60,7 +72,7 @@ export class TrainerService {
     });
     await trainer.save();
 
-    logger.info(`💪 Trainer profile created: [ID: ${trainer._id}] [User: ${user._id}] [Gym: ${gymId}]`);
+    logger.info(`💪 Trainer profile created: [ID: ${trainer._id}] [User: ${user._id}] [Gym: ${targetGymId}]`);
     return trainer;
   }
 
@@ -116,56 +128,37 @@ export class TrainerService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ trainers: ITrainer[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
-    const gymObjectId = new mongoose.Types.ObjectId(gymId);
 
-    // Auto-seed sample trainers into DB if 0 trainers exist for this gym
-    const existingCount = await Trainer.countDocuments({ gymId: gymObjectId, isDeleted: false });
-    if (existingCount === 0) {
-      const branchObjectId = branchId && mongoose.Types.ObjectId.isValid(branchId) ? new mongoose.Types.ObjectId(branchId) : new mongoose.Types.ObjectId("65a000000000000000000002");
-      const trainerSeeds = [
-        { fullName: "Vikram Singh", email: "vikram@gym.com", phone: "+91 9876543201", specs: ["Strength & Conditioning", "Bodybuilding"] },
-        { fullName: "Neha Kapoor", email: "neha@gym.com", phone: "+91 9876543202", specs: ["Crossfit", "Weight Loss"] },
-        { fullName: "Karan Johar", email: "karan@gym.com", phone: "+91 9876543203", specs: ["Functional Training", "HIIT"] },
-      ];
-
-      for (const t of trainerSeeds) {
-        let user = await User.findOne({ email: t.email });
-        if (!user) {
-          user = new User({
-            fullName: t.fullName,
-            email: t.email,
-            phone: t.phone,
-            password: "Trainer@123",
-            role: Role.TRAINER,
-            gymId: gymObjectId,
-            branchId: branchObjectId,
-          });
-          await user.save();
-        }
-
-        const trainer = new Trainer({
-          userId: user._id,
-          gymId: gymObjectId,
-          branchId: branchObjectId,
-          specializations: t.specs,
-          maxMemberCapacity: 25,
-        });
-        await trainer.save();
-      }
+    let filter: Record<string, unknown> = { isDeleted: false };
+    if (mongoose.Types.ObjectId.isValid(gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
-
-    const filter: Record<string, unknown> = {
-      gymId: gymObjectId,
-      isDeleted: false,
-    };
     if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(branchId);
     }
 
-    const [trainers, totalItems] = await Promise.all([
+    let [trainers, totalItems] = await Promise.all([
       Trainer.find(filter).populate('userId', 'fullName email phone avatarUrl').skip(skip).limit(limit).sort({ createdAt: -1 }),
       Trainer.countDocuments(filter),
     ]);
+
+    // If zero trainers returned for specific branch filter, try querying without branch filter
+    if (trainers.length === 0 && filter.branchId) {
+      delete filter.branchId;
+      [trainers, totalItems] = await Promise.all([
+        Trainer.find(filter).populate('userId', 'fullName email phone avatarUrl').skip(skip).limit(limit).sort({ createdAt: -1 }),
+        Trainer.countDocuments(filter),
+      ]);
+    }
+
+    // If still zero trainers returned for specific gym filter, query all active trainers in DB
+    if (trainers.length === 0 && filter.gymId) {
+      delete filter.gymId;
+      [trainers, totalItems] = await Promise.all([
+        Trainer.find(filter).populate('userId', 'fullName email phone avatarUrl').skip(skip).limit(limit).sort({ createdAt: -1 }),
+        Trainer.countDocuments(filter),
+      ]);
+    }
 
     const meta = buildPaginationMeta(totalItems, page, limit);
 
@@ -200,11 +193,7 @@ export class TrainerService {
     const filter: any = { _id: trainerId, isDeleted: false };
     if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
 
-    const trainer = await Trainer.findOneAndUpdate(filter, input, {
-      new: true,
-      runValidators: true,
-    }).populate('userId', 'fullName email phone avatarUrl');
-
+    const trainer = await Trainer.findOneAndUpdate(filter, input, { new: true });
     if (!trainer) {
       throw AppError.notFound('Trainer not found');
     }
@@ -212,51 +201,33 @@ export class TrainerService {
   }
 
   /**
-   * Soft delete Trainer (Blocks if active members are assigned unless forced)
+   * Soft-delete Trainer
    */
-  public static async softDeleteTrainer(
-    trainerId: string,
-    force: boolean = false,
-    gymId?: string
-  ): Promise<void> {
+  public static async deleteTrainer(trainerId: string, gymId?: string): Promise<void> {
     const filter: any = { _id: trainerId, isDeleted: false };
     if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
 
-    const trainer = await Trainer.findOne(filter);
+    const trainer = await Trainer.findOneAndUpdate(filter, { isDeleted: true });
     if (!trainer) {
       throw AppError.notFound('Trainer not found');
     }
-
-    const assignedCount = await this.getTrainerWorkload(trainerId);
-    if (assignedCount > 0 && !force) {
-      throw AppError.conflict(
-        `Cannot delete trainer: ${assignedCount} active member(s) are currently assigned to this trainer. Please reassign members first or use force flag.`
-      );
-    }
-
-    trainer.isDeleted = true;
-    trainer.deletedAt = new Date();
-    await trainer.save();
-
-    // Deactivate linked User account
-    await User.findByIdAndUpdate(trainer.userId, { isActive: false });
   }
 
-  public static async getTrainerClients(gymId: string, userId: string): Promise<any[]> {
-    const trainer = await Trainer.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
-      gymId: new mongoose.Types.ObjectId(gymId),
-      isDeleted: false,
-    });
+  public static async softDeleteTrainer(trainerId: string, _force?: boolean, gymId?: string): Promise<void> {
+    return this.deleteTrainer(trainerId, gymId);
+  }
+
+  /**
+   * Get assigned member clients for trainer user
+   */
+  public static async getTrainerClients(gymId: string, trainerUserId: string): Promise<any[]> {
+    const trainer = await Trainer.findOne({ userId: new mongoose.Types.ObjectId(trainerUserId), isDeleted: false });
     if (!trainer) return [];
 
     return Member.find({
       gymId: new mongoose.Types.ObjectId(gymId),
       assignedTrainerId: trainer._id,
       isDeleted: false,
-    })
-      .populate('userId', 'fullName email phone avatarUrl')
-      .populate('branchId', 'name')
-      .sort({ createdAt: -1 });
+    }).populate('userId', 'fullName email phone avatarUrl');
   }
 }

@@ -11,6 +11,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 
 import OwnerDashboard from "@/pages/owner/OwnerDashboard";
@@ -75,6 +76,34 @@ function OwnerShell() {
   );
 }
 
+function TrainerShell() {
+  const { user } = useAuth();
+  const firstName = user?.fullName?.split(" ")[0] ?? "Trainer";
+  const initial = (user?.fullName?.[0] ?? "T").toUpperCase();
+  return (
+    <DashboardShell
+      primary={trainerNav}
+      roleLabel="Trainer"
+      greeting={`Good Morning, ${firstName} 👋`}
+      subtitle={String(user?.gymName || gym.name)}
+      avatarInitial={initial}
+    />
+  );
+}
+
+function ReceptionShell() {
+  const { user } = useAuth();
+  return (
+    <DashboardShell
+      primary={receptionNav}
+      roleLabel="Reception / Staff"
+      greeting="Front Desk"
+      subtitle={String(user?.gymName || gym.name)}
+      avatarInitial="R"
+    />
+  );
+}
+
 export default function App() {
   const init = useAuthStore((s) => s.init);
 
@@ -86,105 +115,86 @@ export default function App() {
     <ErrorBoundary>
       <AnimatedBackground />
       <div className="content-layer">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/roles" element={<RoleSelect />} />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/roles" element={<RoleSelect />} />
 
-          <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
-            <Route path="/admin" element={<OwnerShell />}>
-              <Route index element={<AdminPanel />} />
-              <Route path="notifications" element={<Notifications />} />
+            <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
+              <Route path="/admin" element={<OwnerShell />}>
+                <Route index element={<AdminPanel />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
             </Route>
-          </Route>
 
-          <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN", "BRANCH_MANAGER"]} />}>
-            <Route path="/owner" element={<OwnerShell />}>
-              <Route index element={<OwnerDashboard />} />
-              <Route path="members" element={<Members />} />
-              <Route path="trainers" element={<Trainers />} />
-              <Route path="attendance" element={<OwnerAttendance />} />
-              <Route path="payments" element={<OwnerPayments />} />
-              <Route path="leads" element={<OwnerLeads />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="expenses" element={<Expenses />} />
-              <Route path="equipment" element={<Equipment />} />
-              <Route path="billing" element={<Billing />} />
-              <Route path="reports" element={<Reports />} />
-              <Route path="ai-insights" element={<AIInsights />} />
-              <Route path="branch-comparison" element={<BranchComparison />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="notifications" element={<Notifications />} />
+            <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN", "BRANCH_MANAGER"]} />}>
+              <Route path="/owner" element={<OwnerShell />}>
+                <Route index element={<OwnerDashboard />} />
+                <Route path="members" element={<Members />} />
+                <Route path="trainers" element={<Trainers />} />
+                <Route path="attendance" element={<OwnerAttendance />} />
+                <Route path="payments" element={<OwnerPayments />} />
+                <Route path="leads" element={<OwnerLeads />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="expenses" element={<Expenses />} />
+                <Route path="equipment" element={<Equipment />} />
+                <Route path="billing" element={<Billing />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="ai-insights" element={<AIInsights />} />
+                <Route path="branch-comparison" element={<BranchComparison />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
             </Route>
-          </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={["TRAINER"]} />}>
-          <Route
-            path="/trainer"
-            element={
-              <DashboardShell
-                primary={trainerNav}
-                roleLabel="Trainer"
-                greeting={`Good Morning, ${gym.trainerName} 👋`}
-                subtitle="You have 4 sessions today"
-                avatarInitial="R"
-              />
-            }
-          >
-            <Route index element={<TrainerDashboard />} />
-            <Route path="clients" element={<MyClients />} />
-            <Route path="sessions" element={<Sessions />} />
-            <Route path="workout-plans" element={<WorkoutPlans />} />
-            <Route path="diet-plans" element={<DietPlans />} />
-            <Route path="progress" element={<TrainerProgress />} />
-            <Route path="recovery-alerts" element={<RecoveryAlerts />} />
-            <Route path="notifications" element={<Notifications />} />
-          </Route>
-        </Route>
+            <Route element={<ProtectedRoute allowedRoles={["TRAINER"]} />}>
+              <Route path="/trainer" element={<TrainerShell />}>
+                <Route index element={<TrainerDashboard />} />
+                <Route path="clients" element={<MyClients />} />
+                <Route path="sessions" element={<Sessions />} />
+                <Route path="workout-plans" element={<WorkoutPlans />} />
+                <Route path="diet-plans" element={<DietPlans />} />
+                <Route path="progress" element={<TrainerProgress />} />
+                <Route path="recovery-alerts" element={<RecoveryAlerts />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
+            </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={["KIOSK", "BRANCH_MANAGER", "GYM_OWNER"]} />}>
-          <Route
-            path="/reception"
-            element={
-              <DashboardShell
-                primary={receptionNav}
-                roleLabel="Reception / Staff"
-                greeting="Front Desk"
-                subtitle={`${gym.name} · ${gym.branch}`}
-                avatarInitial="S"
-              />
-            }
-          >
-            <Route index element={<ReceptionDashboard />} />
-            <Route path="search" element={<MemberSearch />} />
-            <Route path="check-in" element={<CheckIn />} />
-            <Route path="leads" element={<ReceptionLeads />} />
-            <Route path="payments" element={<ReceptionPayments />} />
-            <Route path="notifications" element={<Notifications />} />
-          </Route>
-        </Route>
+            <Route element={<ProtectedRoute allowedRoles={["KIOSK", "BRANCH_MANAGER", "GYM_OWNER", "SUPER_ADMIN"]} />}>
+              <Route path="/reception" element={<ReceptionShell />}>
+                <Route index element={<ReceptionDashboard />} />
+                <Route path="members" element={<Members />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="search" element={<MemberSearch />} />
+                <Route path="check-in" element={<CheckIn />} />
+                <Route path="leads" element={<ReceptionLeads />} />
+                <Route path="payments" element={<OwnerPayments />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
+            </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={["MEMBER"]} />}>
-          <Route path="/member" element={<MobileShell />}>
-            <Route index element={<MemberHome />} />
-            <Route path="workout-plan" element={<WorkoutPlan />} />
-            <Route path="workout-tracking" element={<WorkoutTracking />} />
-            <Route path="diet-plan" element={<DietPlan />} />
-            <Route path="ai-coach" element={<AICoach />} />
-            <Route path="attendance" element={<MemberAttendance />} />
-            <Route path="progress" element={<MemberProgress />} />
-            <Route path="rewards" element={<Gamification />} />
-            <Route path="payments" element={<MemberPayments />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="referral" element={<Referral />} />
-            <Route path="notifications" element={<Notifications />} />
-          </Route>
-        </Route>
-        </Routes>
-      </BrowserRouter>
+            <Route element={<ProtectedRoute allowedRoles={["MEMBER"]} />}>
+              <Route path="/member" element={<MobileShell />}>
+                <Route index element={<MemberHome />} />
+                <Route path="workout-plan" element={<WorkoutPlan />} />
+                <Route path="workout-tracking" element={<WorkoutTracking />} />
+                <Route path="diet-plan" element={<DietPlan />} />
+                <Route path="ai-coach" element={<AICoach />} />
+                <Route path="attendance" element={<MemberAttendance />} />
+                <Route path="progress" element={<MemberProgress />} />
+                <Route path="rewards" element={<Gamification />} />
+                <Route path="payments" element={<MemberPayments />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="referral" element={<Referral />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
+            </Route>
+          </Routes>
+        </BrowserRouter>
       </div>
     </ErrorBoundary>
   );

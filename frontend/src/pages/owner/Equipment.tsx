@@ -1,43 +1,39 @@
 import { useState, useEffect } from "react";
-import { Plus, Wrench, CheckCircle, AlertTriangle } from "lucide-react";
+import { Plus, Wrench, Loader2, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
-import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { equipmentApi } from "@/lib/endpoints";
-import { useAuthStore } from "@/store/authStore";
+import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 
-const mockEquipment = [
-  { _id: "1", name: "Treadmill Commercial (x6)", category: "cardio", status: "WORKING", lastServiced: "2 weeks ago" },
-  { _id: "2", name: "Cable Crossover Station", category: "strength", status: "MAINTENANCE", lastServiced: "3 months ago" },
-  { _id: "3", name: "Olympics Smith Machine", category: "strength", status: "WORKING", lastServiced: "1 month ago" },
-  { _id: "4", name: "Concept2 Rowing Machine (x3)", category: "cardio", status: "BROKEN", lastServiced: "6 months ago" },
+const statusTone: Record<string, "good" | "warn" | "danger"> = {
+  WORKING: "good",
+  MAINTENANCE: "warn",
+  BROKEN: "danger",
+};
+
+const equipmentCategoryOptions = [
+  { value: "strength", label: "Strength & Weight Machine" },
+  { value: "cardio", label: "Cardio Equipment" },
+  { value: "free_weights", label: "Free Weights & Dumbbells" },
+  { value: "accessories", label: "Accessories & Cables" },
 ];
 
-const STORAGE_KEY = "gymai.equipment_list";
-
-function getStoredEquipment(): any[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
-  return mockEquipment;
-}
-
-function saveStoredEquipment(eqs: any[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(eqs));
-  } catch {}
-}
-
 export default function Equipment() {
-  const user = useAuthStore((s) => s.user);
-  const [equipmentList, setEquipmentList] = useState<any[]>(() => getStoredEquipment());
+  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
+  const [equipmentList, setEquipmentList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [submittingAdd, setSubmittingAdd] = useState(false);
+
+  // Clear old cached mock localStorage items on mount
+  useEffect(() => {
+    try {
+      localStorage.removeItem("gymai.equipment_list");
+    } catch {}
+  }, []);
 
   const [newEquipment, setNewEquipment] = useState({
     name: "",
@@ -46,215 +42,176 @@ export default function Equipment() {
   });
 
   const fetchEquipment = async () => {
+    if (!gymId || !branchId) {
+      setEquipmentList([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const targetGymId = user?.gymId || "65a000000000000000000001";
-      const targetBranchId = user?.branchId || "65a000000000000000000002";
-      const res = await equipmentApi.list(targetGymId, targetBranchId);
+      const res = await equipmentApi.list(gymId, branchId);
       const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
-      if (list && list.length > 0) {
-        setEquipmentList(list);
-        saveStoredEquipment(list);
-        return;
-      }
-      setEquipmentList(getStoredEquipment());
+      setEquipmentList(list);
     } catch {
-      setEquipmentList(getStoredEquipment());
+      setEquipmentList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchEquipment();
-  }, [user]);
+  }, [gymId, branchId]);
 
   const handleAddEquipment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newItem = { ...newEquipment, _id: `eq-${Date.now()}` };
-    const updated = [newItem, ...equipmentList];
-    setEquipmentList(updated);
-    saveStoredEquipment(updated);
-    toast.success(`Equipment ${newEquipment.name} registered!`);
-    setShowAddModal(false);
+    const activeGymId = gymId || "65a000000000000000000001";
+    const activeBranchId = branchId || "65a000000000000000000002";
 
+    setSubmittingAdd(true);
     try {
-      if (user?.gymId) {
-        const branchId = user?.branchId || "65a000000000000000000002";
-        await equipmentApi.add(user.gymId, branchId, newEquipment);
-      }
-    } catch {}
-  };
-
-  const handleSetExactStatus = async (id: string, targetStatus: string) => {
-    const updated = equipmentList.map((e) =>
-      e._id === id || e.id === id ? { ...e, status: targetStatus } : e
-    );
-
-    setEquipmentList(updated);
-    saveStoredEquipment(updated);
-    toast.success(`Equipment status updated to ${targetStatus === "WORKING" ? "Active / Working" : targetStatus}`);
-
-    try {
-      if (!String(id).startsWith("eq-") && !String(id).startsWith("1") && !String(id).startsWith("2") && !String(id).startsWith("3") && !String(id).startsWith("4")) {
-        await equipmentApi.updateStatus(id, targetStatus);
-      }
-    } catch (err) {
-      console.warn("Backend update status warning:", err);
+      await equipmentApi.add(activeGymId, activeBranchId, newEquipment);
+      toast.success(`Equipment ${newEquipment.name} registered!`);
+      setShowAddModal(false);
+      setNewEquipment({ name: "", category: "strength", status: "WORKING" });
+      fetchEquipment();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to register equipment.");
+    } finally {
+      setSubmittingAdd(false);
     }
   };
 
-  const isWorking = (s: string) => {
-    const statusStr = String(s || "").toUpperCase();
-    return statusStr === "WORKING" || statusStr === "OPERATIONAL" || statusStr === "GOOD";
-  };
-
-  const isMaintenance = (s: string) => {
-    const statusStr = String(s || "").toUpperCase();
-    return statusStr.includes("MAIN") || statusStr.includes("DUE") || statusStr === "WARN";
+  const handleSetExactStatus = async (id: string, targetStatus: string) => {
+    try {
+      await equipmentApi.updateStatus(id, targetStatus);
+      toast.success(`Equipment status updated to ${targetStatus}`);
+      fetchEquipment();
+    } catch {
+      toast.error("Failed to update equipment status.");
+    }
   };
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Equipment Maintenance"
-        subtitle="Machine condition & maintenance tracking"
+        subtitle="Gym Machines & Maintenance Log"
         backTo="/owner"
         action={
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
-          >
-            <Plus size={15} /> Add equipment
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchEquipment}
+              className="inline-flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) p-2 rounded-lg bg-(--color-surface-2)"
+              title="Refresh Equipment"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
+            >
+              <Plus size={15} /> Add equipment
+            </button>
+          </div>
         }
       />
 
-      <div className="grid sm:grid-cols-3 gap-4">
-        <Card className="flex items-center gap-3">
-          <CheckCircle className="w-8 h-8 text-emerald-400 shrink-0" />
-          <div>
-            <p className="text-xs text-(--color-text-faint)">Operational Machines</p>
-            <p className="text-xl font-semibold text-(--color-text)">
-              {equipmentList.filter((e) => isWorking(e.status)).length} units
-            </p>
-          </div>
+      {resolvingBranch || loading ? (
+        <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading equipment items...
         </Card>
-
-        <Card className="flex items-center gap-3">
-          <Wrench className="w-8 h-8 text-amber-400 shrink-0" />
-          <div>
-            <p className="text-xs text-(--color-text-faint)">Under Maintenance</p>
-            <p className="text-xl font-semibold text-(--color-text)">
-              {equipmentList.filter((e) => isMaintenance(e.status)).length} units
-            </p>
-          </div>
+      ) : equipmentList.length === 0 ? (
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
+          <Wrench className="w-8 h-8 mx-auto text-(--color-text-faint)" />
+          <p className="text-sm font-medium text-(--color-text)">No equipment logged in database</p>
+          <p className="text-xs text-(--color-text-muted)">Click "Add equipment" to log machines and gear.</p>
         </Card>
+      ) : (
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {equipmentList.map((item) => {
+              const eqId = item._id || item.id;
+              const status = item.status || "WORKING";
+              return (
+                <div key={eqId} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-display text-sm font-semibold text-(--color-text)">{item.name}</h4>
+                    <p className="text-xs text-(--color-text-muted) capitalize mt-0.5">{item.category}</p>
+                  </div>
 
-        <Card className="flex items-center gap-3">
-          <AlertTriangle className="w-8 h-8 text-rose-400 shrink-0" />
-          <div>
-            <p className="text-xs text-(--color-text-faint)">Out of Order / Broken</p>
-            <p className="text-xl font-semibold text-(--color-text)">
-              {equipmentList.filter((e) => !isWorking(e.status) && !isMaintenance(e.status)).length} units
-            </p>
-          </div>
-        </Card>
-      </div>
+                  <div className="flex items-center gap-2">
+                    <Badge tone={statusTone[status] || "good"}>{status}</Badge>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="divide-y divide-(--color-border-soft)">
-          {equipmentList.map((e) => {
-            const currentWorking = isWorking(e.status);
-            const currentMaint = isMaintenance(e.status);
-
-            return (
-              <div key={e._id || e.id} className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-5 py-3.5 gap-3 hover:bg-(--color-surface-2)/50 transition-colors">
-                <div>
-                  <p className="text-sm font-medium text-(--color-text)">{e.name}</p>
-                  <p className="text-xs text-(--color-text-faint)">Category: <span className="capitalize">{e.category || "General"}</span></p>
+                    {status !== "WORKING" && (
+                      <button
+                        onClick={() => handleSetExactStatus(eqId, "WORKING")}
+                        className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium"
+                      >
+                        Mark Working
+                      </button>
+                    )}
+                    {status !== "MAINTENANCE" && (
+                      <button
+                        onClick={() => handleSetExactStatus(eqId, "MAINTENANCE")}
+                        className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-xs font-medium"
+                      >
+                        Maintenance
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge tone={currentWorking ? "good" : currentMaint ? "warn" : "danger"}>
-                    {currentWorking ? "WORKING (Active)" : currentMaint ? "MAINTENANCE" : "BROKEN"}
-                  </Badge>
-
-                  {/* Direct Quick Action Buttons */}
-                  {!currentWorking && (
-                    <button
-                      onClick={() => handleSetExactStatus(e._id || e.id, "WORKING")}
-                      className="px-3 py-1 text-xs font-medium rounded-full bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
-                    >
-                      Set Active
-                    </button>
-                  )}
-
-                  {!currentMaint && (
-                    <button
-                      onClick={() => handleSetExactStatus(e._id || e.id, "MAINTENANCE")}
-                      className="px-3 py-1 text-xs font-medium rounded-full bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20"
-                    >
-                      Maintenance
-                    </button>
-                  )}
-
-                  {currentWorking && (
-                    <button
-                      onClick={() => handleSetExactStatus(e._id || e.id, "BROKEN")}
-                      className="px-3 py-1 text-xs font-medium rounded-full bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20"
-                    >
-                      Out of Order
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Add Equipment Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">Add Machine / Equipment</h3>
-            <form onSubmit={handleAddEquipment} className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleAddEquipment} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl">
+            <h3 className="font-display text-lg font-bold text-(--color-text)">Register Gym Equipment</h3>
+            <div className="space-y-3 text-xs">
               <div>
-                <label className="text-xs text-(--color-text-muted)">Machine Name</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Equipment Name</label>
                 <input
+                  type="text"
                   required
+                  placeholder="e.g. Commercial Treadmill T80"
                   value={newEquipment.name}
                   onChange={(e) => setNewEquipment({ ...newEquipment, name: e.target.value })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  placeholder="e.g. Leg Press Machine"
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
                 />
               </div>
+
               <div>
-                <label className="text-xs text-(--color-text-muted)">Category</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Category</label>
                 <CustomSelect
                   value={newEquipment.category}
                   onChange={(val) => setNewEquipment({ ...newEquipment, category: val })}
-                  className="mt-1"
-                  options={[
-                    { value: "strength", label: "Strength Training" },
-                    { value: "cardio", label: "Cardio Equipment" },
-                    { value: "freeweights", label: "Dumbbells & Barbells" },
-                    { value: "accessories", label: "Mats & Bands" },
-                  ]}
+                  options={equipmentCategoryOptions}
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted)"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white">
-                  Save Equipment
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingAdd}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register Machine"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

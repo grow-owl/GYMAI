@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { ShieldCheck, Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap } from "lucide-react";
+import { ShieldCheck, Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap, UserPlus, KeyRound } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { paymentApi } from "@/lib/endpoints";
+import { paymentApi, authApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
 export default function AdminPanel() {
@@ -24,6 +24,49 @@ export default function AdminPanel() {
     transactionRef: "",
     notes: "",
   });
+
+  // Super Admin Password Reset Modal
+  const [showSuperAdminResetModal, setShowSuperAdminResetModal] = useState(false);
+  const [superResetTargetId, setSuperResetTargetId] = useState("");
+  const [superResetPasswordVal, setSuperResetPasswordVal] = useState("Owner@123");
+  const [resettingUserPass, setResettingUserPass] = useState(false);
+
+  // Create Gym Owner Modal
+  const [showCreateOwnerModal, setShowCreateOwnerModal] = useState(false);
+  const [submittingOwner, setSubmittingOwner] = useState(false);
+  const [ownerFormData, setOwnerFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
+    gymName: "",
+    branchName: "Main Branch",
+    plan: "PRO",
+  });
+
+  const handleCreateOwner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingOwner(true);
+    try {
+      const res = await authApi.registerOwner(ownerFormData);
+      toast.success(`Gym Owner created successfully! Gym ID: ${res.gym._id}`);
+      setShowCreateOwnerModal(false);
+      setOwnerFormData({
+        fullName: "",
+        email: "",
+        phone: "",
+        password: "",
+        gymName: "",
+        branchName: "Main Branch",
+        plan: "PRO",
+      });
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to create Gym Owner account");
+    } finally {
+      setSubmittingOwner(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -73,6 +116,25 @@ export default function AdminPanel() {
     }
   };
 
+  const handleSuperAdminResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!superResetTargetId.trim()) {
+      toast.error("Please enter a valid User ID");
+      return;
+    }
+    setResettingUserPass(true);
+    try {
+      await authApi.adminResetPassword(superResetTargetId.trim(), superResetPasswordVal);
+      toast.success("User password reset successfully by Super Admin!");
+      setShowSuperAdminResetModal(false);
+      setSuperResetTargetId("");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to reset user password");
+    } finally {
+      setResettingUserPass(false);
+    }
+  };
+
   const handleFulfillRequest = (reqItem: any) => {
     const targetGymId = reqItem.gymId?._id || reqItem.gymId || "";
     setFormData({
@@ -89,12 +151,26 @@ export default function AdminPanel() {
         title="SUPER ADMIN PANEL"
         subtitle="SaaS Platform Revenue & Gym Subscription Management"
         action={
-          <button
-            onClick={() => setShowRecordModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
-          >
-            <Plus size={15} /> Record Manual Payment
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCreateOwnerModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 shadow-sm"
+            >
+              <UserPlus size={15} /> Create Gym Owner
+            </button>
+            <button
+              onClick={() => setShowSuperAdminResetModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium px-4 py-2 hover:bg-amber-500/20"
+            >
+              <KeyRound size={15} /> Reset Any User Password
+            </button>
+            <button
+              onClick={() => setShowRecordModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) border border-(--color-border) text-(--color-text) text-sm font-medium px-4 py-2 hover:bg-(--color-surface-3)"
+            >
+              <Plus size={15} /> Record Manual Payment
+            </button>
+          </div>
         }
       />
 
@@ -328,6 +404,187 @@ export default function AdminPanel() {
                   className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
                 >
                   {submitting ? "Processing..." : "Record SaaS Payment"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Gym Owner Modal (Super Admin Exclusive) */}
+      {showCreateOwnerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2">
+              <UserPlus className="text-(--color-accent)" size={20} />
+              <h3 className="text-base font-semibold text-(--color-text)">Provision New Gym Owner & Gym Workspace</h3>
+            </div>
+            <p className="text-xs text-(--color-text-muted)">
+              As Super Admin, create a new Gym Owner user account and provision their initial Gym organization and primary branch.
+            </p>
+            <form onSubmit={handleCreateOwner} className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-(--color-text-muted)">Owner Full Name</label>
+                  <input
+                    required
+                    value={ownerFormData.fullName}
+                    onChange={(e) => setOwnerFormData({ ...ownerFormData, fullName: e.target.value })}
+                    placeholder="e.g. Vikram Sharma"
+                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-(--color-text-muted)">Phone Number</label>
+                  <input
+                    required
+                    value={ownerFormData.phone}
+                    onChange={(e) => setOwnerFormData({ ...ownerFormData, phone: e.target.value })}
+                    placeholder="+91 9876543210"
+                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-(--color-text-muted)">Owner Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={ownerFormData.email}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, email: e.target.value })}
+                  placeholder="owner@gym.com"
+                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-(--color-text-muted)">Initial Password</label>
+                <input
+                  type="password"
+                  required
+                  value={ownerFormData.password}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, password: e.target.value })}
+                  placeholder="At least 8 chars (letters & numbers)"
+                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                />
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3 border-t border-(--color-border-soft) pt-3">
+                <div>
+                  <label className="text-xs font-medium text-(--color-text-muted)">Gym Name</label>
+                  <input
+                    required
+                    value={ownerFormData.gymName}
+                    onChange={(e) => setOwnerFormData({ ...ownerFormData, gymName: e.target.value })}
+                    placeholder="e.g. Apex Fitness Club"
+                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-(--color-text-muted)">Main Branch Name</label>
+                  <input
+                    value={ownerFormData.branchName}
+                    onChange={(e) => setOwnerFormData({ ...ownerFormData, branchName: e.target.value })}
+                    placeholder="Main Branch"
+                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-(--color-text-muted)">SaaS Plan</label>
+                <select
+                  value={ownerFormData.plan}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, plan: e.target.value })}
+                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                >
+                  <option value="TRIAL">TRIAL (14 Days Free)</option>
+                  <option value="BASIC">BASIC (Single Branch)</option>
+                  <option value="PRO">PRO (Multi Branch)</option>
+                  <option value="ENTERPRISE">ENTERPRISE (Custom)</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-(--color-border-soft)">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateOwnerModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingOwner}
+                  className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:bg-(--color-accent-strong) disabled:opacity-50"
+                >
+                  {submittingOwner ? "Creating Gym Owner..." : "Create Gym Owner & Gym"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin Reset Any User Password Modal */}
+      {showSuperAdminResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center gap-2">
+              <KeyRound className="text-amber-400" size={20} />
+              <h3 className="text-base font-semibold text-(--color-text)">Reset Any User Password</h3>
+            </div>
+            <p className="text-xs text-(--color-text-muted)">
+              As Super Admin, reset the password for any Gym Owner, Member, Trainer, or Staff across the platform.
+            </p>
+            <form onSubmit={handleSuperAdminResetPassword} className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-(--color-text-muted)">Target User ID (MongoDB ObjectId)</label>
+                <input
+                  required
+                  value={superResetTargetId}
+                  onChange={(e) => setSuperResetTargetId(e.target.value)}
+                  placeholder="e.g. 65a000000000000000000001"
+                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono focus:border-(--color-accent)"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-(--color-text-muted)">New Password</label>
+                  <button
+                    type="button"
+                    onClick={() => setSuperResetPasswordVal(`Owner@${Math.floor(1000 + Math.random() * 9000)}`)}
+                    className="text-[11px] text-(--color-accent-text) hover:underline"
+                  >
+                    Auto-generate
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={superResetPasswordVal}
+                  onChange={(e) => setSuperResetPasswordVal(e.target.value)}
+                  placeholder="Min 8 chars (letters & numbers)"
+                  className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono focus:border-(--color-accent)"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-(--color-border-soft)">
+                <button
+                  type="button"
+                  onClick={() => setShowSuperAdminResetModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resettingUserPass}
+                  className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 disabled:opacity-50"
+                >
+                  {resettingUserPass ? "Resetting Password..." : "Reset User Password"}
                 </button>
               </div>
             </form>

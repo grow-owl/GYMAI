@@ -20,17 +20,45 @@ export const registerSchema = z.object({
     .string()
     .min(8, 'Password must be at least 8 characters')
     .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number'),
-  role: z.enum([Role.GYM_OWNER, Role.MEMBER], {
+  role: z.enum([Role.MEMBER], {
     errorMap: () => ({
-      message: 'Self-registration is only allowed for GYM_OWNER or MEMBER roles',
+      message: 'Self-registration is only allowed for MEMBER role. Gym Owner accounts must be created by Super Admin.',
     }),
-  }),
+  }).optional(),
   gymId: z.string().optional(),
   branchId: z.string().optional(),
   referralCode: z.string().trim().optional(),
-  // Required when role === GYM_OWNER (checked in the service, not here, since
-  // it depends on the OWNER_INVITE_CODE env var being configured or not).
-  ownerInviteCode: z.string().trim().optional(),
+});
+
+export const registerOwnerSchema = z.object({
+  fullName: z
+    .string()
+    .min(2, 'Full name must be at least 2 characters')
+    .max(100, 'Full name cannot exceed 100 characters')
+    .trim(),
+  email: z.string().email('Please enter a valid email address').toLowerCase().trim(),
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Phone number is required')
+    .regex(
+      /^\+?[0-9\s-]{7,15}$/,
+      'Enter a valid phone number (7-15 digits, optionally starting with +)'
+    ),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number'),
+  gymName: z.string().min(2, 'Gym name must be at least 2 characters').trim(),
+  branchName: z.string().trim().optional(),
+  plan: z.enum(['TRIAL', 'BASIC', 'PRO', 'ENTERPRISE']).optional(),
+});
+
+export const adminResetPasswordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, 'New password must be at least 8 characters')
+    .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number'),
 });
 
 export const loginSchema = z.object({

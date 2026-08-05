@@ -28,9 +28,22 @@ export const authApi = {
     email: string;
     phone: string;
     password: string;
-    role: "GYM_OWNER" | "MEMBER";
-    ownerInviteCode?: string;
+    role?: "MEMBER";
+    referralCode?: string;
   }) => api.post<AuthResponse>("/auth/register", input),
+
+  registerOwner: (input: {
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    gymName: string;
+    branchName?: string;
+    plan?: string;
+  }) => api.post<{ user: AuthUser; gym: any; primaryBranch: any }>("/auth/register-owner", input),
+
+  adminResetPassword: (userId: string, newPassword: string) =>
+    api.patch<{ message: string }>(`/auth/users/${userId}/reset-password`, { newPassword }),
 
   login: (email: string, password: string) => api.post<AuthResponse>("/auth/login", { email, password }),
 
@@ -39,6 +52,9 @@ export const authApi = {
   getMe: () => api.get<{ user: AuthUser }>("/auth/me"),
 
   forgotPassword: (email: string) => api.post<{ message: string }>("/auth/forgot-password", { email }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ message: string }>("/auth/reset-password", { token, newPassword }),
 
   updateProfile: (data: { fullName?: string; phone?: string; avatarUrl?: string }) =>
     api.patch<{ user: AuthUser }>("/auth/profile", data),

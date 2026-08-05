@@ -20,6 +20,7 @@ export interface IMemberPayment {
   relatedMembershipRenewal?: boolean;
   invoiceNumber: string; // e.g. "GYM-2026-000001"
   paidAt: Date;
+  customerName?: string;
   notes?: string;
   refundedAmount?: number;
   refundReason?: string;

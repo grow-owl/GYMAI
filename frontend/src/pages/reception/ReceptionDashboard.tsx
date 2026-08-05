@@ -8,11 +8,11 @@ import { useAuthStore } from "@/store/authStore";
 import { reportApi, attendanceApi, leadApi } from "@/lib/endpoints";
 
 const quickAccess = [
-  { label: "Member Search", path: "/reception/search", icon: "Search" },
-  { label: "Check-in", path: "/reception/check-in", icon: "QrCode", tone: "accent" as const },
-  { label: "Leads", path: "/reception/leads", icon: "Target" },
-  { label: "Trial Members", path: "/reception/leads", icon: "ClipboardList" },
-  { label: "Payments", path: "/reception/payments", icon: "CreditCard" },
+  { label: "Add & Manage Members", path: "/reception/members", icon: "Users", tone: "accent" as const },
+  { label: "Store & POS Sales", path: "/reception/inventory", icon: "Package" },
+  { label: "Check-in Desk", path: "/reception/check-in", icon: "QrCode" },
+  { label: "Record Payments", path: "/reception/payments", icon: "CreditCard" },
+  { label: "Leads & Enquiries", path: "/reception/leads", icon: "Target" },
 ];
 
 const pipelineColors = ["var(--tone-blue)", "var(--tone-purple)", "var(--tone-amber)", "var(--tone-green)"];

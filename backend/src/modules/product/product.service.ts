@@ -1,11 +1,14 @@
 import mongoose from 'mongoose';
 import { Product } from './product.model';
 import { Member } from '../member/member.model';
+import { User } from '../user/user.model';
 import { IProduct, ProductCategory } from './product.types';
 import { MemberPaymentService } from '../payment/memberPayment.service';
 import { AppError } from '../../common/utils/AppError';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 import { PaymentMethod } from '../payment/memberPayment.types';
+
+import { Branch } from '../gym/branch.model';
 
 export interface CreateProductInput {
   name: string;
@@ -19,13 +22,17 @@ export interface PurchaseProductInput {
   memberId?: string; // target member ID (or user ID)
   quantity?: number;
   paymentMethod?: PaymentMethod;
+  customerName?: string;
   notes?: string;
 }
 
 export class ProductService {
   public static async createProduct(gymId: string, input: CreateProductInput): Promise<IProduct> {
+    let branch = await Branch.findOne({ gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined, isDeleted: false }) || await Branch.findOne({ isDeleted: false });
+    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"));
+
     const product = new Product({
-      gymId: new mongoose.Types.ObjectId(gymId),
+      gymId: targetGymId,
       name: input.name,
       category: input.category,
       price: input.price,
@@ -42,25 +49,11 @@ export class ProductService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ products: IProduct[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
-    const gymObjectId = new mongoose.Types.ObjectId(gymId);
 
-    // Auto-seed initial store products if gym has zero inventory in DB
-    const existingCount = await Product.countDocuments({ gymId: gymObjectId, isDeleted: false });
-    if (existingCount === 0) {
-      await Product.insertMany([
-        { gymId: gymObjectId, name: 'Whey Protein Isolate (2kg)', category: 'supplement', price: 3499, stockQuantity: 18, isActive: true },
-        { gymId: gymObjectId, name: 'Creatine Monohydrate (250g)', category: 'supplement', price: 999, stockQuantity: 10, isActive: true },
-        { gymId: gymObjectId, name: 'BCAA Powder (300g)', category: 'supplement', price: 1499, stockQuantity: 12, isActive: true },
-        { gymId: gymObjectId, name: 'GYMAI Shaker Bottle', category: 'merchandise', price: 399, stockQuantity: 45, isActive: true },
-        { gymId: gymObjectId, name: 'Heavy Duty Lifting Belt', category: 'gear', price: 1299, stockQuantity: 8, isActive: true },
-      ]);
+    let filter: Record<string, unknown> = { isDeleted: false };
+    if (mongoose.Types.ObjectId.isValid(gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
-
-    const filter: Record<string, unknown> = {
-      gymId: gymObjectId,
-      isDeleted: false,
-    };
-
     if (filters.category) {
       filter.category = filters.category;
     }
@@ -68,10 +61,18 @@ export class ProductService {
       filter.isActive = filters.isActive;
     }
 
-    const [products, totalItems] = await Promise.all([
+    let [products, totalItems] = await Promise.all([
       Product.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
       Product.countDocuments(filter),
     ]);
+
+    if (products.length === 0 && filter.gymId) {
+      delete filter.gymId;
+      [products, totalItems] = await Promise.all([
+        Product.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+        Product.countDocuments(filter),
+      ]);
+    }
 
     const meta = buildPaginationMeta(totalItems, page, limit);
 
@@ -158,25 +159,38 @@ export class ProductService {
     const isTargetValidObjId = mongoose.Types.ObjectId.isValid(targetMemberId);
     let memberDoc = await Member.findOne({
       $or: [
-        { _id: isTargetValidObjId ? targetMemberId : undefined },
-        { userId: isTargetValidObjId ? targetMemberId : undefined },
+        { _id: isTargetValidObjId ? new mongoose.Types.ObjectId(targetMemberId) : undefined },
+        { userId: isTargetValidObjId ? new mongoose.Types.ObjectId(targetMemberId) : undefined },
       ],
-      gymId: updatedProduct.gymId,
       isDeleted: false,
     });
 
     if (memberDoc) {
       validMemberId = memberDoc._id.toString();
     } else {
-      // Fallback: search any existing member or create walk-in customer profile
-      let walkInMember = await Member.findOne({ gymId: updatedProduct.gymId, fullName: 'Walk-in Customer', isDeleted: false });
+      // Fallback: search or create dedicated Walk-in Customer profile
+      let walkInMember = await Member.findOne({ fullName: 'Walk-in Customer', isDeleted: false });
       if (!walkInMember) {
+        let walkInUser = await User.findOne({ fullName: 'Walk-in Customer', isDeleted: false });
+        if (!walkInUser) {
+          walkInUser = await User.create({
+            fullName: 'Walk-in Customer',
+            email: `walkin_${Date.now()}@gymai.internal`,
+            phone: '0000000000',
+            role: 'MEMBER',
+            isActive: true,
+          });
+        }
+
         walkInMember = await Member.create({
           gymId: updatedProduct.gymId,
-          userId: new mongoose.Types.ObjectId(actingUser.id),
+          userId: walkInUser._id,
           fullName: 'Walk-in Customer',
           phone: '0000000000',
           membershipStatus: 'ACTIVE',
+          planName: 'Walk-in Store Purchase',
+          membershipStartDate: new Date(),
+          membershipEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         });
       }
       validMemberId = walkInMember._id.toString();
@@ -199,6 +213,7 @@ export class ProductService {
         actingUser
       );
     } else {
+      const customerName = input.customerName || (memberDoc ? ((memberDoc as any).fullName || 'Member') : 'Walk-in Customer');
       paymentResult = await MemberPaymentService.recordManualPayment(
         {
           gymId: updatedProduct.gymId.toString(),
@@ -206,6 +221,7 @@ export class ProductService {
           amount: totalAmount,
           method: paymentMethod,
           purpose: 'merchandise',
+          customerName,
           notes,
         },
         actingUser

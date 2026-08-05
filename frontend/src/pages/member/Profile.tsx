@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Phone, Mail, Loader2, RefreshCw } from "lucide-react";
+import { Phone, Mail, Loader2, RefreshCw, KeyRound } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { memberApi, authApi } from "@/lib/endpoints";
+import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
@@ -167,6 +168,82 @@ export default function MemberProfile() {
             >
               Give Feedback
             </button>
+          </Card>
+
+          {/* Change Password Card */}
+          <Card className="space-y-3">
+            <div className="flex items-center gap-2 border-b border-(--color-border-soft) pb-2">
+              <KeyRound className="text-(--color-accent)" size={16} />
+              <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-faint)">Security & Password</p>
+            </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const target = e.target as any;
+                const currentPassword = target.currentPassword.value;
+                const newPassword = target.newPassword.value;
+                const confirmPassword = target.confirmPassword.value;
+
+                if (newPassword !== confirmPassword) {
+                  toast.error("New passwords do not match");
+                  return;
+                }
+                if (newPassword.length < 8 || !/(?=.*[a-zA-Z])(?=.*[0-9])/.test(newPassword)) {
+                  toast.error("Password must be at least 8 characters with letters & numbers");
+                  return;
+                }
+
+                try {
+                  await api.patch("/auth/change-password", { currentPassword, newPassword });
+                  toast.success("Password updated successfully!");
+                  target.reset();
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || err.message || "Failed to change password");
+                }
+              }}
+              className="space-y-3 text-sm pt-1"
+            >
+              <div>
+                <label className="text-xs text-(--color-text-muted)">Current Password</label>
+                <input
+                  name="currentPassword"
+                  type="password"
+                  required
+                  placeholder="Current password"
+                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-(--color-text-muted)">New Password</label>
+                  <input
+                    name="newPassword"
+                    type="password"
+                    required
+                    placeholder="New password (8+ chars)"
+                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-(--color-text-muted)">Confirm New Password</label>
+                  <input
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    placeholder="Confirm new password"
+                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-semibold rounded-full bg-(--color-accent) text-white hover:bg-(--color-accent-strong)"
+                >
+                  Update Password
+                </button>
+              </div>
+            </form>
           </Card>
 
           {showFeedbackModal && profileData?._id && (

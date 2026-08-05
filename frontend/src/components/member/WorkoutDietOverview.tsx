@@ -1,0 +1,195 @@
+import { useState, useEffect } from "react";
+import { Dumbbell, Salad, Droplets, ChevronRight, CheckCircle2, Play, Plus, Minus, Flame, Sparkles } from "lucide-react";
+import Card from "@/components/ui/Card";
+import { workoutApi, dietApi } from "@/lib/endpoints";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+
+interface WorkoutDietProps {
+  memberId?: string;
+}
+
+export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
+  const [activePlan, setActivePlan] = useState<any | null>(null);
+  const [dietPlan, setDietPlan] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [waterGlasses, setWaterGlasses] = useState<number>(5);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      memberId ? workoutApi.getActivePlan(memberId).catch(() => null) : null,
+      memberId ? dietApi.getActive(memberId).catch(() => null) : null,
+    ])
+      .then(([wRes, dRes]) => {
+        if (wRes && (wRes.plan || wRes._id)) {
+          setActivePlan(wRes.plan || wRes);
+        }
+        if (dRes && (dRes.plan || dRes._id)) {
+          setDietPlan(dRes.plan || dRes);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [memberId]);
+
+  const handleWaterAdd = (delta: number) => {
+    const next = Math.max(0, Math.min(12, waterGlasses + delta));
+    setWaterGlasses(next);
+    if (delta > 0) {
+      toast.success(`Hydration updated! ${next}/8 glasses completed 💧`);
+    }
+  };
+
+  const defaultExercises = [
+    { name: "Barbell Incline Press", sets: 4, reps: "10-12 reps", target: "Upper Chest" },
+    { name: "Dumbbell Flyes", sets: 3, reps: "12-15 reps", target: "Chest Isolation" },
+    { name: "Tricep Rope Pushdowns", sets: 4, reps: "12 reps", target: "Triceps" },
+    { name: "Bodyweight Dips", sets: 3, reps: "Failure", target: "Lower Chest / Triceps" },
+  ];
+
+  const exercises = activePlan?.exercises || defaultExercises;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+      {/* Left: Active Workout Routine */}
+      <Card className="md:col-span-7 relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-400">
+              <Dumbbell className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-bold text-(--color-text)">
+                Today's Workout Plan
+              </h3>
+              <p className="text-xs text-(--color-text-muted)">
+                {activePlan?.title || activePlan?.name || "Hypertrophy Chest & Triceps Push Day"}
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/member/workout-plan"
+            className="text-xs font-semibold text-(--color-accent) hover:underline flex items-center gap-0.5"
+          >
+            All Plans <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {/* Exercises list */}
+        <div className="space-y-2">
+          {exercises.slice(0, 4).map((ex: any, idx: number) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between p-3 rounded-xl bg-(--color-surface-2)/40 border border-white/5 hover:border-white/10 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white font-mono">
+                  {idx + 1}
+                </span>
+                <div>
+                  <p className="font-display text-xs font-bold text-(--color-text)">{ex.name || ex.exerciseId?.name}</p>
+                  <p className="text-[11px] text-(--color-text-muted)">{ex.target || "Chest Focus"}</p>
+                </div>
+              </div>
+
+              <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+                {ex.sets || 4} Sets × {ex.reps || "10-12"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <Link
+          to="/member/workout-tracking"
+          className="flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-white font-bold text-xs py-3 hover:brightness-110 transition-all shadow-lg"
+        >
+          <Play className="h-4 w-4 fill-white" /> Start Workout Logging
+        </Link>
+      </Card>
+
+      {/* Right: Diet Plan & Water Tracker */}
+      <Card className="md:col-span-5 relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+              <Salad className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-bold text-(--color-text)">
+                Diet & Nutrition
+              </h3>
+              <p className="text-xs text-(--color-text-muted)">
+                {dietPlan?.name || "High Protein Lean Muscle Plan"}
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/member/diet-plan"
+            className="text-xs font-semibold text-emerald-400 hover:underline flex items-center gap-0.5"
+          >
+            Diet Plan <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {/* Macro Calories Cards */}
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="p-2.5 rounded-xl bg-(--color-surface-2)/40 border border-white/5">
+            <span className="text-[10px] text-(--color-text-muted) uppercase font-bold">Daily Calories</span>
+            <p className="text-base font-extrabold text-white mt-0.5">{dietPlan?.targetCalories || 2400} kcal</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-(--color-surface-2)/40 border border-white/5">
+            <span className="text-[10px] text-(--color-text-muted) uppercase font-bold">Protein Goal</span>
+            <p className="text-base font-extrabold text-emerald-400 mt-0.5">{dietPlan?.proteinGrams || 165}g</p>
+          </div>
+        </div>
+
+        {/* Water Hydration Tracker */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-cyan-500/20 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-cyan-200 flex items-center gap-1.5">
+              <Droplets className="h-4 w-4 text-cyan-400" /> Water Hydration Log
+            </span>
+            <span className="text-xs font-mono font-bold text-cyan-300">
+              {waterGlasses} / 8 Glasses
+            </span>
+          </div>
+
+          {/* Water Cup Visualizer */}
+          <div className="flex justify-between items-center py-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <span
+                key={i}
+                className={`text-base transition-all transform ${
+                  i < waterGlasses ? "scale-110 opacity-100" : "opacity-25 grayscale"
+                }`}
+              >
+                💧
+              </span>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[11px] text-cyan-200/70">{(waterGlasses * 0.25).toFixed(2)} / 2.0 Liters</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handleWaterAdd(-1)}
+                className="h-7 w-7 rounded-lg bg-white/10 text-white flex items-center justify-center text-xs font-bold hover:bg-white/20"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => handleWaterAdd(1)}
+                className="h-7 w-7 rounded-lg bg-cyan-500 text-white flex items-center justify-center text-xs font-bold hover:bg-cyan-400 shadow-md"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}

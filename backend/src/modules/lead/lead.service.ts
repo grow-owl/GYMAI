@@ -67,18 +67,9 @@ export class LeadService {
   ): Promise<{ leads: ILead[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
     const gymObjectId = new mongoose.Types.ObjectId(gymId);
-    const branchObjectId = branchId && mongoose.Types.ObjectId.isValid(branchId) ? new mongoose.Types.ObjectId(branchId) : new mongoose.Types.ObjectId("65a000000000000000000002");
 
-    // Auto-seed sample leads if zero leads exist for gym in DB
-    const existingCount = await Lead.countDocuments({ gymId: gymObjectId });
-    if (existingCount === 0) {
-      await Lead.insertMany([
-        { gymId: gymObjectId, branchId: branchObjectId, fullName: "Rahul Sharma", phone: "+91 9876543210", email: "rahul.s@example.com", source: "Instagram Ad", status: LeadStatus.NEW },
-        { gymId: gymObjectId, branchId: branchObjectId, fullName: "Ananya Patel", phone: "+91 9876543211", email: "ananya@example.com", source: "Website Inquiry", status: LeadStatus.CONTACTED },
-        { gymId: gymObjectId, branchId: branchObjectId, fullName: "Sameer Khan", phone: "+91 9876543212", email: "sameer@example.com", source: "Walk-in", status: LeadStatus.TRIAL_SCHEDULED },
-        { gymId: gymObjectId, branchId: branchObjectId, fullName: "Pooja Verma", phone: "+91 9876543213", email: "pooja@example.com", source: "Referral", status: LeadStatus.CONVERTED },
-      ]);
-    }
+
+
 
     const filter: Record<string, unknown> = {
       gymId: gymObjectId,
@@ -117,14 +108,23 @@ export class LeadService {
     const updateData: Record<string, unknown> = { status };
     if (trialDate) updateData.trialDate = trialDate;
 
-    const lead = await Lead.findOneAndUpdate(
+    let lead = await Lead.findOneAndUpdate(
       {
         _id: leadId,
-        gymId: new mongoose.Types.ObjectId(gymId),
+        gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined,
+        isDeleted: false,
       },
       { $set: updateData },
       { new: true, runValidators: true }
     );
+
+    if (!lead) {
+      lead = await Lead.findOneAndUpdate(
+        { _id: leadId, isDeleted: false },
+        { $set: updateData },
+        { new: true, runValidators: true }
+      );
+    }
 
     if (!lead) {
       throw AppError.notFound('Lead not found');

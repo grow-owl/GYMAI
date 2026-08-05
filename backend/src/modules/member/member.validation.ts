@@ -6,13 +6,25 @@ export const createMemberSchema = z.object({
   phone: z.string().min(5).trim(),
   password: z
     .string()
-    .min(8)
-    .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number'),
-  branchId: z.string().min(1, 'Branch ID is required'),
+    .min(6, 'Password must be at least 6 characters'),
+  branchId: z.string().optional(),
   assignedTrainerId: z.string().optional(),
   planName: z.string().min(1, 'Plan name is required').trim(),
-  membershipStartDate: z.string().or(z.date()).transform((val) => new Date(val)),
-  membershipEndDate: z.string().or(z.date()).transform((val) => new Date(val)),
+  membershipStartDate: z
+    .string()
+    .or(z.date())
+    .optional()
+    .transform((val) => (val ? new Date(val) : new Date())),
+  membershipEndDate: z
+    .string()
+    .or(z.date())
+    .optional()
+    .transform((val) => {
+      if (val) return new Date(val);
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    }),
   dateOfBirth: z.string().or(z.date()).transform((val) => new Date(val)).optional(),
   referralCode: z.string().trim().optional(),
   fitnessGoals: z.array(z.string().trim()).optional().default([]),
@@ -63,20 +75,20 @@ export const assignTrainerSchema = z.object({
 });
 
 export const freezeMembershipSchema = z.object({
-  freezeUntil: z.string().or(z.date()).transform((val) => new Date(val)),
-  reason: z.string().trim().optional(),
+  freezeUntil: z.string().or(z.date()),
+  reason: z.string().min(2, 'Reason is required'),
 });
 
 export const renewMembershipSchema = z.object({
-  newEndDate: z.string().or(z.date()).transform((val) => new Date(val)),
-  planName: z.string().trim().optional(),
+  newEndDate: z.string().or(z.date()),
+  planName: z.string().optional(),
 });
 
 export const extendMembershipSchema = z.object({
-  days: z.number().positive('Days to extend must be positive'),
-  reason: z.string().trim().optional(),
+  days: z.number().int().positive('Days must be a positive integer'),
+  reason: z.string().min(2, 'Reason is required'),
 });
 
 export const cancelMembershipSchema = z.object({
-  reason: z.string().trim().optional(),
+  reason: z.string().min(2, 'Reason is required'),
 });

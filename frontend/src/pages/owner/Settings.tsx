@@ -8,7 +8,10 @@ import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
-type TabKey = "branches" | "staff" | "subscription" | "notifications" | "compliance";
+import { api } from "@/lib/api";
+import { KeyRound } from "lucide-react";
+
+type TabKey = "branches" | "staff" | "subscription" | "notifications" | "compliance" | "security";
 
 const STORAGE_KEY_BRANCHES = "gymai.branches_list";
 const STORAGE_KEY_SETTINGS = "gymai.gym_settings";
@@ -59,6 +62,35 @@ export default function Settings() {
   });
   const [waLogs, setWaLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Change password state
+  const [passForm, setPassForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [changingPass, setChangingPass] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passForm.newPassword !== passForm.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    if (passForm.newPassword.length < 8 || !/(?=.*[a-zA-Z])(?=.*[0-9])/.test(passForm.newPassword)) {
+      toast.error("New password must be at least 8 characters long and include letters and numbers");
+      return;
+    }
+    setChangingPass(true);
+    try {
+      await api.patch('/auth/change-password', {
+        currentPassword: passForm.currentPassword,
+        newPassword: passForm.newPassword,
+      });
+      toast.success("Password changed successfully!");
+      setPassForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to change password");
+    } finally {
+      setChangingPass(false);
+    }
+  };
 
   // Channel toggles
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
@@ -191,6 +223,7 @@ export default function Settings() {
     { key: "subscription", icon: CreditCard, label: "Subscription Plan", desc: "SaaS tier details" },
     { key: "notifications", icon: Bell, label: "Notifications", desc: "Push & WhatsApp preferences" },
     { key: "compliance", icon: ShieldCheck, label: "Data & Compliance", desc: "Export data & deletion requests" },
+    { key: "security", icon: KeyRound, label: "Security & Password", desc: "Change account password" },
   ];
 
   return (
@@ -429,6 +462,67 @@ export default function Settings() {
                   </div>
                 </button>
               </div>
+            </Card>
+          )}
+
+          {/* Security & Password Tab */}
+          {activeTab === "security" && (
+            <Card className="space-y-4 max-w-lg">
+              <div className="flex items-center gap-2 border-b border-(--color-border-soft) pb-3">
+                <KeyRound className="text-(--color-accent)" size={18} />
+                <div>
+                  <h3 className="text-sm font-semibold text-(--color-text)">Change Account Password</h3>
+                  <p className="text-xs text-(--color-text-faint)">Update your login credentials securely</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleChangePassword} className="space-y-3.5">
+                <div>
+                  <label className="text-xs font-medium text-(--color-text-muted)">Current Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={passForm.currentPassword}
+                    onChange={(e) => setPassForm({ ...passForm, currentPassword: e.target.value })}
+                    placeholder="Enter your current password"
+                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-(--color-text-muted)">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={passForm.newPassword}
+                    onChange={(e) => setPassForm({ ...passForm, newPassword: e.target.value })}
+                    placeholder="At least 8 characters (letters & numbers)"
+                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-(--color-text-muted)">Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={passForm.confirmPassword}
+                    onChange={(e) => setPassForm({ ...passForm, confirmPassword: e.target.value })}
+                    placeholder="Re-enter new password"
+                    className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={changingPass}
+                    className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:bg-(--color-accent-strong) disabled:opacity-50"
+                  >
+                    {changingPass ? "Updating Password..." : "Update Password"}
+                  </button>
+                </div>
+              </form>
             </Card>
           )}
         </div>

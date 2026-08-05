@@ -1,15 +1,34 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Mail, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Mail, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
+import { authApi } from "@/lib/endpoints";
+import { toast } from "sonner";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSent(true);
+    if (!email.trim()) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await authApi.forgotPassword(email.trim());
+      setSent(true);
+      toast.success("Password reset instructions sent to your email!");
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || "Failed to send reset link.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,6 +57,12 @@ export default function ForgotPassword() {
           <h2 className="font-display text-xl font-semibold text-(--color-text)">Reset your password</h2>
           <p className="text-sm text-(--color-text-muted) mt-1.5 mb-5">We'll email you a secure reset link.</p>
 
+          {error && (
+            <div className="mb-4 rounded-xl border border-(--color-danger)/30 bg-(--color-danger-soft) px-4 py-2.5 text-xs text-(--color-danger) animate-fade-in-up">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-(--color-text-muted) mb-1.5">Email address</label>
@@ -56,9 +81,18 @@ export default function ForgotPassword() {
 
             <button
               type="submit"
-              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-white font-semibold text-sm py-3 transition-colors"
+              disabled={loading}
+              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-white font-semibold text-sm py-3 transition-colors disabled:opacity-70"
             >
-              Send reset link <ArrowRight size={16} />
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Sending reset link…
+                </>
+              ) : (
+                <>
+                  Send reset link <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
         </>

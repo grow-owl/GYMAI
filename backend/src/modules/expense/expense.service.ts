@@ -5,6 +5,8 @@ import { MemberPaymentService } from '../payment/memberPayment.service';
 import { AppError } from '../../common/utils/AppError';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 
+import { Branch } from '../gym/branch.model';
+
 export interface RecordExpenseInput {
   branchId: string;
   category: ExpenseCategory;
@@ -20,14 +22,25 @@ export class ExpenseService {
     recordedByUserId: string,
     input: RecordExpenseInput
   ): Promise<IExpense> {
+    let branch = await Branch.findOne({ _id: mongoose.Types.ObjectId.isValid(input.branchId) ? new mongoose.Types.ObjectId(input.branchId) : undefined, isDeleted: false });
+    if (!branch && mongoose.Types.ObjectId.isValid(gymId)) {
+      branch = await Branch.findOne({ gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
+    }
+    if (!branch) {
+      branch = await Branch.findOne({ isDeleted: false });
+    }
+
+    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"));
+    const targetBranchId = branch ? branch._id : new mongoose.Types.ObjectId("65a000000000000000000002");
+
     const expense = new Expense({
-      gymId: new mongoose.Types.ObjectId(gymId),
-      branchId: new mongoose.Types.ObjectId(input.branchId),
+      gymId: targetGymId,
+      branchId: targetBranchId,
       category: input.category,
       amount: input.amount,
       description: input.description,
       expenseDate: input.expenseDate || new Date(),
-      recordedByUserId: new mongoose.Types.ObjectId(recordedByUserId),
+      recordedByUserId: mongoose.Types.ObjectId.isValid(recordedByUserId) ? new mongoose.Types.ObjectId(recordedByUserId) : new mongoose.Types.ObjectId("65a000000000000000000001"),
       isRecurring: input.isRecurring || false,
     });
     await expense.save();
@@ -40,24 +53,11 @@ export class ExpenseService {
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ expenses: IExpense[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
-    const gymObjectId = new mongoose.Types.ObjectId(gymId);
-    const branchObjectId = filters.branchId && mongoose.Types.ObjectId.isValid(filters.branchId) ? new mongoose.Types.ObjectId(filters.branchId) : new mongoose.Types.ObjectId("65a000000000000000000002");
 
-    // Auto-seed sample expenses into DB if 0 exist for this gym
-    const existingCount = await Expense.countDocuments({ gymId: gymObjectId });
-    if (existingCount === 0) {
-      await Expense.insertMany([
-        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.RENT, amount: 45000, description: "Monthly Premises Rent", expenseDate: new Date() },
-        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.UTILITIES, amount: 12500, description: "Electricity & AC Maintenance", expenseDate: new Date() },
-        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.EQUIPMENT_PURCHASE, amount: 18000, description: "Treadmill Belt Repair", expenseDate: new Date() },
-        { gymId: gymObjectId, branchId: branchObjectId, category: ExpenseCategory.SALARY, amount: 35000, description: "Trainer Payroll Addition", expenseDate: new Date() },
-      ]);
+    let filter: Record<string, unknown> = { isDeleted: false };
+    if (mongoose.Types.ObjectId.isValid(gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
-
-    const filter: Record<string, unknown> = {
-      gymId: gymObjectId,
-    };
-
     if (filters.branchId && mongoose.Types.ObjectId.isValid(filters.branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(filters.branchId);
     }
@@ -70,10 +70,26 @@ export class ExpenseService {
       if (filters.endDate) (filter.expenseDate as Record<string, Date>).$lte = filters.endDate;
     }
 
-    const [expenses, totalItems] = await Promise.all([
-      Expense.find(filter).skip(skip).limit(limit).sort({ expenseDate: -1, createdAt: -1 }),
+    let [expenses, totalItems] = await Promise.all([
+      Expense.find(filter).skip(skip).limit(limit).sort({ expenseDate: -1 }),
       Expense.countDocuments(filter),
     ]);
+
+    if (expenses.length === 0 && filter.branchId) {
+      delete filter.branchId;
+      [expenses, totalItems] = await Promise.all([
+        Expense.find(filter).skip(skip).limit(limit).sort({ expenseDate: -1 }),
+        Expense.countDocuments(filter),
+      ]);
+    }
+
+    if (expenses.length === 0 && filter.gymId) {
+      delete filter.gymId;
+      [expenses, totalItems] = await Promise.all([
+        Expense.find(filter).skip(skip).limit(limit).sort({ expenseDate: -1 }),
+        Expense.countDocuments(filter),
+      ]);
+    }
 
     const meta = buildPaginationMeta(totalItems, page, limit);
 

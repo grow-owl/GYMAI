@@ -29,10 +29,11 @@ export const trainerNav = [
 
 export const receptionNav = [
   { label: "Dashboard", path: "/reception", icon: "LayoutGrid" },
-  { label: "Member Search", path: "/reception/search", icon: "Search" },
-  { label: "Check-in", path: "/reception/check-in", icon: "QrCode" },
-  { label: "Leads", path: "/reception/leads", icon: "Target" },
+  { label: "Members", path: "/reception/members", icon: "Users" },
+  { label: "Store & POS", path: "/reception/inventory", icon: "Package" },
   { label: "Payments", path: "/reception/payments", icon: "CreditCard" },
+  { label: "Leads", path: "/reception/leads", icon: "Target" },
+  { label: "Check-in", path: "/reception/check-in", icon: "QrCode" },
 ];
 
 export const memberNav = [

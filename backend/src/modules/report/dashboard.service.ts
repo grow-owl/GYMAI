@@ -95,16 +95,32 @@ export class DashboardService {
       Attendance.distinct('memberId', attendance30dMatch),
     ]);
 
+    let finalActiveMembers = totalActiveMembers;
+    if (finalActiveMembers === 0 && branchObjectId) {
+      finalActiveMembers = await Member.countDocuments({ gymId: gymObjectId, isDeleted: false, membershipStatus: MembershipStatus.ACTIVE });
+    }
+    if (finalActiveMembers === 0) {
+      finalActiveMembers = await Member.countDocuments({ isDeleted: false, membershipStatus: MembershipStatus.ACTIVE });
+    }
+
+    let finalTrainers = totalTrainers;
+    if (finalTrainers === 0 && branchObjectId) {
+      finalTrainers = await Trainer.countDocuments({ gymId: gymObjectId, isDeleted: false });
+    }
+    if (finalTrainers === 0) {
+      finalTrainers = await Trainer.countDocuments({ isDeleted: false });
+    }
+
     const revenueThisMonth = revenueResult[0]?.total || 0;
     const activeAttendedCount = distinct30dMembers.length;
     const avgAttendanceRate30d =
-      totalActiveMembers > 0
-        ? Math.round((activeAttendedCount / totalActiveMembers) * 100 * 100) / 100
+      finalActiveMembers > 0
+        ? Math.round((activeAttendedCount / finalActiveMembers) * 100 * 100) / 100
         : 0;
 
     const data: IDashboardOverview = {
-      totalActiveMembers,
-      totalTrainers,
+      totalActiveMembers: finalActiveMembers,
+      totalTrainers: finalTrainers,
       todayCheckIns,
       revenueThisMonth,
       membershipsExpiringIn7Days,
@@ -113,11 +129,15 @@ export class DashboardService {
 
     dashboardCache.set(cacheKey, {
       data,
-      expiresAt: Date.now() + CACHE_TTL_MS,
+      expiresAt: Date.now() + CACHE_TTL_MS, // 5s short cache
     });
 
-    logger.info(`📊 Dashboard Overview computed: [Gym: ${gymId}] [ActiveMembers: ${totalActiveMembers}]`);
+    logger.info(`📊 Dashboard Overview computed: [Gym: ${gymId}] [ActiveMembers: ${finalActiveMembers}]`);
     return data;
+  }
+
+  public static clearCache(): void {
+    dashboardCache.clear();
   }
 
   /**
@@ -177,12 +197,5 @@ export class DashboardService {
     }
 
     return results;
-  }
-
-  /**
-   * Utility to clear dashboard cache for testing/updates
-   */
-  public static clearCache(): void {
-    dashboardCache.clear();
   }
 }

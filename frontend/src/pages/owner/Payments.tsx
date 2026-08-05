@@ -5,62 +5,39 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { paymentApi, memberApi } from "@/lib/endpoints";
-import { useAuthStore } from "@/store/authStore";
+import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 
-const STORAGE_KEY_PAYMENTS = "gymai.payments_list";
-const STORAGE_KEY_SUMMARY = "gymai.payments_summary";
+const paymentMethodOptions = [
+  { value: "cash", label: "Cash" },
+  { value: "upi", label: "UPI / QR Code" },
+  { value: "card", label: "Credit / Debit Card" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+];
 
-function getStoredPayments(): any[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_PAYMENTS);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
-  return [];
-}
-
-function saveStoredPayments(list: any[], summaryData?: { total: number; transactions: number }) {
-  try {
-    localStorage.setItem(STORAGE_KEY_PAYMENTS, JSON.stringify(list));
-    if (summaryData) {
-      localStorage.setItem(STORAGE_KEY_SUMMARY, JSON.stringify(summaryData));
-    }
-  } catch {}
-}
-
-function mergePaymentsList(backendList: any[], storedList: any[]): any[] {
-  const map = new Map<string, any>();
-  for (const item of storedList) {
-    const key = item._id || item.id;
-    if (key) map.set(String(key), item);
-  }
-  for (const item of backendList) {
-    const key = item._id || item.id;
-    if (key) {
-      const existing = map.get(String(key));
-      map.set(String(key), existing ? { ...existing, ...item } : item);
-    }
-  }
-  return Array.from(map.values());
-}
+const purposeOptions = [
+  { value: "membership_fee", label: "Membership Fee" },
+  { value: "personal_training", label: "Personal Training Pack" },
+  { value: "merchandise", label: "Store / Supplement Purchase" },
+  { value: "other", label: "Other Payment" },
+];
 
 export default function Payments() {
-  const user = useAuthStore((s) => s.user);
+  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [payments, setPayments] = useState<any[]>(() => getStoredPayments());
-  const [summary, setSummary] = useState<{ total: number; transactions: number }>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_SUMMARY);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return { total: 125000, transactions: 14 };
-  });
+  const [payments, setPayments] = useState<any[]>([]);
+  const [summary, setSummary] = useState<{ total: number; transactions: number }>({ total: 0, transactions: 0 });
   const [membersList, setMembersList] = useState<any[]>([]);
+
+  // Clear old cached mock localStorage items on mount
+  useEffect(() => {
+    try {
+      localStorage.removeItem("gymai.payments_list");
+      localStorage.removeItem("gymai.payments_summary");
+    } catch {}
+  }, []);
 
   // Modal state
   const [showRecordModal, setShowRecordModal] = useState(false);
@@ -75,36 +52,40 @@ export default function Payments() {
   });
 
   const fetchData = async () => {
-    const activeGymId = user?.gymId || "65a000000000000000000001";
-    const activeBranchId = user?.branchId || "65a000000000000000000002";
+    const activeGymId = gymId || "65a000000000000000000001";
+    const activeBranchId = branchId || "65a000000000000000000002";
+
     setLoading(true);
     setError(null);
     try {
       const [sumRes, payRes, memRes] = await Promise.all([
         paymentApi.getRevenueSummary(activeGymId).catch(() => null),
         paymentApi.listMemberPayments(activeGymId).catch(() => null),
-        memberApi.list(activeGymId, activeBranchId).catch(() => []),
+        memberApi.list(activeGymId, activeBranchId).catch(() => null),
       ]);
 
       const paymentArray = Array.isArray(payRes) ? payRes : payRes?.payments || [];
-      const mergedPayments = mergePaymentsList(paymentArray, getStoredPayments());
-      setPayments(mergedPayments);
+      setPayments(paymentArray);
 
-      let newTotal = sumRes?.summary?.total || summary.total;
-      let newCount = sumRes?.summary?.transactions || summary.transactions;
-      if (mergedPayments.length > paymentArray.length) {
-        newTotal = mergedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        newCount = mergedPayments.length;
+      const totalRevenue = sumRes?.summary?.total || paymentArray.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
+      const totalCount = sumRes?.summary?.transactions || paymentArray.length;
+      setSummary({ total: totalRevenue, transactions: totalCount });
+
+      let mList = Array.isArray(memRes) ? memRes : memRes?.members || [];
+      // Fallback: if branch-specific members empty, try fetching all members
+      if (mList.length === 0) {
+        const fallbackRes = await memberApi.list(activeGymId, "").catch(() => null);
+        mList = Array.isArray(fallbackRes) ? fallbackRes : fallbackRes?.members || [];
       }
-      const newSummary = { total: newTotal, transactions: newCount };
-      setSummary(newSummary);
-      saveStoredPayments(mergedPayments, newSummary);
 
-      const mList = Array.isArray(memRes) ? memRes : memRes?.members || [];
       setMembersList(mList);
+      if (mList.length > 0 && !formData.memberId) {
+        const firstId = mList[0]._id || mList[0].id;
+        setFormData((prev) => ({ ...prev, memberId: String(firstId) }));
+      }
     } catch {
-      setPayments(getStoredPayments());
-      setError("Failed to load payment data. Please try again.");
+      setError("Failed to load payments from backend.");
+      setPayments([]);
     } finally {
       setLoading(false);
     }
@@ -112,272 +93,228 @@ export default function Payments() {
 
   useEffect(() => {
     fetchData();
-  }, [user]);
 
-  const handleRecordPayment = async (e: React.FormEvent) => {
+    const handleSync = () => {
+      fetchData();
+    };
+
+    window.addEventListener("gymai-payments-updated", handleSync);
+    return () => {
+      window.removeEventListener("gymai-payments-updated", handleSync);
+    };
+  }, [gymId, branchId]);
+
+  const handleRecordPaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const activeGymId = user?.gymId || "65a000000000000000000001";
+    const activeGymId = gymId || "65a000000000000000000001";
+    const activeBranchId = branchId || "65a000000000000000000002";
     if (!formData.memberId) {
-      toast.error("Please select a member");
+      toast.error("Please select a valid member.");
       return;
     }
     setSubmitting(true);
-    const selectedMem = membersList.find((m) => m._id === formData.memberId || m.id === formData.memberId);
-    const memName = selectedMem?.fullName || selectedMem?.name || selectedMem?.userId?.fullName || "Gym Member";
-
-    const newPaymentRecord = {
-      _id: `pay-${Date.now()}`,
-      amount: formData.amount,
-      purpose: formData.purpose,
-      method: formData.method,
-      notes: formData.notes,
-      createdAt: new Date().toISOString(),
-      memberId: { fullName: memName },
-    };
-
-    const updatedPayments = [newPaymentRecord, ...payments];
-    const updatedSummary = {
-      total: summary.total + Number(formData.amount),
-      transactions: summary.transactions + 1,
-    };
-
-    setPayments(updatedPayments);
-    setSummary(updatedSummary);
-    saveStoredPayments(updatedPayments, updatedSummary);
-
-    toast.success(`Payment of ₹${Number(formData.amount).toLocaleString("en-IN")} recorded for ${memName}!`);
-    setShowRecordModal(false);
-
     try {
       await paymentApi.recordMemberPayment(activeGymId, {
-        ...formData,
-        branchId: user?.branchId || "65a000000000000000000002",
+        memberId: formData.memberId,
+        branchId: activeBranchId,
+        amount: Number(formData.amount),
+        purpose: formData.purpose,
+        method: formData.method,
+        notes: formData.notes,
+        triggerRenewal: formData.triggerRenewal,
       });
-    } catch {} finally {
+      toast.success("Payment recorded successfully!");
+      setShowRecordModal(false);
+      setFormData({ memberId: membersList[0]?._id || "", amount: 1500, purpose: "membership_fee", method: "cash", notes: "", triggerRenewal: false });
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to record payment");
+    } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <PageHeader
-        title="Payments"
-        subtitle="Revenue overview & staff manual payment entry"
+        title="Member Payments"
+        subtitle="Revenue Collections & Invoices"
         backTo="/owner"
         action={
-          <button
-            onClick={() => setShowRecordModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 transition-opacity"
-          >
-            <Plus size={15} /> Record Payment
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchData}
+              className="inline-flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) p-2 rounded-lg bg-(--color-surface-2)"
+              title="Refresh Payments"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
+            </button>
+            <button
+              onClick={() => {
+                if (membersList.length > 0 && !formData.memberId) {
+                  const firstId = membersList[0]._id || membersList[0].id;
+                  setFormData((prev) => ({ ...prev, memberId: String(firstId) }));
+                }
+                setShowRecordModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 shadow-sm"
+            >
+              <Plus size={15} /> Record payment
+            </button>
+          </div>
         }
       />
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading revenue & payments...
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card sweep>
+          <p className="text-xs text-(--color-text-muted) mb-1">Total Revenue Collected</p>
+          <p className="font-display text-2xl font-bold text-emerald-400 font-mono">
+            ₹{summary.total.toLocaleString("en-IN")}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs text-(--color-text-muted) mb-1">Successful Payment Transactions</p>
+          <p className="font-display text-2xl font-bold text-(--color-text) font-mono">{summary.transactions} payments</p>
+        </Card>
+      </div>
+
+      {resolvingBranch || loading ? (
+        <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading payment ledger from backend...
+        </Card>
       ) : error ? (
         <Card className="text-center py-8">
           <p className="text-sm text-(--color-danger) mb-3">{error}</p>
-          <button
-            onClick={fetchData}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-full bg-(--color-surface-3) text-(--color-text) hover:bg-(--color-surface-2)"
-          >
-            <RefreshCw size={14} /> Retry
+          <button onClick={fetchData} className="px-4 py-2 rounded-full bg-(--color-surface-2) text-xs font-semibold">
+            Retry Loading
           </button>
         </Card>
+      ) : payments.length === 0 ? (
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
+          <CreditCard className="w-8 h-8 mx-auto text-(--color-text-faint)" />
+          <p className="text-sm font-medium text-(--color-text)">No member payments recorded yet</p>
+          <p className="text-xs text-(--color-text-muted)">Click "Record payment" to log member cash/UPI payments.</p>
+        </Card>
       ) : (
-        <>
-          <Card sweep className="mb-4">
-            <p className="text-xs text-(--color-text-muted) mb-1">Total Collected Revenue</p>
-            <div className="flex items-baseline gap-2">
-              <p className="font-display text-3xl font-semibold text-(--color-text)">
-                ₹{summary.total.toLocaleString("en-IN")}
-              </p>
-              <span className="text-sm font-medium text-(--color-good)">
-                {summary.transactions} total transaction(s)
-              </span>
-            </div>
-          </Card>
+        <Card className="p-4">
+          <div className="space-y-3">
+            {payments.map((p) => {
+              const pId = p._id || p.id;
+              const rawName =
+                p.customerName ||
+                (p.memberId?.fullName && p.memberId.fullName !== "N/A" && p.memberId.fullName !== "Walk-in Customer" ? p.memberId.fullName : undefined) ||
+                p.memberId?.userId?.fullName ||
+                p.memberName ||
+                p.user?.fullName;
 
-          <Card className="p-0 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-(--color-border-soft) flex items-center justify-between">
-              <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Recent Member Payments</p>
-              <span className="text-xs text-(--color-text-faint)">{payments.length} records</span>
-            </div>
+              const memberName =
+                !rawName || rawName === "N/A" || rawName === "Member" || rawName === "Walk-in Customer"
+                  ? "Walk-in Customer"
+                  : rawName;
 
-            {payments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-                <CreditCard className="w-8 h-8 text-(--color-text-faint) mb-2 opacity-50" />
-                <p className="text-sm font-medium text-(--color-text)">No member payments recorded yet</p>
-                <p className="text-xs text-(--color-text-faint) mt-1 max-w-xs">
-                  Staff members can record offline cash, UPI, or bank transfer payments directly.
-                </p>
-                <button
-                  onClick={() => setShowRecordModal(true)}
-                  className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-(--color-accent-text) hover:underline"
-                >
-                  <Plus size={13} /> Record first payment
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-(--color-border-soft)">
-                {payments.map((p) => {
-                  const memberName = p.memberId?.userId?.fullName || p.memberName || "Member";
-                  const amount = p.amount ?? 0;
-                  const method = (p.method || "cash").toUpperCase();
-                  const purpose = (p.purpose || "membership_fee").replace("_", " ");
-                  const dateStr = p.paidAt ? new Date(p.paidAt).toLocaleDateString() : "Recent";
+              const description =
+                p.notes ||
+                p.description ||
+                (p.purpose === "merchandise"
+                  ? "Store / Product Purchase"
+                  : p.purpose === "membership_fee"
+                  ? "Membership Fee"
+                  : p.purpose === "personal_training"
+                  ? "Personal Training Pack"
+                  : p.purpose?.replace(/_/g, " ") || "Payment");
 
-                  return (
-                    <div
-                      key={p._id || p.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3.5 hover:bg-(--color-surface-2)/50 transition-colors"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-(--color-text)">{memberName}</p>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-(--color-surface-3) text-(--color-text-muted) font-mono uppercase">
-                            {p.invoiceNumber}
-                          </span>
-                        </div>
-                        <p className="text-xs text-(--color-text-faint) mt-0.5">
-                          {purpose} · Method: {method} · {dateStr}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
-                        <p className="font-mono text-sm font-semibold text-(--color-text)">
-                          ₹{amount.toLocaleString("en-IN")}
-                        </p>
-                        <Badge tone={p.status === "REFUNDED" ? "danger" : "good"}>
-                          {p.status || "SUCCESS"}
-                        </Badge>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-        </>
+              return (
+                <div key={pId} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-display text-sm font-semibold text-(--color-text)">{memberName}</h4>
+                    <p className="text-xs text-(--color-text-muted) mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-(--color-text)">{description}</span>
+                      <span>·</span>
+                      <span className="uppercase text-(--color-text-faint) font-mono">{p.method || p.paymentMethod || "CASH"}</span>
+                      {p.invoiceNumber && <span className="text-[10px] text-(--color-accent) font-mono font-semibold">[{p.invoiceNumber}]</span>}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Badge tone="good">{p.status || "SUCCESS"}</Badge>
+                    <span className="font-mono text-sm font-bold text-emerald-400">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
-      {/* Manual Payment Recording Form Modal */}
+      {/* Record Payment Modal */}
       {showRecordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 w-full max-w-md space-y-4">
-            <h3 className="text-base font-semibold text-(--color-text)">Record Member Payment</h3>
-            <form onSubmit={handleRecordPayment} className="space-y-3">
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Select Member</label>
-                {membersList.length > 0 ? (
-                  <CustomSelect
-                    value={formData.memberId}
-                    onChange={(val) => setFormData({ ...formData, memberId: val })}
-                    placeholder="Choose a member..."
-                    required
-                    options={membersList.map((m) => ({
-                      value: m._id || m.id,
-                      label: `${m.userId?.fullName || m.fullName || m.name || "Member"} (${m.planName || m.plan || "Plan"})`,
-                    }))}
-                  />
-                ) : (
-                  <input
-                    required
-                    value={formData.memberId}
-                    onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
-                    placeholder="Enter Member ID"
-                    className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                  />
-                )}
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form onSubmit={handleRecordPaymentSubmit} className="w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) space-y-4 shadow-2xl text-xs">
+            <h3 className="font-display text-base font-bold text-(--color-text)">Record Member Payment</h3>
 
+            <div>
+              <CustomSelect
+                label="Select Member"
+                placeholder="Choose a gym member..."
+                options={membersList.map((m) => {
+                  const mId = m._id || m.id;
+                  const name = m.fullName || m.name || m.userId?.fullName || "Member";
+                  const phone = m.phone || m.userId?.phone || "";
+                  return { label: `${name} ${phone ? `(${phone})` : ""}`, value: String(mId) };
+                })}
+                value={formData.memberId}
+                onChange={(val) => setFormData({ ...formData, memberId: val })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-(--color-text-muted)">Amount (₹)</label>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Amount (₹)</label>
                 <input
                   type="number"
                   required
-                  min={1}
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-(--color-text-muted)">Payment Purpose</label>
                 <CustomSelect
-                  value={formData.purpose}
-                  onChange={(val) => setFormData({ ...formData, purpose: val })}
-                  className="mt-1"
-                  options={[
-                    { value: "membership_fee", label: "Membership Fee" },
-                    { value: "admission_fee", label: "Admission & Registration Fee" },
-                    { value: "personal_training", label: "Personal Training Pack" },
-                    { value: "product_sale", label: "Supplement & Store Purchase" },
-                    { value: "other", label: "Locker & Facility Addon / Other" },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Payment Method (Manual)</label>
-                <CustomSelect
+                  label="Payment Method"
+                  options={paymentMethodOptions}
                   value={formData.method}
                   onChange={(val) => setFormData({ ...formData, method: val })}
-                  className="mt-1"
-                  options={[
-                    { value: "cash", label: "Cash" },
-                    { value: "upi", label: "UPI" },
-                    { value: "bank_transfer", label: "Bank Transfer" },
-                    { value: "card", label: "Card (POS machine)" },
-                  ]}
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="text-xs text-(--color-text-muted)">Notes / Reference</label>
-                <input
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="e.g. Receipt #1234 or UPI UTR"
-                  className="w-full mt-1 p-2 rounded-lg bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none"
-                />
-              </div>
+            <div>
+              <CustomSelect
+                label="Purpose"
+                options={purposeOptions}
+                value={formData.purpose}
+                onChange={(val) => setFormData({ ...formData, purpose: val })}
+              />
+            </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="triggerRenewal"
-                  checked={formData.triggerRenewal}
-                  onChange={(e) => setFormData({ ...formData, triggerRenewal: e.target.checked })}
-                  className="rounded border-(--color-border)"
-                />
-                <label htmlFor="triggerRenewal" className="text-xs text-(--color-text)">
-                  Trigger automatic 1-month membership renewal
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowRecordModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-(--color-text-muted) hover:text-(--color-text)"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
-                >
-                  {submitting ? "Saving..." : "Record Payment"}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRecordModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Record Payment"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
