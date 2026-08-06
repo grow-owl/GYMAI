@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import RoleSelect from "@/pages/RoleSelect";
 import Landing from "@/pages/Landing";
@@ -7,67 +7,79 @@ import MobileShell from "@/components/layout/MobileShell";
 import { ownerNav, ownerNavSecondary, trainerNav, receptionNav } from "@/data/nav";
 import { useAuth, useAuthStore } from "@/store/authStore";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import Login from "@/pages/auth/Login";
-import Register from "@/pages/auth/Register";
-import ForgotPassword from "@/pages/auth/ForgotPassword";
-import ResetPassword from "@/pages/auth/ResetPassword";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 
-import OwnerDashboard from "@/pages/owner/OwnerDashboard";
-import Members from "@/pages/owner/Members";
-import Trainers from "@/pages/owner/Trainers";
-import OwnerAttendance from "@/pages/owner/Attendance";
-import OwnerPayments from "@/pages/owner/Payments";
-import OwnerLeads from "@/pages/owner/Leads";
-import Reports from "@/pages/owner/Reports";
-import AIInsights from "@/pages/owner/AIInsights";
-import Settings from "@/pages/owner/Settings";
-import Inventory from "@/pages/owner/Inventory";
-import Expenses from "@/pages/owner/Expenses";
-import Equipment from "@/pages/owner/Equipment";
-import Billing from "@/pages/owner/Billing";
-import Staff from "@/pages/owner/Staff";
+// Lazy-loaded auth pages
+const Login = lazy(() => import("@/pages/auth/Login"));
+const Register = lazy(() => import("@/pages/auth/Register"));
+const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
 
-import TrainerDashboard from "@/pages/trainer/TrainerDashboard";
-import MyClients from "@/pages/trainer/MyClients";
-import Sessions from "@/pages/trainer/Sessions";
-import WorkoutPlans from "@/pages/trainer/WorkoutPlans";
-import DietPlans from "@/pages/trainer/DietPlans";
-import TrainerProgress from "@/pages/trainer/Progress";
-import RecoveryAlerts from "@/pages/trainer/RecoveryAlerts";
+// Lazy-loaded Owner pages
+const OwnerDashboard = lazy(() => import("@/pages/owner/OwnerDashboard"));
+const Members = lazy(() => import("@/pages/owner/Members"));
+const Trainers = lazy(() => import("@/pages/owner/Trainers"));
+const Staff = lazy(() => import("@/pages/owner/Staff"));
+const OwnerAttendance = lazy(() => import("@/pages/owner/Attendance"));
+const OwnerPayments = lazy(() => import("@/pages/owner/Payments"));
+const OwnerLeads = lazy(() => import("@/pages/owner/Leads"));
+const Reports = lazy(() => import("@/pages/owner/Reports"));
+const AIInsights = lazy(() => import("@/pages/owner/AIInsights"));
+const Settings = lazy(() => import("@/pages/owner/Settings"));
+const Inventory = lazy(() => import("@/pages/owner/Inventory"));
+const Expenses = lazy(() => import("@/pages/owner/Expenses"));
+const Equipment = lazy(() => import("@/pages/owner/Equipment"));
+const Billing = lazy(() => import("@/pages/owner/Billing"));
+const BranchComparison = lazy(() => import("@/pages/owner/BranchComparison"));
 
-import MemberHome from "@/pages/member/MemberHome";
-import WorkoutPlan from "@/pages/member/WorkoutPlan";
-import WorkoutTracking from "@/pages/member/WorkoutTracking";
-import DietPlan from "@/pages/member/DietPlan";
-import AICoach from "@/pages/member/AICoach";
-import MemberAttendance from "@/pages/member/Attendance";
-import MemberProgress from "@/pages/member/Progress";
-import Gamification from "@/pages/member/Gamification";
-import MemberPayments from "@/pages/member/Payments";
-import Profile from "@/pages/member/Profile";
-import Referral from "@/pages/member/Referral";
+// Lazy-loaded Trainer pages
+const TrainerDashboard = lazy(() => import("@/pages/trainer/TrainerDashboard"));
+const MyClients = lazy(() => import("@/pages/trainer/MyClients"));
+const Sessions = lazy(() => import("@/pages/trainer/Sessions"));
+const WorkoutPlans = lazy(() => import("@/pages/trainer/WorkoutPlans"));
+const DietPlans = lazy(() => import("@/pages/trainer/DietPlans"));
+const TrainerProgress = lazy(() => import("@/pages/trainer/Progress"));
+const RecoveryAlerts = lazy(() => import("@/pages/trainer/RecoveryAlerts"));
 
-import ReceptionDashboard from "@/pages/reception/ReceptionDashboard";
-import MemberSearch from "@/pages/reception/MemberSearch";
-import CheckIn from "@/pages/reception/CheckIn";
-import ReceptionLeads from "@/pages/reception/Leads";
+// Lazy-loaded Member pages
+const MemberHome = lazy(() => import("@/pages/member/MemberHome"));
+const WorkoutPlan = lazy(() => import("@/pages/member/WorkoutPlan"));
+const WorkoutTracking = lazy(() => import("@/pages/member/WorkoutTracking"));
+const DietPlan = lazy(() => import("@/pages/member/DietPlan"));
+const AICoach = lazy(() => import("@/pages/member/AICoach"));
+const MemberAttendance = lazy(() => import("@/pages/member/Attendance"));
+const MemberProgress = lazy(() => import("@/pages/member/Progress"));
+const Gamification = lazy(() => import("@/pages/member/Gamification"));
+const MemberPayments = lazy(() => import("@/pages/member/Payments"));
+const Profile = lazy(() => import("@/pages/member/Profile"));
+const Referral = lazy(() => import("@/pages/member/Referral"));
 
-import ErrorBoundary from "@/components/ErrorBoundary";
-import AdminPanel from "@/pages/admin/AdminPanel";
-import AdminShell from "@/components/layout/AdminShell";
-import Gyms from "@/pages/admin/Gyms";
-import Branches from "@/pages/admin/Branches";
-import AdminMembers from "@/pages/admin/Members";
-import AdminTrainers from "@/pages/admin/Trainers";
-import AdminStaff from "@/pages/admin/Staff";
-import PasswordReset from "@/pages/admin/PasswordReset";
-import Analytics from "@/pages/admin/Analytics";
-import AdminSettings from "@/pages/admin/Settings";
+// Lazy-loaded Reception & Admin pages
+const ReceptionDashboard = lazy(() => import("@/pages/reception/ReceptionDashboard"));
+const MemberSearch = lazy(() => import("@/pages/reception/MemberSearch"));
+const CheckIn = lazy(() => import("@/pages/reception/CheckIn"));
+const ReceptionLeads = lazy(() => import("@/pages/reception/Leads"));
+const AdminPanel = lazy(() => import("@/pages/admin/AdminPanel"));
+const AdminShell = lazy(() => import("@/components/layout/AdminShell"));
+const Gyms = lazy(() => import("@/pages/admin/Gyms"));
+const Branches = lazy(() => import("@/pages/admin/Branches"));
+const AdminMembers = lazy(() => import("@/pages/admin/Members"));
+const AdminTrainers = lazy(() => import("@/pages/admin/Trainers"));
+const AdminStaff = lazy(() => import("@/pages/admin/Staff"));
+const PasswordReset = lazy(() => import("@/pages/admin/PasswordReset"));
+const Analytics = lazy(() => import("@/pages/admin/Analytics"));
+const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
 
-import BranchComparison from "@/pages/owner/BranchComparison";
-import Notifications from "@/pages/Notifications";
-import NotFound from "@/pages/NotFound";
+function PageLoader() {
+  return (
+    <div className="flex h-64 w-full items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-(--color-accent) border-t-transparent" />
+    </div>
+  );
+}
 
 function OwnerShell() {
   const { user } = useAuth();
@@ -130,96 +142,98 @@ export default function App() {
       <AnimatedBackground />
       <div className="content-layer">
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/roles" element={<RoleSelect />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/roles" element={<RoleSelect />} />
 
-            <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
-          <Route path="/admin" element={<AdminShell />}>
-            <Route index element={<AdminPanel />} />
-            <Route path="gyms" element={<Gyms />} />
-            <Route path="branches" element={<Branches />} />
-            <Route path="members" element={<AdminMembers />} />
-            <Route path="trainers" element={<AdminTrainers />} />
-            <Route path="staff" element={<AdminStaff />} />
-            <Route path="password-reset" element={<PasswordReset />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="settings" element={<AdminSettings />} />
-            <Route path="notifications" element={<Notifications />} />
-          </Route>
-            </Route>
-
-            <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN", "BRANCH_MANAGER"]} />}>
-              <Route path="/owner" element={<OwnerShell />}>
-                <Route index element={<OwnerDashboard />} />
-                <Route path="members" element={<Members />} />
-                <Route path="trainers" element={<Trainers />} />
-                <Route path="staff" element={<Staff />} />
-                <Route path="attendance" element={<OwnerAttendance />} />
-                <Route path="payments" element={<OwnerPayments />} />
-                <Route path="leads" element={<OwnerLeads />} />
-                <Route path="inventory" element={<Inventory />} />
-                <Route path="expenses" element={<Expenses />} />
-                <Route path="equipment" element={<Equipment />} />
-                <Route path="billing" element={<Billing />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="ai-insights" element={<AIInsights />} />
-                <Route path="branch-comparison" element={<BranchComparison />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="notifications" element={<Notifications />} />
+              <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
+                <Route path="/admin" element={<AdminShell />}>
+                  <Route index element={<AdminPanel />} />
+                  <Route path="gyms" element={<Gyms />} />
+                  <Route path="branches" element={<Branches />} />
+                  <Route path="members" element={<AdminMembers />} />
+                  <Route path="trainers" element={<AdminTrainers />} />
+                  <Route path="staff" element={<AdminStaff />} />
+                  <Route path="password-reset" element={<PasswordReset />} />
+                  <Route path="analytics" element={<Analytics />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                  <Route path="notifications" element={<Notifications />} />
+                </Route>
               </Route>
-            </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={["TRAINER"]} />}>
-              <Route path="/trainer" element={<TrainerShell />}>
-                <Route index element={<TrainerDashboard />} />
-                <Route path="clients" element={<MyClients />} />
-                <Route path="sessions" element={<Sessions />} />
-                <Route path="workout-plans" element={<WorkoutPlans />} />
-                <Route path="diet-plans" element={<DietPlans />} />
-                <Route path="progress" element={<TrainerProgress />} />
-                <Route path="recovery-alerts" element={<RecoveryAlerts />} />
-                <Route path="notifications" element={<Notifications />} />
+              <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN", "BRANCH_MANAGER"]} />}>
+                <Route path="/owner" element={<OwnerShell />}>
+                  <Route index element={<OwnerDashboard />} />
+                  <Route path="members" element={<Members />} />
+                  <Route path="trainers" element={<Trainers />} />
+                  <Route path="staff" element={<Staff />} />
+                  <Route path="attendance" element={<OwnerAttendance />} />
+                  <Route path="payments" element={<OwnerPayments />} />
+                  <Route path="leads" element={<OwnerLeads />} />
+                  <Route path="inventory" element={<Inventory />} />
+                  <Route path="expenses" element={<Expenses />} />
+                  <Route path="equipment" element={<Equipment />} />
+                  <Route path="billing" element={<Billing />} />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="ai-insights" element={<AIInsights />} />
+                  <Route path="branch-comparison" element={<BranchComparison />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="notifications" element={<Notifications />} />
+                </Route>
               </Route>
-            </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={["KIOSK", "BRANCH_MANAGER", "GYM_OWNER", "SUPER_ADMIN"]} />}>
-              <Route path="/reception" element={<ReceptionShell />}>
-                <Route index element={<ReceptionDashboard />} />
-                <Route path="members" element={<Members />} />
-                <Route path="inventory" element={<Inventory />} />
-                <Route path="search" element={<MemberSearch />} />
-                <Route path="check-in" element={<CheckIn />} />
-                <Route path="leads" element={<ReceptionLeads />} />
-                <Route path="payments" element={<OwnerPayments />} />
-                <Route path="notifications" element={<Notifications />} />
+              <Route element={<ProtectedRoute allowedRoles={["TRAINER"]} />}>
+                <Route path="/trainer" element={<TrainerShell />}>
+                  <Route index element={<TrainerDashboard />} />
+                  <Route path="clients" element={<MyClients />} />
+                  <Route path="sessions" element={<Sessions />} />
+                  <Route path="workout-plans" element={<WorkoutPlans />} />
+                  <Route path="diet-plans" element={<DietPlans />} />
+                  <Route path="progress" element={<TrainerProgress />} />
+                  <Route path="recovery-alerts" element={<RecoveryAlerts />} />
+                  <Route path="notifications" element={<Notifications />} />
+                </Route>
               </Route>
-            </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={["MEMBER"]} />}>
-              <Route path="/member" element={<MobileShell />}>
-                <Route index element={<MemberHome />} />
-                <Route path="workout-plan" element={<WorkoutPlan />} />
-                <Route path="workout-tracking" element={<WorkoutTracking />} />
-                <Route path="diet-plan" element={<DietPlan />} />
-                <Route path="ai-coach" element={<AICoach />} />
-                <Route path="attendance" element={<MemberAttendance />} />
-                <Route path="progress" element={<MemberProgress />} />
-                <Route path="rewards" element={<Gamification />} />
-                <Route path="payments" element={<MemberPayments />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="referral" element={<Referral />} />
-                <Route path="notifications" element={<Notifications />} />
+              <Route element={<ProtectedRoute allowedRoles={["KIOSK", "BRANCH_MANAGER", "GYM_OWNER", "SUPER_ADMIN"]} />}>
+                <Route path="/reception" element={<ReceptionShell />}>
+                  <Route index element={<ReceptionDashboard />} />
+                  <Route path="members" element={<Members />} />
+                  <Route path="inventory" element={<Inventory />} />
+                  <Route path="search" element={<MemberSearch />} />
+                  <Route path="check-in" element={<CheckIn />} />
+                  <Route path="leads" element={<ReceptionLeads />} />
+                  <Route path="payments" element={<OwnerPayments />} />
+                  <Route path="notifications" element={<Notifications />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Catch-all 404 Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route element={<ProtectedRoute allowedRoles={["MEMBER"]} />}>
+                <Route path="/member" element={<MobileShell />}>
+                  <Route index element={<MemberHome />} />
+                  <Route path="workout-plan" element={<WorkoutPlan />} />
+                  <Route path="workout-tracking" element={<WorkoutTracking />} />
+                  <Route path="diet-plan" element={<DietPlan />} />
+                  <Route path="ai-coach" element={<AICoach />} />
+                  <Route path="attendance" element={<MemberAttendance />} />
+                  <Route path="progress" element={<MemberProgress />} />
+                  <Route path="rewards" element={<Gamification />} />
+                  <Route path="payments" element={<MemberPayments />} />
+                  <Route path="profile" element={<Profile />} />
+                  <Route path="referral" element={<Referral />} />
+                  <Route path="notifications" element={<Notifications />} />
+                </Route>
+              </Route>
+
+              {/* Catch-all 404 Route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </div>
     </ErrorBoundary>

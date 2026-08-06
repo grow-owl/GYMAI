@@ -208,17 +208,87 @@ a, button, input, select, textarea, .transition-surface {
   transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
 
+/* Navbar animated hover underline */
+.nav-link-underline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.nav-link-underline::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--color-accent);
+  border-radius: 999px;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nav-link-underline:hover::after {
+  width: 100%;
+}
+
+/* Button sheen effect on hover */
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%) rotate(25deg);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.btn-sheen:hover::after {
+  transform: translateX(100%) rotate(25deg);
+}
+
+/* Heavy section deferral for offscreen content rendering performance & CWV */
+.heavy-section-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 400px;
+}
+
 .btn-press:active {
   transform: scale(0.97);
 }
 
+/* Mobile responsive horizontal scroll wrapper for data tables */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .card-hover {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease, box-shadow 0.28s ease;
 }
 .card-hover:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-  box-shadow: 0 12px 28px -14px rgba(28, 30, 36, 0.18);
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  box-shadow: 0 14px 30px -12px rgba(20, 33, 61, 0.14);
+}
+
+.icon-hover-pop {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.group:hover .icon-hover-pop,
+*:hover > .icon-hover-pop,
+button:hover .icon-hover-pop,
+a:hover .icon-hover-pop {
+  transform: scale(1.12) rotate(4deg);
 }
 
 .skeleton {

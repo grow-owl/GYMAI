@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { RefreshCw, Loader2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import { attendanceApi } from "@/lib/endpoints";
@@ -8,6 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 export default function Attendance() {
   const user = useAuthStore((s) => s.user);
   const [secondsLeft, setSecondsLeft] = useState(21);
+  const [tokenCounter, setTokenCounter] = useState(1);
   const [loading, setLoading] = useState(true);
   const [todayLog, setTodayLog] = useState<any[]>([]);
 
@@ -32,26 +34,24 @@ export default function Attendance() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setSecondsLeft((value) => (value <= 1 ? 21 : value - 1));
+      setSecondsLeft((value) => {
+        if (value <= 1) {
+          setTokenCounter((tc) => tc + 1);
+          return 21;
+        }
+        return value - 1;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
 
-  const qrBlocks = useMemo(
-    () => [
-      [1, 1, 0, 1, 0, 1, 1, 0, 1],
-      [1, 0, 1, 0, 1, 0, 1, 1, 1],
-      [0, 1, 1, 1, 0, 1, 0, 1, 0],
-      [1, 0, 1, 0, 1, 1, 0, 0, 1],
-      [1, 1, 0, 1, 1, 0, 1, 0, 1],
-      [0, 1, 1, 0, 1, 0, 1, 1, 0],
-      [1, 0, 1, 1, 0, 1, 1, 0, 1],
-      [1, 1, 0, 1, 0, 0, 1, 1, 0],
-      [0, 1, 1, 0, 1, 1, 0, 1, 1],
-    ],
-    []
-  );
+  const qrValue = JSON.stringify({
+    type: "GYMAI_CHECKIN",
+    gymId: user?.gymId || "65a000000000000000000001",
+    branchId: user?.branchId || "65a000000000000000000002",
+    t: tokenCounter,
+  });
 
   const checkedInCount = todayLog.length;
   const currentlyInCount = todayLog.filter((a) => !a.checkOutTime).length;
@@ -70,19 +70,19 @@ export default function Attendance() {
           </p>
 
           <div className="mx-auto mt-8 w-full max-w-[18rem] rounded-2xl border border-(--color-border) bg-(--color-surface) p-5 shadow-sm">
-            <div className="mx-auto grid w-full aspect-square max-w-[13rem] grid-cols-9 gap-1.5 p-2">
-              {qrBlocks.map((row, rowIndex) =>
-                row.map((cell, cellIndex) => (
-                  <span
-                    key={`${rowIndex}-${cellIndex}`}
-                    className={cell ? "rounded-[2px] bg-black" : "rounded-[2px] bg-transparent"}
-                  />
-                ))
-              )}
+            <div className="mx-auto flex items-center justify-center p-3.5 rounded-xl bg-white shadow-xs border border-gray-100">
+              <QRCodeSVG
+                value={qrValue}
+                size={180}
+                bgColor="#ffffff"
+                fgColor="#0f172a"
+                level="M"
+                marginSize={1}
+              />
             </div>
 
             <div className="mt-5 flex items-center justify-center gap-2 text-sm text-(--color-text-muted)">
-              <RefreshCw size={15} className="text-(--color-accent)" />
+              <RefreshCw size={15} className="text-(--color-accent) animate-spin-slow" />
               <span className="font-mono">Refreshes in</span>
               <span className="font-semibold text-(--color-accent-text)">{secondsLeft}s</span>
             </div>
