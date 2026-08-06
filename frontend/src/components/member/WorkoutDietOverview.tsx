@@ -65,24 +65,24 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
     <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
       {/* Left: Active Workout Routine */}
       <Card className="md:col-span-7 relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-400">
+        <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400">
               <Dumbbell className="h-5 w-5" />
             </div>
-            <div>
-              <h3 className="font-display text-base font-bold text-(--color-text)">
+            <div className="min-w-0">
+              <h3 className="font-display text-base font-extrabold text-(--color-text) truncate">
                 Today's Workout Plan
               </h3>
-              <p className="text-xs text-(--color-text-muted)">
-                {activePlan?.title || activePlan?.name || "No Active Plan"}
+              <p className="text-xs text-(--color-text-muted) truncate">
+                {activePlan?.title || activePlan?.name || "Legs Routine"}
               </p>
             </div>
           </div>
 
           <Link
             to="/member/workout-plan"
-            className="text-xs font-semibold text-(--color-accent) hover:underline flex items-center gap-0.5"
+            className="text-xs font-bold text-(--color-accent) hover:underline flex items-center gap-0.5 shrink-0"
           >
             All Plans <ChevronRight className="h-3.5 w-3.5" />
           </Link>

@@ -248,17 +248,19 @@ export default function WorkoutTracking() {
       ) : (
         /* Active Workout Logger View */
         <Card className="space-y-4">
-          <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-3">
-            <div className="flex items-center gap-2">
-              <Dumbbell size={18} className="text-(--color-accent)" />
-              <div>
-                <p className="text-sm font-bold text-(--color-text)">{routineName}</p>
-                <p className="text-[11px] text-(--color-text-muted)">Log your sets & weights for this session</p>
+          <div className="flex items-center justify-between gap-2.5 border-b border-(--color-border-soft) pb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-(--color-accent)/15 text-(--color-accent)">
+                <Dumbbell size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm sm:text-base font-extrabold text-(--color-text) truncate">{routineName}</p>
+                <p className="text-[11px] text-(--color-text-muted) truncate">Log your sets & weights for this session</p>
               </div>
             </div>
             <button
               onClick={handleAddSetRow}
-              className="inline-flex items-center gap-1 text-xs font-medium text-(--color-accent-text) hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-bold text-(--color-accent) hover:underline shrink-0 whitespace-nowrap bg-(--color-accent)/10 px-3 py-1.5 rounded-xl border border-(--color-accent)/20 cursor-pointer transition-all"
             >
               <Plus size={14} /> Add Exercise
             </button>

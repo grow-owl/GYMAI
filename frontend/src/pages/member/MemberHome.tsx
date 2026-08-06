@@ -119,65 +119,67 @@ export default function MemberHome() {
             </span>
           </div>
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-display text-xl font-extrabold text-(--color-text)">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <h1 className="font-display text-lg sm:text-xl font-extrabold text-(--color-text)">
                 Welcome Back, {memberName}! 👋
               </h1>
-              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                 ACTIVE MEMBER
               </span>
               {branchName && (
-                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
                   📍 {branchName}
                 </span>
               )}
             </div>
-            <p className="text-xs text-(--color-text-muted) mt-0.5 flex items-center gap-2">
-              <span>{streakDays} Day Workout Streak 🔥</span>
+            <p className="text-xs text-(--color-text-muted) font-semibold mt-1 flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1 font-bold text-orange-500">{streakDays} Day Workout Streak 🔥</span>
               <span>•</span>
               <span>Level {gameStats.level} Spartan</span>
             </p>
           </div>
         </div>
 
-        {/* Header Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Header Action Buttons Grid (Responsive for Mobile & Desktop) */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-(--color-border-soft)">
           <button
             onClick={() => setActiveModal("weight")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all cursor-pointer"
           >
-            <Scale className="h-4 w-4 text-indigo-400" /> Log Weight
+            <Scale className="h-4 w-4 text-indigo-400 shrink-0" /> Log Weight
           </button>
 
           <button
             onClick={() => setActiveModal("referral")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all cursor-pointer"
           >
-            <Share2 className="h-4 w-4 text-emerald-400" /> Refer & Earn
+            <Share2 className="h-4 w-4 text-emerald-400 shrink-0" /> Refer & Earn
           </button>
 
           <button
             onClick={() => setActiveModal("feedback")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all cursor-pointer"
           >
-            <MessageSquare className="h-4 w-4 text-amber-400" /> Feedback
+            <MessageSquare className="h-4 w-4 text-amber-400 shrink-0" /> Feedback
           </button>
 
           <button
             onClick={() => setActiveModal("privacy")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all cursor-pointer"
             title="Privacy & Data Export"
           >
-            <Shield className="h-4 w-4 text-purple-400" /> Export Data
+            <Shield className="h-4 w-4 text-purple-400 shrink-0" /> Export Data
           </button>
 
           <Link
             to="/member/notifications"
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-(--color-text) hover:bg-white/10 transition-all"
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:h-9 sm:w-9 rounded-xl bg-white/5 border border-white/10 text-(--color-text) hover:bg-white/10 transition-all relative"
+            title="Notifications"
           >
             <Bell className="h-4 w-4" />
+            <span className="sm:hidden text-xs font-semibold">Notifications</span>
             {unreadNotifications > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white shadow-sm">
                 {unreadNotifications}
               </span>
             )}

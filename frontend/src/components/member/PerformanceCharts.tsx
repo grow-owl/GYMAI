@@ -111,11 +111,11 @@ export default function PerformanceCharts({
   return (
     <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
       {/* Top Controls Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-white/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-white/10">
         <div>
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-(--color-accent)" />
-            <h3 className="font-display text-lg font-bold text-(--color-text)">
+            <h3 className="font-display text-base sm:text-lg font-extrabold text-(--color-text)">
               Performance & Metrics Analytics
             </h3>
           </div>
@@ -124,40 +124,54 @@ export default function PerformanceCharts({
           </p>
         </div>
 
-        {/* Tab Buttons */}
-        <div className="flex items-center gap-1.5 bg-(--color-surface-2) p-1 rounded-xl border border-white/5 self-start sm:self-auto">
-          <button
-            onClick={() => setActiveTab("weight")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === "weight"
-                ? "bg-(--color-accent) text-white shadow-md"
-                : "text-(--color-text-muted) hover:text-(--color-text)"
-            }`}
-          >
-            <Scale className="h-3.5 w-3.5" /> Weight Log
-          </button>
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between sm:justify-start">
+          {/* Tab Buttons - Grid on mobile for equal width */}
+          <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-white/5 w-full sm:w-auto">
+            <button
+              onClick={() => setActiveTab("weight")}
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "weight"
+                  ? "bg-(--color-accent) text-white shadow-md"
+                  : "text-(--color-text-muted) hover:text-(--color-text)"
+              }`}
+            >
+              <Scale className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Weight Log</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("volume")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === "volume"
-                ? "bg-(--color-accent) text-white shadow-md"
-                : "text-(--color-text-muted) hover:text-(--color-text)"
-            }`}
-          >
-            <Dumbbell className="h-3.5 w-3.5" /> Workout Volume
-          </button>
+            <button
+              onClick={() => setActiveTab("volume")}
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "volume"
+                  ? "bg-(--color-accent) text-white shadow-md"
+                  : "text-(--color-text-muted) hover:text-(--color-text)"
+              }`}
+            >
+              <Dumbbell className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Volume</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("attendance")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === "attendance"
-                ? "bg-(--color-accent) text-white shadow-md"
-                : "text-(--color-text-muted) hover:text-(--color-text)"
-            }`}
-          >
-            <Calendar className="h-3.5 w-3.5" /> Check-ins
-          </button>
+            <button
+              onClick={() => setActiveTab("attendance")}
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "attendance"
+                  ? "bg-(--color-accent) text-white shadow-md"
+                  : "text-(--color-text-muted) hover:text-(--color-text)"
+              }`}
+            >
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Check-ins</span>
+            </button>
+          </div>
+
+          {activeTab === "weight" && (
+            <button
+              onClick={onLogWeightClick}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-(--color-accent) text-white text-xs font-bold shadow-md hover:brightness-110 transition-all cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" /> Log Weight
+            </button>
+          )}
         </div>
       </div>
 
@@ -166,44 +180,36 @@ export default function PerformanceCharts({
         <div className="space-y-4">
           {/* Key Weight Stat Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
-              <span className="text-[11px] text-(--color-text-muted) font-medium uppercase tracking-wider">Current Weight</span>
-              <p className="text-xl font-extrabold text-(--color-text) mt-0.5">
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+              <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Current Weight</span>
+              <p className="text-lg sm:text-xl font-extrabold text-(--color-text) mt-1">
                 {latestWeight !== null ? `${latestWeight} ` : "— "}
                 <span className="text-xs font-normal text-(--color-text-muted)">{latestWeight !== null ? "kg" : "No logs"}</span>
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
-              <span className="text-[11px] text-(--color-text-muted) font-medium uppercase tracking-wider">Target Goal</span>
-              <p className="text-xl font-extrabold text-emerald-400 mt-0.5">
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+              <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Target Goal</span>
+              <p className="text-lg sm:text-xl font-extrabold text-emerald-400 mt-1">
                 {targetWeightKg ? `${targetWeightKg} ` : "— "}
                 <span className="text-xs font-normal text-(--color-text-muted)">{targetWeightKg ? "kg" : "Not set"}</span>
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
-              <span className="text-[11px] text-(--color-text-muted) font-medium uppercase tracking-wider">Total Progress</span>
-              <p className={`text-xl font-extrabold mt-0.5 flex items-center gap-1 ${totalChange <= 0 ? "text-emerald-400" : "text-amber-400"}`}>
-                <TrendingDown className="h-4 w-4" />
-                {totalChange > 0 ? `+${totalChange}` : totalChange} <span className="text-xs font-normal">kg</span>
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+              <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Total Progress</span>
+              <p className={`text-lg sm:text-xl font-extrabold mt-1 flex items-center gap-1 ${totalChange <= 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                <TrendingDown className="h-4 w-4 shrink-0" />
+                {totalChange > 0 ? `+${totalChange}` : totalChange} <span className="text-xs font-normal text-(--color-text-muted)">kg</span>
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-(--color-text-muted) font-medium uppercase tracking-wider">Remaining</span>
-                <p className="text-xl font-extrabold text-(--color-accent) mt-0.5">
-                  {diffToTarget !== null ? `${Math.abs(diffToTarget)} ` : "— "}
-                  <span className="text-xs font-normal text-(--color-text-muted)">{diffToTarget !== null ? "kg" : ""}</span>
-                </p>
-              </div>
-              <button
-                onClick={onLogWeightClick}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-(--color-accent) text-white text-xs font-bold shadow-md hover:brightness-110 transition-all"
-              >
-                <Plus className="h-3.5 w-3.5" /> Log
-              </button>
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+              <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Remaining</span>
+              <p className="text-lg sm:text-xl font-extrabold text-(--color-accent) mt-1">
+                {diffToTarget !== null ? `${Math.abs(diffToTarget)} ` : "— "}
+                <span className="text-xs font-normal text-(--color-text-muted)">{diffToTarget !== null ? "kg" : "N/A"}</span>
+              </p>
             </div>
           </div>
 

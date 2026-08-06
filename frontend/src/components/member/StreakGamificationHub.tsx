@@ -131,27 +131,29 @@ export default function StreakGamificationHub({ gameProfile, gameStats, onProfil
       </div>
 
       {/* Hero Banner: Streak & Level XP */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left: Streak Counter */}
-        <div className="md:col-span-5 p-4 rounded-2xl bg-orange-500/10 dark:bg-orange-500/15 border border-orange-500/30 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
+        <div className="lg:col-span-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-orange-500/10 via-amber-500/10 to-transparent dark:from-orange-500/20 dark:via-amber-500/15 border border-orange-500/30 flex flex-col justify-between shadow-sm space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
               <Flame className="h-4 w-4 text-orange-500 animate-pulse" /> Active Streak
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/30">
-              1.5x XP Boost
+            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm shrink-0">
+              1.5x XP Boost ⚡
             </span>
           </div>
 
-          <div className="my-3 text-center">
-            <p className="font-display text-4xl font-extrabold text-(--color-text) tracking-tight flex items-center justify-center gap-2">
-              {streak} <span className="text-lg font-bold text-orange-500">Days</span>
+          <div className="my-2 text-center">
+            <p className="font-display text-3xl sm:text-4xl font-extrabold text-(--color-text) tracking-tight flex items-center justify-center gap-2">
+              {streak} <span className="text-lg font-extrabold text-orange-500">Days</span>
             </p>
-            <p className="text-xs text-(--color-text-muted) font-medium mt-0.5">Don't break your streak today!</p>
+            <p className="text-xs text-(--color-text-muted) font-semibold mt-0.5">
+              Don't break your streak today!
+            </p>
           </div>
 
           {/* 7-Day Flame Track */}
-          <div className="flex justify-between items-center bg-(--color-surface-2) p-2 rounded-xl border border-(--color-border)">
+          <div className="flex justify-between items-center bg-(--color-surface-2) p-2 sm:p-2.5 rounded-xl border border-(--color-border)">
             {weekDays.map((item, idx) => (
               <div key={idx} className="flex flex-col items-center">
                 <div
@@ -170,34 +172,34 @@ export default function StreakGamificationHub({ gameProfile, gameStats, onProfil
         </div>
 
         {/* Right: Level & XP Bar */}
-        <div className="md:col-span-7 p-4 rounded-2xl bg-(--color-surface-2)/60 border border-(--color-border) flex flex-col justify-between">
+        <div className="lg:col-span-7 p-4 sm:p-5 rounded-2xl bg-(--color-surface-2)/60 border border-(--color-border) flex flex-col justify-between space-y-4">
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-display text-lg font-bold text-(--color-text) flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <span className="font-display text-base sm:text-lg font-extrabold text-(--color-text) flex items-center gap-1.5">
                 <Trophy className="h-5 w-5 text-amber-500" /> Level {level} Spartan
               </span>
-              <span className="text-xs font-mono text-(--color-accent) font-extrabold">
-                {totalXp.toLocaleString()} XP
+              <span className="text-xs font-mono text-(--color-accent) font-extrabold px-2.5 py-0.5 rounded-full bg-(--color-accent)/10 border border-(--color-accent)/20">
+                {totalXp.toLocaleString()} XP Total
               </span>
             </div>
 
             <ProgressBar
               value={totalXp}
               max={xpToNext}
-              trackClassName="bg-(--color-surface-3) h-3"
+              trackClassName="bg-(--color-surface-3) h-3 rounded-full"
               className="bg-gradient-to-r from-amber-400 via-accent to-purple-500"
             />
             
-            <div className="flex justify-between text-[11px] text-(--color-text-muted) font-semibold mt-1.5 font-mono">
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-(--color-text-muted) font-semibold mt-2 font-mono gap-1">
               <span>Current Progress</span>
-              <span>{Math.round((totalXp / xpToNext) * 100)}% to Level {level + 1}</span>
+              <span className="text-(--color-text) font-bold">{Math.round((totalXp / xpToNext) * 100)}% to Level {level + 1}</span>
             </div>
           </div>
 
           {/* Badges Grid */}
-          <div className="mt-4 pt-3 border-t border-(--color-border-soft)">
+          <div className="pt-3 border-t border-(--color-border-soft)">
             <p className="text-xs font-bold text-(--color-text-muted) mb-2">Recent Badges Unlocked</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {badges.map((b, idx) => (
                 <div
                   key={idx}
