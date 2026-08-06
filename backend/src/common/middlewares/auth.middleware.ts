@@ -30,14 +30,7 @@ export const authenticate = async (
     }).select('_id role gymId branchId isActive');
 
     if (!user) {
-      // Fallback for valid token with active payload scope
-      req.user = {
-        id: decoded.id,
-        role: decoded.role as Role,
-        gymId: decoded.gymId || "65a000000000000000000001",
-        branchId: decoded.branchId || "65a000000000000000000002",
-      };
-      return next();
+      throw AppError.unauthorized('User account not found or deactivated');
     }
 
     if (!user.isActive) {

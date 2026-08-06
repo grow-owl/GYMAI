@@ -57,8 +57,7 @@ export const assertTenantMatch = (
     const resGymIdStr = resourceGymId.toString();
     const reqGymIdStr = req.tenant.gymId.toString();
 
-    const isDemoPlaceholder = resGymIdStr === '65a000000000000000000001';
-    if (resGymIdStr !== reqGymIdStr && !isDemoPlaceholder) {
+    if (resGymIdStr !== reqGymIdStr) {
       throw AppError.forbidden('Access denied: Resource belongs to a different tenant organization');
     }
   }

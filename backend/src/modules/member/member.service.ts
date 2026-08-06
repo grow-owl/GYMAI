@@ -49,27 +49,7 @@ export class MemberService {
       branch = await Branch.findOne({ gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     }
     if (!branch) {
-      branch = await Branch.findOne({ isDeleted: false });
-    }
-    if (!branch) {
-      let gymDoc = await Gym.findById(gymId);
-      if (!gymDoc) {
-        gymDoc = await Gym.findOne();
-      }
-      if (!gymDoc) {
-        gymDoc = await Gym.create({
-          _id: new mongoose.Types.ObjectId('65a000000000000000000001'),
-          name: 'Spartan Fitness Center',
-          plan: 'PRO',
-          status: 'ACTIVE',
-        });
-      }
-      branch = await Branch.create({
-        _id: new mongoose.Types.ObjectId('65a000000000000000000002'),
-        gymId: gymDoc._id,
-        name: 'Connaught Place Branch',
-        isActive: true,
-      });
+      throw AppError.badRequest('Valid gym and branch are required for member creation');
     }
 
     const resolvedGymId = branch.gymId;

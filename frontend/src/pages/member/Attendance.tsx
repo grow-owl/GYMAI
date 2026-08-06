@@ -43,16 +43,21 @@ export default function Attendance() {
     }
 
     try {
-      const res = await attendanceApi.checkIn(user.gymId, user.branchId, user.phone || user.email || data);
-      if (res?.checkIn) {
-        setCurrentSession(res.checkIn);
+      const payload = data === "MANUAL"
+        ? { gymId: user.gymId, branchId: user.branchId, memberId: user._id }
+        : { gymId: user.gymId, branchId: user.branchId, qrToken: data };
+
+      const res = await attendanceApi.checkIn(payload);
+      if (res?.checkIn || (res as any)?.attendance) {
+        setCurrentSession(res?.checkIn || (res as any)?.attendance);
         setView("success");
         toast.success("Checked in successfully!");
       } else {
         setView("invalid");
       }
-    } catch {
+    } catch (err: any) {
       setView("invalid");
+      toast.error(err.response?.data?.message || err.message || "Check-in rejected: invalid or expired QR token.");
     }
   };
 

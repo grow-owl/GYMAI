@@ -17,10 +17,11 @@ export class NotificationController {
 
     let logs = await WhatsAppMessageLog.find(filter).sort({ sentAt: -1 }).limit(100);
 
-    if (logs.length === 0) {
+    if (logs.length === 0 && gymId && mongoose.Types.ObjectId.isValid(gymId)) {
+      const validGymId = new mongoose.Types.ObjectId(gymId);
       const sampleLogs = [
         {
-          gymId: gymId && mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"),
+          gymId: validGymId,
           phone: "+91 9876543210",
           templateName: "MEMBERSHIP_EXPIRING_7D",
           params: ["Aarav Sharma", "7 Days"],
@@ -29,7 +30,7 @@ export class NotificationController {
           sentAt: new Date(),
         },
         {
-          gymId: gymId && mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"),
+          gymId: validGymId,
           phone: "+91 9876543211",
           templateName: "STREAK_MILESTONE",
           params: ["Priya Patel", "10-day streak"],

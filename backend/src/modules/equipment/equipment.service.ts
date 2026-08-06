@@ -26,12 +26,12 @@ export class EquipmentService {
     if (!branch && mongoose.Types.ObjectId.isValid(gymId)) {
       branch = await Branch.findOne({ gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     }
-    if (!branch) {
-      branch = await Branch.findOne({ isDeleted: false });
-    }
+    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : null);
+    const targetBranchId = branch ? branch._id : null;
 
-    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"));
-    const targetBranchId = branch ? branch._id : new mongoose.Types.ObjectId("65a000000000000000000002");
+    if (!targetGymId || !targetBranchId) {
+      throw AppError.badRequest('Valid gym and branch are required to create equipment');
+    }
 
     const equipment = new Equipment({
       gymId: targetGymId,

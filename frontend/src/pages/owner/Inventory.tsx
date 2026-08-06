@@ -7,6 +7,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
 import { productApi, memberApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 const categoryOptions = [
@@ -24,6 +25,8 @@ const paymentMethodOptions = [
 ];
 
 export default function Inventory() {
+  const currentUserRole = useAuthStore((s) => s.user?.role);
+  const isOwnerOrAdmin = currentUserRole === "GYM_OWNER" || currentUserRole === "SUPER_ADMIN" || currentUserRole === "BRANCH_MANAGER";
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [products, setProducts] = useState<any[]>([]);
   const [membersList, setMembersList] = useState<any[]>([]);
@@ -165,12 +168,14 @@ export default function Inventory() {
             >
               <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
             </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
-            >
-              <Plus size={15} /> Add product
-            </button>
+            {isOwnerOrAdmin && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
+              >
+                <Plus size={15} /> Add product
+              </button>
+            )}
           </div>
         }
       />

@@ -198,6 +198,7 @@ export default function MemberHome() {
       <PerformanceCharts
         weightLogs={weightLogs}
         targetWeightKg={memberProfile?.targetWeightKg}
+        attendanceStats={attendanceStats}
         onLogWeightClick={() => setActiveModal("weight")}
         isLoading={loading}
       />

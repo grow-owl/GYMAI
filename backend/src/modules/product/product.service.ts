@@ -27,9 +27,11 @@ export interface PurchaseProductInput {
 }
 
 export class ProductService {
-  public static async createProduct(gymId: string, input: CreateProductInput): Promise<IProduct> {
-    let branch = await Branch.findOne({ gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined, isDeleted: false }) || await Branch.findOne({ isDeleted: false });
-    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"));
+    let branch = await Branch.findOne({ gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined, isDeleted: false });
+    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : null);
+    if (!targetGymId) {
+      throw AppError.badRequest('Valid gym identifier is required for creating a product');
+    }
 
     const product = new Product({
       gymId: targetGymId,

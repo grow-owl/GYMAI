@@ -8,8 +8,8 @@ export class AttendanceController {
   public static checkIn = asyncHandler(async (req: Request, res: Response) => {
     const memberId = req.user?.role === 'MEMBER' ? req.user.id : req.body.memberId;
     const attendance = await AttendanceService.checkIn({
+      qrToken: req.body.qrToken || req.body.dynamicQrToken,
       qrPayload: req.body.qrPayload,
-      dynamicQrToken: req.body.dynamicQrToken,
       memberId,
       branchId: req.body.branchId || req.user?.branchId,
       lat: req.body.lat,

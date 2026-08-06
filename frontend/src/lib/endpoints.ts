@@ -158,10 +158,29 @@ export const memberApi = {
 };
 
 export const attendanceApi = {
-  checkIn: (gymId: string, branchId: string, identifier: string) =>
-    api.post<{ checkIn: any }>("/attendance/check-in", { gymId, branchId, identifier }),
+  checkIn: (
+    gymIdOrPayload: string | { gymId?: string; branchId?: string; qrToken?: string; memberId?: string; identifier?: string },
+    branchId?: string,
+    identifier?: string
+  ) => {
+    if (typeof gymIdOrPayload === "object") {
+      return api.post<{ checkIn: any }>("/attendance/check-in", gymIdOrPayload);
+    }
+    const payload: Record<string, any> = { gymId: gymIdOrPayload, branchId };
+    if (identifier?.startsWith("DYN_QR_") || identifier?.includes("_QR_")) {
+      payload.qrToken = identifier;
+    } else if (identifier) {
+      payload.memberId = identifier;
+    }
+    return api.post<{ checkIn: any }>("/attendance/check-in", payload);
+  },
 
   checkOut: (attendanceId: string) => api.post<any>("/attendance/check-out", { attendanceId }),
+
+  generateQR: (gymId: string, branchId: string, ttlSeconds: number = 25) =>
+    api.get<{ qrToken: string; qrCodeDataUrl: string; ttlSeconds: number; expiresAt: string }>(
+      `/gyms/${gymId}/branches/${branchId}/attendance/generate-qr?ttlSeconds=${ttlSeconds}`
+    ),
 
   getToday: (gymId: string, branchId: string) =>
     api.get<{ attendance: any[] }>(`/gyms/${gymId}/branches/${branchId}/attendance/daily`),

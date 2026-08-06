@@ -16,6 +16,7 @@ import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../.
 import { logger } from '../../config/logger';
 
 export interface CheckInInput {
+  qrToken?: string;
   qrPayload?: string;
   dynamicQrToken?: string;
   memberId?: string;
@@ -45,9 +46,10 @@ export class AttendanceService {
     let resolvedMemberId: string | undefined = input.memberId;
 
     // 1. Validate Dynamic QR Token if provided (Single-use consumption)
-    if (input.dynamicQrToken) {
+    const tokenToValidate = input.qrToken || input.dynamicQrToken;
+    if (tokenToValidate) {
       const qrSession = await QRSession.findOne({
-        qrToken: input.dynamicQrToken,
+        qrToken: tokenToValidate,
         isConsumed: false,
         expiresAt: { $gt: new Date() },
       });

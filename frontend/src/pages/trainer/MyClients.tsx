@@ -94,20 +94,20 @@ export default function MyClients() {
 
             return (
               <Card key={clientId} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--color-surface-3) text-sm font-semibold text-(--color-text)">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-3) text-sm font-semibold text-(--color-text)">
                       {initials}
                     </span>
-                    <div>
-                      <p className="text-sm font-medium text-(--color-text)">{name}</p>
-                      <p className="text-xs text-(--color-text-faint)">{plan}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-(--color-text) truncate">{name}</p>
+                      <p className="text-xs text-(--color-text-faint) truncate">{plan}</p>
                     </div>
                   </div>
                   {status === "FROZEN" || c.churnRisk === "high" ? (
-                    <Badge tone="danger">Needs attention</Badge>
+                    <Badge tone="danger" className="self-start sm:self-auto shrink-0">Needs attention</Badge>
                   ) : (
-                    <Badge tone="good">On track</Badge>
+                    <Badge tone="good" className="self-start sm:self-auto shrink-0">On track</Badge>
                   )}
                 </div>
 

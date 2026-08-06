@@ -124,10 +124,8 @@ export default function Progress() {
       setWeightData((prev) => [...prev, { label: `W${prev.length + 1}`, value: w }]);
       toast.success(`Weight ${w} kg saved to backend!`);
       setShowLogModal(false);
-    } catch {
-      setWeightData((prev) => [...prev, { label: `W${prev.length + 1}`, value: w }]);
-      toast.success(`Weight ${w} kg logged!`);
-      setShowLogModal(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to log weight to server. Please try again.");
     }
   };
 

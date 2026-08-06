@@ -5,7 +5,6 @@ import Landing from "@/pages/Landing";
 import DashboardShell from "@/components/layout/DashboardShell";
 import MobileShell from "@/components/layout/MobileShell";
 import { ownerNav, ownerNavSecondary, trainerNav, receptionNav } from "@/data/nav";
-import { gym } from "@/data/mock";
 import { useAuth, useAuthStore } from "@/store/authStore";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Login from "@/pages/auth/Login";
@@ -63,8 +62,8 @@ import NotFound from "@/pages/NotFound";
 
 function OwnerShell() {
   const { user } = useAuth();
-  const firstName = user?.fullName?.split(" ")[0] ?? gym.ownerName;
-  const initial = (user?.fullName?.[0] ?? "D").toUpperCase();
+  const firstName = user?.fullName?.split(" ")[0] ?? "Owner";
+  const initial = (user?.fullName?.[0] ?? "O").toUpperCase();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const secondaryNav = isSuperAdmin
     ? [{ label: "Admin Panel", path: "/admin", icon: "ShieldCheck" }, ...ownerNavSecondary]
@@ -91,7 +90,7 @@ function TrainerShell() {
       primary={trainerNav}
       roleLabel="Trainer"
       greeting={`Good Morning, ${firstName} 👋`}
-      subtitle={String(user?.gymName || gym.name)}
+      subtitle={String(user?.gymName || "My Gym")}
       avatarInitial={initial}
     />
   );
@@ -104,7 +103,7 @@ function ReceptionShell() {
       primary={receptionNav}
       roleLabel="Reception / Staff"
       greeting="Front Desk"
-      subtitle={String(user?.gymName || gym.name)}
+      subtitle={String(user?.gymName || "My Gym")}
       avatarInitial="R"
     />
   );

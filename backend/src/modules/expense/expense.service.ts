@@ -26,12 +26,13 @@ export class ExpenseService {
     if (!branch && mongoose.Types.ObjectId.isValid(gymId)) {
       branch = await Branch.findOne({ gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     }
-    if (!branch) {
-      branch = await Branch.findOne({ isDeleted: false });
-    }
+    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : null);
+    const targetBranchId = branch ? branch._id : null;
+    const validUserId = mongoose.Types.ObjectId.isValid(recordedByUserId) ? new mongoose.Types.ObjectId(recordedByUserId) : null;
 
-    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId("65a000000000000000000001"));
-    const targetBranchId = branch ? branch._id : new mongoose.Types.ObjectId("65a000000000000000000002");
+    if (!targetGymId || !targetBranchId || !validUserId) {
+      throw AppError.badRequest('Valid gym, branch, and user are required to record an expense');
+    }
 
     const expense = new Expense({
       gymId: targetGymId,
@@ -40,7 +41,7 @@ export class ExpenseService {
       amount: input.amount,
       description: input.description,
       expenseDate: input.expenseDate || new Date(),
-      recordedByUserId: mongoose.Types.ObjectId.isValid(recordedByUserId) ? new mongoose.Types.ObjectId(recordedByUserId) : new mongoose.Types.ObjectId("65a000000000000000000001"),
+      recordedByUserId: validUserId,
       isRecurring: input.isRecurring || false,
     });
     await expense.save();

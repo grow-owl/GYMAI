@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Sparkles, Send, ShoppingBag, Loader2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
-import { recoveryScore } from "@/data/mock";
 import { aiApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
@@ -20,7 +19,10 @@ interface Msg {
 
 export default function AICoach() {
   const [messages, setMessages] = useState<Msg[]>([
-    { from: "ai", text: recoveryScore.insight },
+    {
+      from: "ai",
+      text: "Hello! I am your AI Fitness & Recovery Coach. Ask me anything about workout plans, nutrition, supplement timing, or recovery optimization!",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -100,19 +102,19 @@ export default function AICoach() {
       <Card sweep className="mb-4 border-(--color-accent)/25">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-(--color-text-faint) uppercase tracking-wide mb-1">Recovery Score</p>
-            <p className="font-display text-4xl font-semibold text-(--color-text) tabular-nums">{recoveryScore.score}</p>
-            <p className="text-xs font-medium text-(--color-good) mt-0.5">{recoveryScore.label}</p>
+            <p className="text-xs text-(--color-text-faint) uppercase tracking-wide mb-1">AI Training & Recovery Status</p>
+            <p className="font-display text-4xl font-semibold text-(--color-text) tabular-nums">85</p>
+            <p className="text-xs font-medium text-(--color-good) mt-0.5">OPTIMAL RECOVERY</p>
           </div>
           <div className="text-right space-y-1">
             <p className="text-xs text-(--color-text-muted)">
-              Sleep <span className="font-mono text-(--color-text)">{recoveryScore.sleep}</span>
+              Sleep Target <span className="font-mono text-(--color-text)">8h 00m</span>
             </p>
             <p className="text-xs text-(--color-text-muted)">
-              Water <span className="font-mono text-(--color-text)">{recoveryScore.water}</span>
+              Hydration <span className="font-mono text-(--color-text)">3.0L</span>
             </p>
             <p className="text-xs text-(--color-text-muted)">
-              Workout <span className="text-(--color-good)">{recoveryScore.workout}</span>
+              Training Status <span className="text-(--color-good)">Ready</span>
             </p>
           </div>
         </div>

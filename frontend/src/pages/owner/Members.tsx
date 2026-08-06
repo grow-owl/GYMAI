@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import { memberApi, authApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useSearchStore } from "../../store/searchStore";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
@@ -21,6 +22,8 @@ const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
 };
 
 export default function Members() {
+  const currentUserRole = useAuthStore((s) => s.user?.role);
+  const isOwnerOrAdmin = currentUserRole === "GYM_OWNER" || currentUserRole === "SUPER_ADMIN" || currentUserRole === "BRANCH_MANAGER";
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [memberList, setMemberList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -287,27 +290,31 @@ export default function Members() {
                     >
                       <RefreshCw size={15} />
                     </button>
-                    <button
-                      onClick={() => {
-                        setSelectedMember(m);
-                        setActiveModalType("cancel");
-                      }}
-                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-red-400"
-                      title="Cancel Membership"
-                    >
-                      <XCircle size={15} />
-                    </button>
+                    {isOwnerOrAdmin && (
+                      <button
+                        onClick={() => {
+                          setSelectedMember(m);
+                          setActiveModalType("cancel");
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-red-400"
+                        title="Cancel Membership"
+                      >
+                        <XCircle size={15} />
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => {
-                        setResetTargetUser(m.userId?._id ? m.userId : { _id: m.userId || mId, fullName: name });
-                        setShowResetModal(true);
-                      }}
-                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-amber-400"
-                      title="Reset Member Password"
-                    >
-                      <KeyRound size={15} />
-                    </button>
+                    {isOwnerOrAdmin && (
+                      <button
+                        onClick={() => {
+                          setResetTargetUser(m.userId?._id ? m.userId : { _id: m.userId || mId, fullName: name });
+                          setShowResetModal(true);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-amber-400"
+                        title="Reset Member Password"
+                      >
+                        <KeyRound size={15} />
+                      </button>
+                    )}
 
                     <button
                       onClick={() => {

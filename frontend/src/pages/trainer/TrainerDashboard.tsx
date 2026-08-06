@@ -122,15 +122,15 @@ export default function TrainerDashboard() {
                     const status = s.checkOutTime ? "done" : "in-gym";
 
                     return (
-                      <div key={s._id || idx} className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2) transition-colors">
-                        <div className="flex items-center gap-3">
+                      <div key={s._id || idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2) transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
                           <span className="font-mono text-xs text-(--color-text-faint) w-16 shrink-0">{timeStr}</span>
-                          <div>
-                            <p className="text-sm font-medium text-(--color-text)">{clientName}</p>
-                            <p className="text-xs text-(--color-text-faint)">Check-in Session</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-(--color-text) truncate">{clientName}</p>
+                            <p className="text-xs text-(--color-text-faint) truncate">Check-in Session</p>
                           </div>
                         </div>
-                        <Badge tone={statusTone[status] ?? "neutral"}>{status}</Badge>
+                        <Badge tone={statusTone[status] ?? "neutral"} className="self-start sm:self-auto shrink-0">{status}</Badge>
                       </div>
                     );
                   })}

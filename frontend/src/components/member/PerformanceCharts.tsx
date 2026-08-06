@@ -12,6 +12,8 @@ interface WeightLogItem {
 interface PerformanceChartsProps {
   weightLogs?: WeightLogItem[];
   targetWeightKg?: number;
+  attendanceStats?: any;
+  workoutVolumeLogs?: any[];
   onLogWeightClick: () => void;
   isLoading?: boolean;
 }
@@ -19,6 +21,8 @@ interface PerformanceChartsProps {
 export default function PerformanceCharts({
   weightLogs = [],
   targetWeightKg,
+  attendanceStats,
+  workoutVolumeLogs = [],
   onLogWeightClick,
 }: PerformanceChartsProps) {
   const [activeTab, setActiveTab] = useState<"weight" | "volume" | "attendance">("weight");
@@ -73,16 +77,36 @@ export default function PerformanceCharts({
     return { pathString, areaString, points, targetY, minW, maxW };
   }, [displayLogs, targetWeightKg]);
 
-  // Mock data for Workout Volume & Attendance
-  const volumeData = [
-    { day: "Mon", volume: 4200, label: "Legs & Core" },
-    { day: "Tue", volume: 3800, label: "Chest & Triceps" },
-    { day: "Wed", volume: 0, label: "Rest Day" },
-    { day: "Thu", volume: 5100, label: "Back & Biceps" },
-    { day: "Fri", volume: 4600, label: "Shoulders & Abs" },
-    { day: "Sat", volume: 6200, label: "Full Body Hit" },
-    { day: "Sun", volume: 0, label: "Active Recovery" },
-  ];
+  // Derived real attendance analytics
+  const totalVisits = attendanceStats?.totalVisits ?? attendanceStats?.totalDays ?? null;
+  const avgSessionMins = attendanceStats?.averageSessionMinutes ?? null;
+  const dayDistribution = attendanceStats?.dayOfWeekDistribution;
+  let topTrainingDay = "--";
+  if (dayDistribution && typeof dayDistribution === "object") {
+    let maxCount = 0;
+    for (const [day, count] of Object.entries(dayDistribution)) {
+      if ((count as number) > maxCount) {
+        maxCount = count as number;
+        topTrainingDay = day;
+      }
+    }
+  }
+
+  // Volume chart items from props or empty weekly structure
+  const volumeData = useMemo(() => {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    if (!workoutVolumeLogs || workoutVolumeLogs.length === 0) {
+      return days.map((day) => ({ day, volume: 0, label: "No log" }));
+    }
+    return days.map((day) => {
+      const found = workoutVolumeLogs.find((v) => v.day === day || v.dayName === day);
+      return {
+        day,
+        volume: found?.volume || found?.totalWeight || 0,
+        label: found?.label || (found?.volume ? "Logged Workout" : "Rest"),
+      };
+    });
+  }, [workoutVolumeLogs]);
 
   return (
     <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
@@ -144,7 +168,10 @@ export default function PerformanceCharts({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
               <span className="text-[11px] text-(--color-text-muted) font-medium uppercase tracking-wider">Current Weight</span>
-              <p className="text-xl font-extrabold text-(--color-text) mt-0.5">{latestWeight} <span className="text-xs font-normal text-(--color-text-muted)">kg</span></p>
+              <p className="text-xl font-extrabold text-(--color-text) mt-0.5">
+                {latestWeight !== null ? `${latestWeight} ` : "— "}
+                <span className="text-xs font-normal text-(--color-text-muted)">{latestWeight !== null ? "kg" : "No logs"}</span>
+              </p>
             </div>
 
             <div className="p-3 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
@@ -312,22 +339,22 @@ export default function PerformanceCharts({
       {/* Attendance Check-ins Tab */}
       {activeTab === "attendance" && (
         <div className="space-y-4">
-          <p className="text-xs text-(--color-text-muted)">Your monthly check-in frequency and attendance heat status</p>
+          <p className="text-xs text-(--color-text-muted)">Your monthly check-in frequency and attendance statistics</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="p-4 rounded-xl bg-(--color-surface-2)/60 border border-white/5 text-center">
-              <span className="text-xs text-(--color-text-muted)">Check-ins This Month</span>
-              <p className="text-3xl font-extrabold text-(--color-text) mt-1">18 Days</p>
-              <span className="text-[11px] text-emerald-400 font-semibold">+4 vs last month</span>
+              <span className="text-xs text-(--color-text-muted)">Total Gym Visits</span>
+              <p className="text-3xl font-extrabold text-(--color-text) mt-1">{totalVisits !== null ? `${totalVisits} Days` : "--"}</p>
+              <span className="text-[11px] text-emerald-400 font-semibold">{totalVisits ? "Active Gym Member" : "No visits logged yet"}</span>
             </div>
             <div className="p-4 rounded-xl bg-(--color-surface-2)/60 border border-white/5 text-center">
               <span className="text-xs text-(--color-text-muted)">Avg Session Length</span>
-              <p className="text-3xl font-extrabold text-(--color-text) mt-1">64 Mins</p>
-              <span className="text-[11px] text-indigo-400 font-semibold">Optimal hypertrophy</span>
+              <p className="text-3xl font-extrabold text-(--color-text) mt-1">{avgSessionMins !== null ? `${avgSessionMins} Mins` : "--"}</p>
+              <span className="text-[11px] text-indigo-400 font-semibold">{avgSessionMins ? "Live session average" : "Log sessions to track"}</span>
             </div>
             <div className="p-4 rounded-xl bg-(--color-surface-2)/60 border border-white/5 text-center">
-              <span className="text-xs text-(--color-text-muted)">Favorite Gym Time</span>
-              <p className="text-3xl font-extrabold text-(--color-text) mt-1">07:30 AM</p>
-              <span className="text-[11px] text-amber-400 font-semibold">Morning Warrior</span>
+              <span className="text-xs text-(--color-text-muted)">Peak Workout Day</span>
+              <p className="text-3xl font-extrabold text-(--color-text) mt-1">{topTrainingDay}</p>
+              <span className="text-[11px] text-amber-400 font-semibold">{topTrainingDay !== "--" ? "Most frequent visit day" : "No day frequency"}</span>
             </div>
           </div>
         </div>

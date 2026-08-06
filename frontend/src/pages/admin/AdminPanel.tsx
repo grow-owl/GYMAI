@@ -32,10 +32,17 @@ export default function AdminPanel() {
     notes: "",
   });
 
+function generateStrongPassword(length: number = 14): string {
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+  const randomValues = new Uint32Array(length);
+  crypto.getRandomValues(randomValues);
+  return Array.from(randomValues, (val) => charset[val % charset.length]).join("");
+}
+
   // Super Admin Password Reset Modal
   const [showSuperAdminResetModal, setShowSuperAdminResetModal] = useState(false);
   const [superResetTargetId, setSuperResetTargetId] = useState("");
-  const [superResetPasswordVal, setSuperResetPasswordVal] = useState("Owner@123");
+  const [superResetPasswordVal, setSuperResetPasswordVal] = useState("");
   const [resettingUserPass, setResettingUserPass] = useState(false);
 
   // Create Gym Owner Modal
@@ -680,7 +687,7 @@ export default function AdminPanel() {
                 required
                 value={superResetTargetId}
                 onChange={(e) => setSuperResetTargetId(e.target.value)}
-                placeholder="e.g. 65a000000000000000000001"
+                placeholder="e.g. 64f1a2b3c4d5e6f7a8b9c0d1"
                 className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none font-mono focus:border-(--color-accent)"
               />
             </div>
@@ -690,8 +697,8 @@ export default function AdminPanel() {
                 <label className="text-xs font-medium text-(--color-text-muted)">New Password</label>
                 <button
                   type="button"
-                  onClick={() => setSuperResetPasswordVal(`Owner@${Math.floor(1000 + Math.random() * 9000)}`)}
-                  className="text-[11px] text-(--color-accent-text) hover:underline"
+                  onClick={() => setSuperResetPasswordVal(generateStrongPassword(14))}
+                  className="text-[11px] text-(--color-accent-text) hover:underline font-semibold"
                 >
                   Auto-generate
                 </button>

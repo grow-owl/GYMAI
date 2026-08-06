@@ -136,16 +136,6 @@ export const gamification = {
   ],
 };
 
-export const recoveryScore = {
-  score: 82,
-  label: "GOOD",
-  sleep: "7h 42m",
-  water: "2.8L",
-  workout: "Completed",
-  insight:
-    "Recovery looks solid today. Based on recent sessions, the planned Push workout can continue as scheduled. Chest strength is up roughly 8% over the last four weeks.",
-};
-
 export const clientRecoveryAlert = {
   name: "Amit Kumar",
   score: 42,

@@ -76,11 +76,6 @@ export class MemberPaymentService {
     }
 
     if (!member) {
-      const targetGymId = mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : new mongoose.Types.ObjectId('65a000000000000000000001');
-      member = await Member.findOne({ gymId: targetGymId, isDeleted: false }) || await Member.findOne({ isDeleted: false });
-    }
-
-    if (!member) {
       throw AppError.notFound('Member profile not found in your gym');
     }
 

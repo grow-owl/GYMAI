@@ -142,14 +142,14 @@ export default function ReceptionPayments() {
             const status = p.status || "SUCCESS";
 
             return (
-              <Card key={p._id || p.id} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-(--color-text)">{memberName}</p>
-                  <p className="text-xs text-(--color-text-faint) mt-0.5">
+              <Card key={p._id || p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-(--color-text) truncate">{memberName}</p>
+                  <p className="text-xs text-(--color-text-faint) mt-0.5 truncate">
                     {plan} · ₹{p.amount?.toLocaleString("en-IN")} ({p.method || "cash"})
                   </p>
                 </div>
-                <Badge tone={status === "REFUNDED" ? "danger" : "good"}>
+                <Badge tone={status === "REFUNDED" ? "danger" : "good"} className="self-start sm:self-auto shrink-0">
                   {status === "REFUNDED" ? "Refunded" : "Paid"}
                 </Badge>
               </Card>

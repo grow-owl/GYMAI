@@ -76,15 +76,15 @@ export default function Sessions() {
             const status = s.checkOutTime ? "done" : "active";
 
             return (
-              <Card key={s._id || idx} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <Card key={s._id || idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3 min-w-0">
                   <span className="font-mono text-xs text-(--color-text-faint) w-16 shrink-0">{timeStr}</span>
-                  <div>
-                    <p className="text-sm font-medium text-(--color-text)">{clientName}</p>
-                    <p className="text-xs text-(--color-text-faint)">Check-in Session</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-(--color-text) truncate">{clientName}</p>
+                    <p className="text-xs text-(--color-text-faint) truncate">Check-in Session</p>
                   </div>
                 </div>
-                <Badge tone={status === "done" ? "good" : "neutral"}>{status}</Badge>
+                <Badge tone={status === "done" ? "good" : "neutral"} className="self-start sm:self-auto shrink-0">{status}</Badge>
               </Card>
             );
           })}

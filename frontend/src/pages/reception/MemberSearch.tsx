@@ -95,14 +95,14 @@ export default function MemberSearch() {
             const phone = m.phone || m.userId?.phone || "—";
 
             return (
-              <Card key={m._id || m.id} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-(--color-text)">{name}</p>
-                  <p className="text-xs text-(--color-text-faint) mt-0.5">
+              <Card key={m._id || m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-(--color-text) truncate">{name}</p>
+                  <p className="text-xs text-(--color-text-faint) mt-0.5 truncate">
                     {plan} · Phone: {phone}
                   </p>
                 </div>
-                <Badge tone={statusTone[status] || "good"}>{status}</Badge>
+                <Badge tone={statusTone[status] || "good"} className="self-start sm:self-auto shrink-0">{status}</Badge>
               </Card>
             );
           })}
