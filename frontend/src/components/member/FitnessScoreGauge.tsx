@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Activity, Flame, Dumbbell, Award, RefreshCw, Info, HelpCircle, X, Zap, Scale } from "lucide-react";
 import Card from "@/components/ui/Card";
 
@@ -275,93 +276,100 @@ export default function FitnessScoreGauge({
         </div>
       </div>
 
-      {/* Info Explanation Modal */}
-      {showExplanation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-2xl bg-(--color-surface) border border-(--color-border) p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-(--color-border) pb-3">
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-amber-400" />
-                <h3 className="font-display text-base font-bold text-(--color-text)">
-                  How AI Performance Score Works
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowExplanation(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-(--color-text-muted) hover:text-(--color-text)"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-(--color-text-muted) leading-relaxed">
-              Your AI Performance Score (0–100) measures your overall fitness consistency and activity in the gym app. Points are dynamically calculated across 4 key pillars:
-            </p>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
-                <div className="flex items-center justify-between font-bold text-(--color-text)">
-                  <span className="flex items-center gap-1.5 text-amber-400">
-                    <Flame className="h-4 w-4" /> 1. Attendance & Consistency (Max 30 pts)
-                  </span>
+      {/* Info Explanation Modal via Portal (prevents parent overflow-hidden clipping) */}
+      {showExplanation &&
+        createPortal(
+          <div className="fixed inset-0 z-999 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg rounded-2xl bg-(--color-surface) border border-(--color-border) p-5 sm:p-6 shadow-2xl flex flex-col max-h-[85vh] text-left">
+              {/* Sticky Header */}
+              <div className="flex items-center justify-between border-b border-(--color-border) pb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-amber-400" />
+                  <h3 className="font-display text-base sm:text-lg font-extrabold text-(--color-text)">
+                    How AI Performance Score Works
+                  </h3>
                 </div>
-                <p className="text-(--color-text-muted)">
-                  Calculated from your monthly attendance rate & consecutive check-in streak. 80%+ attendance gives full 30 pts.
+                <button
+                  onClick={() => setShowExplanation(false)}
+                  className="p-1.5 rounded-xl hover:bg-white/10 text-(--color-text-muted) hover:text-(--color-text) transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <div className="overflow-y-auto py-4 space-y-3.5 text-xs pr-1">
+                <p className="text-xs text-(--color-text-muted) leading-relaxed">
+                  Your AI Performance Score (0–100) measures your overall fitness consistency and activity in the gym app. Points are dynamically calculated across 4 key pillars:
                 </p>
+
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
+                    <div className="flex items-center justify-between font-bold text-(--color-text)">
+                      <span className="flex items-center gap-1.5 text-amber-400">
+                        <Flame className="h-4 w-4" /> 1. Attendance & Consistency (Max 30 pts)
+                      </span>
+                    </div>
+                    <p className="text-(--color-text-muted)">
+                      Calculated from your monthly attendance rate & consecutive check-in streak. 80%+ attendance gives full 30 pts.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
+                    <div className="flex items-center justify-between font-bold text-(--color-text)">
+                      <span className="flex items-center gap-1.5 text-indigo-400">
+                        <Dumbbell className="h-4 w-4" /> 2. Workout Execution (Max 25 pts)
+                      </span>
+                    </div>
+                    <p className="text-(--color-text-muted)">
+                      Earned by logging and completing workouts in the app. 15 completed workouts gives full 25 pts.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
+                    <div className="flex items-center justify-between font-bold text-(--color-text)">
+                      <span className="flex items-center gap-1.5 text-purple-400">
+                        <Award className="h-4 w-4" /> 3. Streak & Gamification XP (Max 25 pts)
+                      </span>
+                    </div>
+                    <ul className="text-(--color-text-muted) space-y-1 list-disc pl-4 mt-1">
+                      <li><strong>Daily Streak Bonus (Max 15 pts):</strong> 3 pts earned per consecutive workout day.</li>
+                      <li><strong>Total XP Bonus (Max 10 pts):</strong> 1 pt per 200 total XP earned in the app.</li>
+                      <li><strong>How to earn XP?</strong> Gym Check-in (+50 XP), Complete Workout (+100 XP), Unlock Badges (+200 XP), Challenges (+500 XP).</li>
+                    </ul>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
+                    <div className="flex items-center justify-between font-bold text-(--color-text)">
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <Scale className="h-4 w-4" /> 4. Metric & Weight Logging (Max 20 pts)
+                      </span>
+                    </div>
+                    <p className="text-(--color-text-muted)">
+                      Weight logging is manual (enter your weight in the app or via trainer):
+                    </p>
+                    <ul className="text-(--color-text-muted) space-y-0.5 list-disc pl-4 mt-1">
+                      <li>0 logs = 0 pts</li>
+                      <li>1 baseline weight log = 10 pts</li>
+                      <li>Regular logging (2+ logs with 1 in the last 30 days) = 20 pts (Full score)</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
-                <div className="flex items-center justify-between font-bold text-(--color-text)">
-                  <span className="flex items-center gap-1.5 text-indigo-400">
-                    <Dumbbell className="h-4 w-4" /> 2. Workout Execution (Max 25 pts)
-                  </span>
-                </div>
-                <p className="text-(--color-text-muted)">
-                  Earned by logging and completing workouts in the app. 15 completed workouts gives full 25 pts.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
-                <div className="flex items-center justify-between font-bold text-(--color-text)">
-                  <span className="flex items-center gap-1.5 text-purple-400">
-                    <Award className="h-4 w-4" /> 3. Streak & Gamification XP (Max 25 pts)
-                  </span>
-                </div>
-                <ul className="text-(--color-text-muted) space-y-1 list-disc pl-4 mt-1">
-                  <li><strong>Daily Streak Bonus (Max 15 pts):</strong> 3 pts earned per consecutive workout day.</li>
-                  <li><strong>Total XP Bonus (Max 10 pts):</strong> 1 pt per 200 total XP earned in the app.</li>
-                  <li><strong>How to earn XP?</strong> Gym Check-in (+50 XP), Complete Workout (+100 XP), Unlock Badges (+200 XP), Challenges (+500 XP).</li>
-                </ul>
-              </div>
-
-              <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-1">
-                <div className="flex items-center justify-between font-bold text-(--color-text)">
-                  <span className="flex items-center gap-1.5 text-emerald-400">
-                    <Scale className="h-4 w-4" /> 4. Metric & Weight Logging (Max 20 pts)
-                  </span>
-                </div>
-                <p className="text-(--color-text-muted)">
-                  Weight logging is manual (enter your weight in the app or via trainer):
-                </p>
-                <ul className="text-(--color-text-muted) space-y-0.5 list-disc pl-4 mt-1">
-                  <li>0 logs = 0 pts</li>
-                  <li>1 baseline weight log = 10 pts</li>
-                  <li>Regular logging (2+ logs with 1 in the last 30 days) = 20 pts (Full score)</li>
-                </ul>
+              {/* Sticky Footer */}
+              <div className="pt-3 border-t border-(--color-border) flex justify-end shrink-0">
+                <button
+                  onClick={() => setShowExplanation(false)}
+                  className="px-5 py-2.5 rounded-xl bg-(--color-accent) hover:brightness-110 text-white font-bold text-xs shadow-lg transition-all cursor-pointer"
+                >
+                  Got It!
+                </button>
               </div>
             </div>
-
-            <div className="pt-2 border-t border-(--color-border) flex justify-end">
-              <button
-                onClick={() => setShowExplanation(false)}
-                className="px-4 py-2 rounded-xl bg-(--color-accent) text-white font-bold text-xs hover:brightness-110"
-              >
-                Got It!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </Card>
   );
 }

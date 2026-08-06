@@ -1,58 +1,167 @@
 import { useState, useEffect } from "react";
-import { Dumbbell, Plus, CheckCircle, Loader2, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Dumbbell, Plus, CheckCircle, Loader2, RefreshCw, Trophy, Sparkles, ArrowRight, Activity } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import CustomSelect from "@/components/ui/CustomSelect";
-import { workoutApi } from "@/lib/endpoints";
+import { workoutApi, memberApi } from "@/lib/endpoints";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
+interface ExerciseSet {
+  exerciseName: string;
+  sets: number;
+  reps: number;
+  weightKg: number;
+}
+
+const PRESET_ROUTINES = [
+  {
+    name: "Day 1: Chest & Triceps Focus 🏋️‍♂️",
+    exercises: [
+      { exerciseName: "Bench Press", sets: 3, reps: 10, weightKg: 60 },
+      { exerciseName: "Incline Dumbbell Press", sets: 3, reps: 10, weightKg: 22 },
+      { exerciseName: "Tricep Dips / Pushdowns", sets: 3, reps: 12, weightKg: 25 },
+    ],
+  },
+  {
+    name: "Day 2: Back & Biceps Power 💪",
+    exercises: [
+      { exerciseName: "Lat Pulldown", sets: 3, reps: 10, weightKg: 50 },
+      { exerciseName: "Seated Cable Rows", sets: 3, reps: 10, weightKg: 55 },
+      { exerciseName: "Bicep Dumbbell Curls", sets: 3, reps: 12, weightKg: 14 },
+    ],
+  },
+  {
+    name: "Day 3: Legs & Core Strength 🦵",
+    exercises: [
+      { exerciseName: "Barbell Squats", sets: 3, reps: 10, weightKg: 70 },
+      { exerciseName: "Leg Press", sets: 3, reps: 12, weightKg: 120 },
+      { exerciseName: "Romanian Deadlift", sets: 3, reps: 10, weightKg: 60 },
+    ],
+  },
+  {
+    name: "Day 4: Shoulders & Arms Sculpting ⚡",
+    exercises: [
+      { exerciseName: "Overhead Shoulder Press", sets: 3, reps: 10, weightKg: 45 },
+      { exerciseName: "Dumbbell Lateral Raises", sets: 3, reps: 12, weightKg: 10 },
+      { exerciseName: "Hammer Curls", sets: 3, reps: 12, weightKg: 14 },
+    ],
+  },
+];
+
 export default function WorkoutTracking() {
+  const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exercises, setExercises] = useState<any[]>([]);
 
-  const [submitting, setSubmitting] = useState(false);
-  const [loggedSets, setLoggedSets] = useState<{ exerciseName: string; sets: number; reps: number; weightKg: number }[]>([
-    { exerciseName: "Bench Press", sets: 3, reps: 10, weightKg: 60 },
-  ]);
+  const [routines, setRoutines] = useState(PRESET_ROUTINES);
+  const [routineIndex, setRoutineIndex] = useState(0);
+  const [routineName, setRoutineName] = useState(PRESET_ROUTINES[0].name);
 
-  const fetchExercises = async () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [loggedSets, setLoggedSets] = useState<ExerciseSet[]>(PRESET_ROUTINES[0].exercises);
+
+  const [lastSummary, setLastSummary] = useState<{
+    routineName: string;
+    totalVolume: number;
+    totalSets: number;
+    exerciseCount: number;
+    xpEarned: number;
+  } | null>(null);
+
+  const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await workoutApi.listExercises();
-      const list = Array.isArray(res) ? res : [];
+      const [exListRes, profRes] = await Promise.all([
+        workoutApi.listExercises().catch(() => []),
+        memberApi.getSelfProfile().catch(() => null),
+      ]);
+
+      const list = Array.isArray(exListRes) ? exListRes : [];
       setExercises(list);
+
+      const memberId = profRes?.member?._id || user?._id;
+      if (memberId) {
+        const planRes = await workoutApi.getActivePlan(memberId).catch(() => null);
+        const plan = planRes?.plan || planRes;
+        if (plan && plan.days && Array.isArray(plan.days) && plan.days.length > 0) {
+          const mappedRoutines = plan.days.map((day: any, idx: number) => ({
+            name: day.title || day.dayName || `Workout Day ${idx + 1}`,
+            exercises: (day.exercises || []).map((ex: any) => ({
+              exerciseName: ex.name || ex.exerciseName || "Exercise",
+              sets: Number(ex.sets) || 3,
+              reps: Number(ex.reps) || 10,
+              weightKg: Number(ex.weightKg) || 20,
+            })),
+          }));
+          if (mappedRoutines.length > 0) {
+            setRoutines(mappedRoutines);
+            setRoutineName(mappedRoutines[0].name);
+            setLoggedSets(mappedRoutines[0].exercises.length > 0 ? mappedRoutines[0].exercises : PRESET_ROUTINES[0].exercises);
+          }
+        }
+      }
     } catch {
-      setError("Failed to load exercise list.");
-      setExercises([]);
+      setError("Failed to load workout exercises.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchExercises();
-  }, []);
+    loadData();
+  }, [user]);
 
   const handleAddSetRow = () => {
-    const defaultEx = exercises[0]?.name || "Squats";
-    setLoggedSets([...loggedSets, { exerciseName: defaultEx, sets: 3, reps: 10, weightKg: 50 }]);
+    const defaultEx = exercises[0]?.name || "Bench Press";
+    setLoggedSets([...loggedSets, { exerciseName: defaultEx, sets: 3, reps: 10, weightKg: 40 }]);
   };
 
   const handleSaveWorkout = async () => {
+    if (loggedSets.length === 0) {
+      toast.error("Please add at least one exercise to log.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await workoutApi.logWorkout({
         loggedAt: new Date().toISOString(),
         exercises: loggedSets,
       });
-      toast.success("Workout logged successfully!");
+
+      const totalVolume = loggedSets.reduce((sum, s) => sum + s.sets * s.reps * s.weightKg, 0);
+      const totalSets = loggedSets.reduce((sum, s) => sum + s.sets, 0);
+
+      setLastSummary({
+        routineName,
+        totalVolume,
+        totalSets,
+        exerciseCount: loggedSets.length,
+        xpEarned: 100,
+      });
+
+      setIsCompleted(true);
+      toast.success("Workout logged successfully! +100 XP Earned 🎉");
     } catch {
       toast.error("Failed to log workout session.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleStartNextWorkout = () => {
+    const nextIndex = (routineIndex + 1) % routines.length;
+    const nextRoutine = routines[nextIndex];
+    setRoutineIndex(nextIndex);
+    setRoutineName(nextRoutine.name);
+    setLoggedSets(nextRoutine.exercises.length > 0 ? nextRoutine.exercises : PRESET_ROUTINES[nextIndex % PRESET_ROUTINES.length].exercises);
+    setIsCompleted(false);
+    toast.info(`Loaded next workout: ${nextRoutine.name}`);
   };
 
   return (
@@ -61,28 +170,95 @@ export default function WorkoutTracking() {
 
       {loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading exercise library...
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading workout tracker...
         </Card>
       ) : error ? (
         <Card className="text-center py-8">
           <p className="text-sm text-(--color-danger) mb-3">{error}</p>
           <button
-            onClick={fetchExercises}
+            onClick={loadData}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-full bg-(--color-surface-3) text-(--color-text)"
           >
             <RefreshCw size={14} /> Retry
           </button>
         </Card>
+      ) : isCompleted ? (
+        /* Celebration & Next Workout Prompt Screen */
+        <Card className="p-6 text-center space-y-6 bg-gradient-to-b from-(--color-surface) to-(--color-surface-2) border border-(--color-border) shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="relative inline-flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-amber-500/20 blur-xl animate-pulse" />
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-amber-400 via-orange-500 to-red-500 text-white shadow-xl">
+              <Trophy className="h-10 w-10 animate-bounce" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              <Sparkles className="h-3.5 w-3.5" /> +100 XP EARNED
+            </span>
+            <h2 className="font-display text-2xl font-extrabold text-(--color-text) mt-2">
+              Workout Session Complete!
+            </h2>
+            <p className="text-xs text-(--color-text-muted)">
+              Great job! You completed <span className="font-bold text-(--color-text)">{lastSummary?.routineName}</span>
+            </p>
+          </div>
+
+          {/* Session Performance Summary Card */}
+          <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-(--color-surface-3) border border-(--color-border-soft) text-center">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint)">Exercises</p>
+              <p className="text-base font-extrabold text-(--color-text) mt-0.5">{lastSummary?.exerciseCount}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint)">Total Sets</p>
+              <p className="text-base font-extrabold text-(--color-text) mt-0.5">{lastSummary?.totalSets}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint)">Total Volume</p>
+              <p className="text-base font-extrabold text-amber-400 mt-0.5">{lastSummary?.totalVolume?.toLocaleString()} kg</p>
+            </div>
+          </div>
+
+          {/* Action Buttons: Next Workout & Navigation */}
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={handleStartNextWorkout}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-sm py-3.5 shadow-lg transition-all cursor-pointer"
+            >
+              Start Next Workout Session <ArrowRight className="h-4 w-4" />
+            </button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Link
+                to="/member"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all"
+              >
+                Dashboard
+              </Link>
+              <Link
+                to="/member/progress"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-(--color-text) border border-white/10 transition-all"
+              >
+                <Activity className="h-3.5 w-3.5 text-emerald-400" /> View Stats
+              </Link>
+            </div>
+          </div>
+        </Card>
       ) : (
+        /* Active Workout Logger View */
         <Card className="space-y-4">
           <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-3">
             <div className="flex items-center gap-2">
               <Dumbbell size={18} className="text-(--color-accent)" />
-              <p className="text-sm font-semibold text-(--color-text)">Today's Exercises</p>
+              <div>
+                <p className="text-sm font-bold text-(--color-text)">{routineName}</p>
+                <p className="text-[11px] text-(--color-text-muted)">Log your sets & weights for this session</p>
+              </div>
             </div>
             <button
               onClick={handleAddSetRow}
-              className="inline-flex items-center gap-1 text-xs font-medium text-(--color-accent-text) hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-medium text-(--color-accent-text) hover:underline cursor-pointer"
             >
               <Plus size={14} /> Add Exercise
             </button>
@@ -90,7 +266,7 @@ export default function WorkoutTracking() {
 
           <div className="space-y-3">
             {loggedSets.map((set, idx) => (
-              <div key={idx} className="p-3 rounded-xl bg-(--color-surface-2) space-y-2">
+              <div key={idx} className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-2">
                 <div className="flex items-center justify-between">
                   {exercises.length > 0 ? (
                     <CustomSelect
@@ -117,12 +293,14 @@ export default function WorkoutTracking() {
                       className="bg-transparent font-medium text-sm text-(--color-text) outline-none"
                     />
                   )}
-                  <button
-                    onClick={() => setLoggedSets(loggedSets.filter((_, i) => i !== idx))}
-                    className="text-xs text-(--color-danger) hover:underline"
-                  >
-                    Remove
-                  </button>
+                  {loggedSets.length > 1 && (
+                    <button
+                      onClick={() => setLoggedSets(loggedSets.filter((_, i) => i !== idx))}
+                      className="text-xs text-(--color-danger) hover:underline cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
@@ -130,10 +308,11 @@ export default function WorkoutTracking() {
                     <label className="text-(--color-text-faint)">Sets</label>
                     <input
                       type="number"
+                      min={1}
                       value={set.sets}
                       onChange={(e) => {
                         const updated = [...loggedSets];
-                        updated[idx].sets = Number(e.target.value);
+                        updated[idx].sets = Math.max(1, Number(e.target.value));
                         setLoggedSets(updated);
                       }}
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
@@ -143,10 +322,11 @@ export default function WorkoutTracking() {
                     <label className="text-(--color-text-faint)">Reps</label>
                     <input
                       type="number"
+                      min={1}
                       value={set.reps}
                       onChange={(e) => {
                         const updated = [...loggedSets];
-                        updated[idx].reps = Number(e.target.value);
+                        updated[idx].reps = Math.max(1, Number(e.target.value));
                         setLoggedSets(updated);
                       }}
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
@@ -156,10 +336,11 @@ export default function WorkoutTracking() {
                     <label className="text-(--color-text-faint)">Weight (kg)</label>
                     <input
                       type="number"
+                      min={0}
                       value={set.weightKg}
                       onChange={(e) => {
                         const updated = [...loggedSets];
-                        updated[idx].weightKg = Number(e.target.value);
+                        updated[idx].weightKg = Math.max(0, Number(e.target.value));
                         setLoggedSets(updated);
                       }}
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
@@ -173,12 +354,13 @@ export default function WorkoutTracking() {
           <button
             onClick={handleSaveWorkout}
             disabled={submitting}
-            className="w-full mt-4 flex items-center justify-center gap-2 rounded-full bg-(--color-accent) text-white font-semibold text-sm py-3 disabled:opacity-50"
+            className="w-full mt-4 flex items-center justify-center gap-2 rounded-full bg-(--color-accent) hover:brightness-110 text-white font-bold text-sm py-3.5 shadow-lg disabled:opacity-50 transition-all cursor-pointer"
           >
-            <CheckCircle size={16} /> {submitting ? "Saving..." : "Log Complete Workout Session"}
+            <CheckCircle size={18} /> {submitting ? "Saving Workout..." : "Log Complete Workout Session"}
           </button>
         </Card>
       )}
     </div>
   );
 }
+
