@@ -190,6 +190,7 @@ export default function MemberHome() {
         attendanceRate={attendanceRate}
         streakDays={streakDays}
         completedWorkoutsCount={completedWorkoutsCount}
+        weightLogs={weightLogs}
         hasWeightLogs={weightLogs.length > 0}
         totalXp={totalXp}
         onRefresh={fetchDashboardData}
