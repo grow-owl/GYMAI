@@ -448,11 +448,7 @@ export default function TopBar({
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-(--color-accent) text-[11px] font-semibold text-white shadow-xs">
                 {avatarInitial}
               </span>
-<<<<<<< HEAD
-              <span className="text-xs text-(--color-text-muted)">{String(user?.gymName || "My Gym")}</span>
-=======
-              <span className="text-xs font-medium text-(--color-text-muted)">{gym.name}</span>
->>>>>>> 7b00bb3 (feat: landing page polish, hover effects, SEO, lazy loading, graphical reports suite, and authentic QR generator)
+              <span className="text-xs font-medium text-(--color-text-muted)">{String(user?.gymName || "My Gym")}</span>
             </button>
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-52 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden z-30">
