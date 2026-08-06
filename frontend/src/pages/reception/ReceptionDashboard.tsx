@@ -72,7 +72,10 @@ export default function ReceptionDashboard() {
       <div>
         <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Quick access</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {quickAccess.map((item) => (
+          {(user?.role === "KIOSK"
+            ? quickAccess.filter((item) => item.path !== "/reception/payments")
+            : quickAccess
+          ).map((item) => (
             <QuickAccessCard key={item.label + item.path} {...item} />
           ))}
         </div>

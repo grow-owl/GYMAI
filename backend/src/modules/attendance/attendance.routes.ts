@@ -46,12 +46,24 @@ branchAttendanceRouter.use(authenticate);
 branchAttendanceRouter.use(injectTenantScope);
 branchAttendanceRouter.get(
   '/:gymId/branches/:branchId/attendance/daily',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
+  AttendanceController.getBranchDailyAttendance
+);
+
+branchAttendanceRouter.get(
+  '/:gymId/attendance/daily',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
   AttendanceController.getBranchDailyAttendance
 );
 
 branchAttendanceRouter.get(
   '/:gymId/branches/:branchId/attendance/generate-qr',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.KIOSK, Role.SUPER_ADMIN),
+  AttendanceController.generateDynamicQR
+);
+
+branchAttendanceRouter.get(
+  '/:gymId/attendance/generate-qr',
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.KIOSK, Role.SUPER_ADMIN),
   AttendanceController.generateDynamicQR
 );

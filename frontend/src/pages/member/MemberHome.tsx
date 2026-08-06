@@ -6,10 +6,8 @@ import { useAuthStore } from "@/store/authStore";
 import { deriveGameStats } from "@/lib/gamification";
 import FitnessScoreGauge from "@/components/member/FitnessScoreGauge";
 import PerformanceCharts from "@/components/member/PerformanceCharts";
-import AIChatWidget from "@/components/member/AIChatWidget";
 import StreakGamificationHub from "@/components/member/StreakGamificationHub";
 import LeaderboardCard from "@/components/member/LeaderboardCard";
-import AttendanceCheckInCard from "@/components/member/AttendanceCheckInCard";
 import WorkoutDietOverview from "@/components/member/WorkoutDietOverview";
 import QuickActionDrawer from "@/components/member/QuickActionDrawer";
 
@@ -88,7 +86,10 @@ export default function MemberHome() {
   const totalXp = gameStats.totalXp;
   const referralCode = memberProfile?.referralCode || "";
   const gymId = memberProfile?.gymId || user?.gymId || "";
-  const branchId = memberProfile?.branchId || user?.branchId || "";
+  
+  const rawBranch = memberProfile?.branchId;
+  const branchId = (typeof rawBranch === "object" && rawBranch !== null ? rawBranch._id : rawBranch) || user?.branchId || "";
+  const branchName = (typeof rawBranch === "object" && rawBranch !== null ? rawBranch.name : user?.branchName) || "";
   const memberId = memberProfile?._id || user?._id || "";
 
   if (!loading && profileError) {
@@ -119,13 +120,18 @@ export default function MemberHome() {
             </span>
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-display text-xl font-extrabold text-(--color-text)">
                 Welcome Back, {memberName}! 👋
               </h1>
               <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 ACTIVE MEMBER
               </span>
+              {branchName && (
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  📍 {branchName}
+                </span>
+              )}
             </div>
             <p className="text-xs text-(--color-text-muted) mt-0.5 flex items-center gap-2">
               <span>{streakDays} Day Workout Streak 🔥</span>
@@ -191,10 +197,7 @@ export default function MemberHome() {
         isLoading={loading}
       />
 
-      {/* SECTION 2: Attendance Access & Instant Check-in Card */}
-      <AttendanceCheckInCard gymId={gymId} branchId={branchId} memberId={memberId} />
-
-      {/* SECTION 3: Performance & Progress Charts */}
+      {/* SECTION 2: Performance & Progress Charts */}
       <PerformanceCharts
         weightLogs={weightLogs}
         targetWeightKg={memberProfile?.targetWeightKg}
@@ -203,7 +206,7 @@ export default function MemberHome() {
         isLoading={loading}
       />
 
-      {/* SECTION 4: Gamification Hub & Leaderboard */}
+      {/* SECTION 3: Gamification Hub & Leaderboard */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7">
           <StreakGamificationHub
@@ -217,10 +220,7 @@ export default function MemberHome() {
         </div>
       </div>
 
-      {/* SECTION 5: Embedded AI Fitness Assistant & Chatbot */}
-      <AIChatWidget />
-
-      {/* SECTION 6: Today's Workout & Active Diet Plan Overview */}
+      {/* SECTION 4: Today's Workout & Active Diet Plan Overview */}
       <WorkoutDietOverview memberId={memberId} />
 
       {/* Quick Action Drawer Modal */}

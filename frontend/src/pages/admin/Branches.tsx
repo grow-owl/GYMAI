@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { GitBranch, Search, Plus, MapPin, Phone, CheckCircle2 } from "lucide-react";
-import { useAdminStore } from "@/store/adminStore";
+import { useState, useEffect } from "react";
+import { GitBranch, Search, Plus, MapPin, Phone, CheckCircle2, Loader2 } from "lucide-react";
+import { gymApi } from "@/lib/endpoints";
 import { useFormValidation } from "@/lib/useFormValidation";
+import { toast } from "sonner";
 
 export default function Branches() {
-  const { branches, gyms, addBranch } = useAdminStore();
+  const [gyms, setGyms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGymId, setSelectedGymId] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -12,7 +15,7 @@ export default function Branches() {
 
   const { values, errors, touched, handleChange, handleBlur, validateAll, resetForm } = useFormValidation(
     {
-      gymId: gyms[0]?.id || "",
+      gymId: "",
       name: "",
       city: "",
       address: "",
@@ -27,6 +30,44 @@ export default function Branches() {
     }
   );
 
+  const fetchGyms = async () => {
+    setLoading(true);
+    try {
+      const res = await gymApi.listAllGyms();
+      const gymList = res.gyms || [];
+      setGyms(gymList);
+      if (gymList.length > 0) {
+        handleChange("gymId", gymList[0]._id || gymList[0].id);
+      }
+    } catch {
+      toast.error("Failed to load gym tenants and branch network from database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGyms();
+  }, []);
+
+  const branches = gyms.reduce((acc: any[], gym: any) => {
+    if (Array.isArray(gym.branches)) {
+      const mapped = gym.branches.map((b: any) => ({
+        id: b._id || b.id,
+        gymId: gym._id || gym.id,
+        gymName: gym.name,
+        name: b.name,
+        city: b.address?.city || "—",
+        address: b.address?.line1 || "—",
+        phone: b.contactPhone || "—",
+        activeMembers: "—",
+        status: "ACTIVE",
+      }));
+      return [...acc, ...mapped];
+    }
+    return acc;
+  }, []);
+
   const filteredBranches = branches.filter((b) => {
     const matchesSearch =
       b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -36,27 +77,36 @@ export default function Branches() {
     return matchesSearch && matchesGym;
   });
 
-  const handleCreateBranch = (e: React.FormEvent) => {
+  const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateAll()) return;
+    setSubmitting(true);
 
-    const targetGym = gyms.find((g) => g.id === values.gymId);
+    const targetGym = gyms.find((g) => (g._id || g.id) === values.gymId);
 
-    addBranch({
-      gymId: values.gymId,
-      gymName: targetGym?.name || "Gym",
-      name: values.name,
-      city: values.city,
-      address: values.address,
-      phone: values.phone,
-      activeMembers: 0,
-      status: "ACTIVE",
-    });
+    try {
+      await gymApi.createBranch(values.gymId, {
+        name: values.name,
+        address: {
+          line1: values.address,
+          city: values.city,
+          state: "State",
+          pincode: "110001",
+          country: "India",
+        },
+        contactPhone: values.phone,
+      });
 
-    setIsModalOpen(false);
-    resetForm();
-    setToastMessage(`Branch "${values.name}" successfully added to ${targetGym?.name}!`);
-    setTimeout(() => setToastMessage(null), 4000);
+      setIsModalOpen(false);
+      resetForm();
+      fetchGyms();
+      setToastMessage(`Branch "${values.name}" successfully added to ${targetGym?.name || "Gym"}!`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to create branch");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -73,7 +123,12 @@ export default function Branches() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            if (gyms.length > 0 && !values.gymId) {
+              handleChange("gymId", gyms[0]._id || gyms[0].id);
+            }
+            setIsModalOpen(true);
+          }}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-(--color-accent) text-white font-medium rounded-xl hover:bg-(--color-accent-strong) transition-colors shadow-lg shadow-(--color-accent-soft)"
         >
           <Plus size={18} /> Add New Branch
@@ -81,7 +136,7 @@ export default function Branches() {
       </div>
 
       {toastMessage && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-3 animate-fade-in">
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-3 animate-fade-in text-sm">
           <CheckCircle2 size={20} />
           <span>{toastMessage}</span>
         </div>
@@ -106,57 +161,66 @@ export default function Branches() {
           className="px-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
         >
           <option value="ALL">All Gym Tenants</option>
-          {gyms.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
+          {gyms.map((g) => {
+            const gId = g._id || g.id;
+            return (
+              <option key={gId} value={gId}>
+                {g.name}
+              </option>
+            );
+          })}
         </select>
       </div>
 
       {/* Branch Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredBranches.length === 0 ? (
-          <div className="col-span-full p-8 text-center border border-(--color-border) rounded-2xl text-(--color-text-muted)">
-            No branches found for the selected criteria.
-          </div>
-        ) : (
-          filteredBranches.map((branch) => (
-            <div
-              key={branch.id}
-              className="p-5 rounded-2xl border border-(--color-border) bg-(--color-surface) hover:border-(--color-accent)/40 transition-all space-y-3 shadow-sm"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-xs font-semibold text-(--color-accent) uppercase tracking-wider">
-                    {branch.gymName}
-                  </span>
-                  <h3 className="text-base font-bold text-(--color-text) mt-0.5">{branch.name}</h3>
-                </div>
-                <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400">
-                  {branch.status}
-                </span>
-              </div>
-
-              <div className="space-y-1.5 text-xs text-(--color-text-muted)">
-                <p className="flex items-center gap-1.5">
-                  <MapPin size={14} className="text-(--color-text-faint)" />
-                  {branch.address}, {branch.city}
-                </p>
-                <p className="flex items-center gap-1.5">
-                  <Phone size={14} className="text-(--color-text-faint)" />
-                  {branch.phone}
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-(--color-border) flex items-center justify-between text-xs">
-                <span className="text-(--color-text-muted)">Active Members</span>
-                <span className="font-bold text-(--color-text) text-sm">{branch.activeMembers}</span>
-              </div>
+      {loading ? (
+        <div className="p-12 text-center text-sm text-(--color-text-muted) flex items-center justify-center gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading branches network...
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredBranches.length === 0 ? (
+            <div className="col-span-full p-8 text-center border border-(--color-border) rounded-2xl text-(--color-text-muted)">
+              No branches found for the selected criteria.
             </div>
-          ))
-        )}
-      </div>
+          ) : (
+            filteredBranches.map((branch) => (
+              <div
+                key={branch.id}
+                className="p-5 rounded-2xl border border-(--color-border) bg-(--color-surface) hover:border-(--color-accent)/40 transition-all space-y-3 shadow-sm"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-xs font-semibold text-(--color-accent) uppercase tracking-wider">
+                      {branch.gymName}
+                    </span>
+                    <h3 className="text-base font-bold text-(--color-text) mt-0.5">{branch.name}</h3>
+                  </div>
+                  <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400">
+                    {branch.status}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-(--color-text-muted)">
+                  <p className="flex items-center gap-1.5">
+                    <MapPin size={14} className="text-(--color-text-faint)" />
+                    {branch.address}, {branch.city}
+                  </p>
+                  <p className="flex items-center gap-1.5">
+                    <Phone size={14} className="text-(--color-text-faint)" />
+                    {branch.phone}
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-(--color-border) flex items-center justify-between text-xs">
+                  <span className="text-(--color-text-muted)">Active Members</span>
+                  <span className="font-bold text-(--color-text) text-sm">{branch.activeMembers}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Add Branch Modal */}
       {isModalOpen && (
@@ -179,11 +243,14 @@ export default function Branches() {
                   onChange={(e) => handleChange("gymId", e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
                 >
-                  {gyms.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
+                  {gyms.map((g) => {
+                    const gId = g._id || g.id;
+                    return (
+                      <option key={gId} value={gId}>
+                        {g.name}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -253,15 +320,18 @@ export default function Branches() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={submitting}
                   className="px-4 py-2 text-sm text-(--color-text-muted) hover:text-(--color-text)"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-(--color-accent) text-white font-semibold text-sm rounded-xl hover:bg-(--color-accent-strong) shadow-md"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-(--color-accent) text-white font-semibold text-sm rounded-xl hover:bg-(--color-accent-strong) shadow-md flex items-center gap-1.5"
                 >
-                  Add Branch
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {submitting ? "Registering..." : "Add Branch"}
                 </button>
               </div>
             </form>

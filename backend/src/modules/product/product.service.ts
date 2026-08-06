@@ -16,6 +16,7 @@ export interface CreateProductInput {
   price: number;
   stockQuantity?: number;
   isActive?: boolean;
+  branchId?: string;
 }
 
 export interface PurchaseProductInput {
@@ -28,14 +29,22 @@ export interface PurchaseProductInput {
 
 export class ProductService {
   public static async createProduct(gymId: string, input: CreateProductInput): Promise<IProduct> {
-    let branch = await Branch.findOne({ gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined, isDeleted: false });
-    const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : null);
+    let targetGymId = mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : null;
+    if (!targetGymId && input.branchId && mongoose.Types.ObjectId.isValid(input.branchId)) {
+      let branch = await Branch.findById(input.branchId);
+      if (branch) targetGymId = branch.gymId;
+    }
+    if (!targetGymId) {
+      let firstBranch = await Branch.findOne({ isDeleted: false });
+      if (firstBranch) targetGymId = firstBranch.gymId;
+    }
     if (!targetGymId) {
       throw AppError.badRequest('Valid gym identifier is required for creating a product');
     }
 
     const product = new Product({
       gymId: targetGymId,
+      branchId: input.branchId && mongoose.Types.ObjectId.isValid(input.branchId) ? new mongoose.Types.ObjectId(input.branchId) : undefined,
       name: input.name,
       category: input.category,
       price: input.price,
@@ -48,7 +57,7 @@ export class ProductService {
 
   public static async listProducts(
     gymId: string,
-    filters: { category?: ProductCategory; isActive?: boolean } = {},
+    filters: { category?: ProductCategory; isActive?: boolean; branchId?: string } = {},
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ products: IProduct[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
@@ -62,6 +71,15 @@ export class ProductService {
     }
     if (filters.isActive !== undefined) {
       filter.isActive = filters.isActive;
+    }
+
+    if (filters.branchId && mongoose.Types.ObjectId.isValid(filters.branchId)) {
+      const bObj = new mongoose.Types.ObjectId(filters.branchId);
+      filter.$or = [
+        { branchId: bObj },
+        { branchId: { $exists: false } },
+        { branchId: null },
+      ];
     }
 
     let [products, totalItems] = await Promise.all([

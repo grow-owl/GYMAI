@@ -35,24 +35,24 @@ export default function FitnessScoreGauge({
     const gamificationScore = streakBonus + xpBonus;
     
     // 4. Progress & Logging Score (0-20 pts)
-    const loggingScore = hasWeightLogs ? 20 : 5;
+    const loggingScore = hasWeightLogs ? 20 : 0;
 
     const totalScore = Math.min(100, consistencyScore + workoutScore + gamificationScore + loggingScore);
 
     let tierLabel = "Spartan Starter";
-    let tierColor = "text-blue-400";
+    let tierColor = "text-(--color-accent-text)";
     let bgGradient = "from-blue-500 to-indigo-600";
     if (totalScore >= 85) {
       tierLabel = "Elite Champion 🏆";
-      tierColor = "text-amber-400";
+      tierColor = "text-amber-500";
       bgGradient = "from-amber-400 via-orange-500 to-red-500";
     } else if (totalScore >= 70) {
       tierLabel = "Pro Athlete 💪";
-      tierColor = "text-emerald-400";
+      tierColor = "text-emerald-600";
       bgGradient = "from-emerald-400 to-teal-600";
     } else if (totalScore >= 50) {
       tierLabel = "Dedicated Lifter 🏋️";
-      tierColor = "text-cyan-400";
+      tierColor = "text-indigo-600";
       bgGradient = "from-cyan-400 to-blue-600";
     }
 
@@ -96,7 +96,7 @@ export default function FitnessScoreGauge({
           <button
             onClick={onRefresh}
             disabled={isLoading}
-            className="flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) transition-colors p-1.5 rounded-md hover:bg-white/5"
+            className="flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) transition-colors p-1.5 rounded-md hover:bg-white/5 cursor-pointer"
             title="Recalculate Score"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin text-(--color-accent)" : ""}`} />
@@ -106,7 +106,7 @@ export default function FitnessScoreGauge({
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
         {/* Left: Circular Gauge */}
-        <div className="md:col-span-5 flex flex-col items-center justify-center p-3 rounded-2xl bg-(--color-surface-2)/40 border border-white/5">
+        <div className="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-2xl bg-(--color-surface-2) border border-(--color-border-soft)">
           <div className="relative flex items-center justify-center">
             <svg className="h-36 w-36 transform -rotate-90">
               {/* Track */}
@@ -114,7 +114,7 @@ export default function FitnessScoreGauge({
                 cx="72"
                 cy="72"
                 r={radius}
-                className="stroke-white/10"
+                className="stroke-(--color-border)"
                 strokeWidth="10"
                 fill="transparent"
               />
@@ -140,17 +140,17 @@ export default function FitnessScoreGauge({
               </defs>
             </svg>
             <div className="absolute flex flex-col items-center justify-center text-center">
-              <span className="font-display text-3xl font-extrabold text-(--color-text) tracking-tight">
+              <span className="font-display text-3.5xl font-extrabold text-(--color-text) tracking-tight">
                 {scores.totalScore}
               </span>
-              <span className="text-[11px] font-semibold text-(--color-text-muted) uppercase tracking-widest">
+              <span className="text-[10px] font-bold text-(--color-text-faint) uppercase tracking-widest mt-0.5">
                 Out of 100
               </span>
             </div>
           </div>
 
-          <div className="mt-3 text-center">
-            <span className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-white/5 border border-white/10 ${scores.tierColor}`}>
+          <div className="mt-3.5 text-center">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-(--color-surface) border border-(--color-border) ${scores.tierColor}`}>
               <Award className="h-3.5 w-3.5" />
               {scores.tierLabel}
             </span>
@@ -162,12 +162,12 @@ export default function FitnessScoreGauge({
           {/* Consistency */}
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="flex items-center gap-1 text-(--color-text-muted) font-medium">
-                <Flame className="h-3.5 w-3.5 text-amber-400" /> Attendance & Consistency
+              <span className="flex items-center gap-1.5 text-(--color-text-muted) font-semibold">
+                <Flame className="h-4 w-4 text-amber-500" /> Attendance & Consistency
               </span>
               <span className="font-bold text-(--color-text)">{scores.consistencyScore} / 30 pts</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <div className="h-2.5 w-full rounded-full bg-(--color-surface-3) overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-500"
                 style={{ width: `${(scores.consistencyScore / 30) * 100}%` }}
@@ -178,12 +178,12 @@ export default function FitnessScoreGauge({
           {/* Workout Volume */}
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="flex items-center gap-1 text-(--color-text-muted) font-medium">
-                <Dumbbell className="h-3.5 w-3.5 text-indigo-400" /> Workout Execution
+              <span className="flex items-center gap-1.5 text-(--color-text-muted) font-semibold">
+                <Dumbbell className="h-4 w-4 text-indigo-500" /> Workout Execution
               </span>
               <span className="font-bold text-(--color-text)">{scores.workoutScore} / 25 pts</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <div className="h-2.5 w-full rounded-full bg-(--color-surface-3) overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full transition-all duration-500"
                 style={{ width: `${(scores.workoutScore / 25) * 100}%` }}
@@ -194,12 +194,12 @@ export default function FitnessScoreGauge({
           {/* Gamification & Streak */}
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="flex items-center gap-1 text-(--color-text-muted) font-medium">
-                <Award className="h-3.5 w-3.5 text-purple-400" /> Streak & Gamification XP
+              <span className="flex items-center gap-1.5 text-(--color-text-muted) font-semibold">
+                <Award className="h-4 w-4 text-purple-500" /> Streak & Gamification XP
               </span>
               <span className="font-bold text-(--color-text)">{scores.gamificationScore} / 25 pts</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <div className="h-2.5 w-full rounded-full bg-(--color-surface-3) overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500"
                 style={{ width: `${(scores.gamificationScore / 25) * 100}%` }}
@@ -210,12 +210,12 @@ export default function FitnessScoreGauge({
           {/* Weight & Body Tracking */}
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="flex items-center gap-1 text-(--color-text-muted) font-medium">
-                <Activity className="h-3.5 w-3.5 text-emerald-400" /> Metric & Weight Logging
+              <span className="flex items-center gap-1.5 text-(--color-text-muted) font-semibold">
+                <Activity className="h-4 w-4 text-emerald-500" /> Metric & Weight Logging
               </span>
               <span className="font-bold text-(--color-text)">{scores.loggingScore} / 20 pts</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <div className="h-2.5 w-full rounded-full bg-(--color-surface-3) overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500"
                 style={{ width: `${(scores.loggingScore / 20) * 100}%` }}
@@ -223,8 +223,8 @@ export default function FitnessScoreGauge({
             </div>
           </div>
 
-          <p className="text-[11px] text-(--color-text-muted) flex items-center gap-1 mt-2">
-            <Info className="h-3 w-3 text-(--color-accent)" /> Check-in daily, finish workouts, and log weight to boost your score!
+          <p className="text-[11px] text-(--color-text-muted) flex items-center gap-1.5 mt-3 font-medium">
+            <Info className="h-3.5 w-3.5 text-(--color-accent)" /> Check-in daily, finish workouts, and log weight to boost your score!
           </p>
         </div>
       </div>

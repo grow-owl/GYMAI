@@ -14,6 +14,7 @@ import { Member } from '../member/member.model';
 import { GymService } from '../gym/gym.service';
 
 import { Gym } from '../gym/gym.model';
+import { Branch } from '../gym/branch.model';
 
 const REFRESH_TOKEN_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -149,12 +150,18 @@ export class AuthService {
 
     logger.info(`🔓 User logged in: [ID: ${user._id}] [Role: ${user.role}]`);
 
-    const userObj: any = user.toObject();
+    const userObj: any = user.toSafeJSON ? user.toSafeJSON() : user.toObject();
     delete userObj.password;
     if (user.gymId) {
       const gymDoc = await Gym.findById(user.gymId);
       if (gymDoc) {
         userObj.gymName = gymDoc.name;
+      }
+    }
+    if (user.branchId) {
+      const branchDoc = await Branch.findById(user.branchId);
+      if (branchDoc) {
+        userObj.branchName = branchDoc.name;
       }
     }
 
@@ -245,10 +252,26 @@ export class AuthService {
     logger.info(`🔒 All sessions logged out for User ID: ${userId}`);
   }
 
-  public static async getMe(userId: string): Promise<IUser> {
+  public static async getMe(userId: string): Promise<any> {
     const user = await User.findOne({ _id: userId, isDeleted: false });
     if (!user) throw AppError.notFound('User profile not found');
-    return user;
+
+    const userObj: any = user.toSafeJSON ? user.toSafeJSON() : user.toObject();
+    delete userObj.password;
+    if (user.gymId) {
+      const gymDoc = await Gym.findById(user.gymId);
+      if (gymDoc) {
+        userObj.gymName = gymDoc.name;
+      }
+    }
+    if (user.branchId) {
+      const branchDoc = await Branch.findById(user.branchId);
+      if (branchDoc) {
+        userObj.branchName = branchDoc.name;
+      }
+    }
+
+    return userObj;
   }
 
   public static async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {

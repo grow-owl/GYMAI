@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Scale, MessageSquare, Shield, Share2, X, Loader2, Star, Download, Check } from "lucide-react";
 import { progressApi, feedbackApi, privacyApi } from "@/lib/endpoints";
 import { toast } from "sonner";
@@ -105,9 +106,14 @@ export default function QuickActionDrawer({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
-      <div className="relative w-full max-w-md rounded-2xl bg-(--color-surface) p-6 border border-(--color-border) shadow-2xl space-y-4">
+  return createPortal(
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4 sm:p-6 backdrop-blur-md animate-in fade-in duration-200"
+    >
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-(--color-surface) p-6 border border-(--color-border) shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -304,6 +310,7 @@ export default function QuickActionDrawer({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

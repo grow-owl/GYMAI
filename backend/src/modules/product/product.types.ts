@@ -5,6 +5,7 @@ export type ProductCategory = 'supplement' | 'merchandise' | 'service_package' |
 export interface IProduct {
   _id: Types.ObjectId;
   gymId: Types.ObjectId;
+  branchId?: Types.ObjectId;
   name: string;
   category: ProductCategory;
   price: number;

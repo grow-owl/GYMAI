@@ -105,8 +105,14 @@ export default function TopBar({
       const stored = localStorage.getItem(storageKey);
       if (stored) return stored;
     } catch {}
-    return "65a000000000000000000002";
+    return user?.branchId || "";
   });
+
+  useEffect(() => {
+    if (user?.branchId && (!activeBranchId || activeBranchId === "65a000000000000000000002")) {
+      setActiveBranchId(user.branchId);
+    }
+  }, [user?.branchId, activeBranchId]);
 
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -125,20 +131,49 @@ export default function TopBar({
     } catch {}
 
     const gymId = user?.gymId || "";
-    if (!gymId) return;
+    const userBranchId = user?.branchId || "";
+    const userBranchName = user?.branchName || (user?.gymName ? `${user.gymName} Branch` : "");
+
+    if (user?.role === "MEMBER" && userBranchId) {
+      setBranches([{ _id: userBranchId, name: userBranchName || "My Branch" }]);
+      return;
+    }
+
+    if (!gymId) {
+      if (userBranchId) {
+        setBranches([{ _id: userBranchId, name: userBranchName || "My Branch" }]);
+      }
+      return;
+    }
     try {
       const res = await gymApi.listBranches(gymId);
       const bList = Array.isArray(res) ? res : res?.branches || [];
-      if (bList.length > 0) setBranches(bList);
-      else setBranches([{ _id: "65a000000000000000000002", name: "Main Branch" }]);
+      if (bList.length > 0) {
+        setBranches(bList);
+      } else if (userBranchId) {
+        setBranches([{ _id: userBranchId, name: userBranchName || "My Branch" }]);
+      }
     } catch {
-      setBranches([{ _id: "65a000000000000000000002", name: "Main Branch" }]);
+      if (userBranchId) {
+        setBranches([{ _id: userBranchId, name: userBranchName || "My Branch" }]);
+      }
     }
-  }, [user?.gymId, branchesKey]);
+  }, [user?.gymId, user?.branchId, user?.branchName, user?.gymName, branchesKey]);
 
   useEffect(() => {
     fetchBranches();
   }, [fetchBranches]);
+
+  const activeBranch = useMemo(() => {
+    if (activeBranchId && branches.length > 0) {
+      const found = branches.find((b) => (b._id || b.id) === activeBranchId);
+      if (found) return found;
+    }
+    if (user?.branchName) {
+      return { _id: user.branchId || "default", name: user.branchName };
+    }
+    return branches[0] || null;
+  }, [branches, activeBranchId, user?.branchName, user?.branchId]);
 
   const handleSelectBranch = (bId: string) => {
     const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : 'gymai.selected_branch_id';
@@ -260,44 +295,49 @@ export default function TopBar({
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-(--color-border) bg-(--color-surface) backdrop-blur px-4 sm:px-6 py-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+    <header className="sticky top-0 z-20 border-b border-(--color-border) bg-(--color-surface) backdrop-blur px-3 sm:px-6 py-3 sm:py-4">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             onClick={onMenuClick}
-            className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-(--color-text-muted)"
+            className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-(--color-text-muted) hover:bg-(--color-surface-2) transition-colors"
           >
             <Menu size={18} />
           </button>
-          <div className="min-w-0">
-            <h1 className="font-display text-lg sm:text-xl font-semibold text-(--color-text) truncate">{greeting}</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-base sm:text-xl font-semibold text-(--color-text) truncate">{greeting}</h1>
             {subtitle && (
-              <p className="text-xs sm:text-sm text-(--color-text-muted) mt-0.5">
+              <p className="text-xs text-(--color-text-muted) mt-0.5 truncate hidden sm:block">
                 {subtitle}
-                {branches.length > 0 && (() => {
-                  const active = branches.find((b) => (b._id || b.id) === activeBranchId);
-                  return active ? ` · ${active.name}` : "";
-                })()}
               </p>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Branch Selector Dropdown */}
-          {branches.length > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text)">
-              <Building2 size={14} className="text-(--color-accent) shrink-0" />
-              <CustomSelect
-                compact
-                value={activeBranchId}
-                onChange={handleSelectBranch}
-                options={branches.map((b) => ({
-                  value: b._id || b.id,
-                  label: `${b.name} (${b.city || "Branch"})`,
-                }))}
-              />
-            </div>
+          {/* Branch Selector or Member Branch Display */}
+          {user?.role === "MEMBER" ? (
+            activeBranch?.name ? (
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) shrink-0 max-w-[130px] sm:max-w-none">
+                <Building2 size={14} className="text-(--color-accent) shrink-0" />
+                <span className="truncate">{activeBranch.name}</span>
+              </div>
+            ) : null
+          ) : (
+            branches.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) shrink-0 max-w-[150px] sm:max-w-none">
+                <Building2 size={14} className="text-(--color-accent) shrink-0" />
+                <CustomSelect
+                  compact
+                  value={activeBranchId || (branches[0]?._id || branches[0]?.id)}
+                  onChange={handleSelectBranch}
+                  options={branches.map((b) => ({
+                    value: b._id || b.id,
+                    label: `${b.name}${b.city ? ` (${b.city})` : ""}`,
+                  }))}
+                />
+              </div>
+            )
           )}
 
           {/* Search — visible only on Dashboard */}
@@ -445,20 +485,40 @@ export default function TopBar({
                 setProfileOpen((o) => !o);
                 setNotifOpen(false);
               }}
-              className="hidden sm:flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) pl-1 pr-3 py-1"
+              className="hidden sm:flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) pl-1 pr-3 py-1 hover:border-(--color-accent) transition-all"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-(--color-accent) text-[11px] font-semibold text-white">
-                {avatarInitial}
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-(--color-accent) text-[11px] font-bold text-white uppercase">
+                {avatarInitial || (user?.fullName ? user.fullName[0] : "S")}
               </span>
-              <span className="text-xs text-(--color-text-muted)">{String(user?.gymName || "My Gym")}</span>
+              <div className="text-left leading-tight">
+                <span className="text-xs font-semibold text-(--color-text) block">
+                  {user?.fullName || String(user?.gymName || "My Gym")}
+                </span>
+                <span className="text-[10px] text-(--color-text-muted) block">
+                  {user?.role === "BRANCH_MANAGER"
+                    ? "Branch Manager"
+                    : user?.role === "KIOSK"
+                    ? "Front Desk Staff"
+                    : user?.role === "GYM_OWNER"
+                    ? "Gym Owner"
+                    : roleLabel || "Staff"}
+                </span>
+              </div>
             </button>
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-52 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden z-30">
-                {roleLabel && (
-                  <p className="px-4 py-3 text-xs font-semibold text-(--color-text-muted) border-b border-(--color-border)">
-                    {roleLabel}
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-(--color-border) bg-(--color-surface) shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-4 py-3 border-b border-(--color-border) bg-(--color-surface-2)/40">
+                  <p className="text-xs font-bold text-(--color-text)">{user?.fullName || "Staff User"}</p>
+                  <p className="text-[11px] text-(--color-accent) font-semibold mt-0.5">
+                    {user?.role === "BRANCH_MANAGER"
+                      ? "👔 Branch Manager"
+                      : user?.role === "KIOSK"
+                      ? "🖥️ Reception / Front Desk Staff"
+                      : user?.role === "GYM_OWNER"
+                      ? "👑 Gym Owner"
+                      : roleLabel || "Staff Account"}
                   </p>
-                )}
+                </div>
                 <button
                   onClick={() => {
                     setProfileOpen(false);

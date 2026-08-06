@@ -48,7 +48,7 @@ export default function Progress() {
           let latestWeight: number | null = null;
           let weightChange = "No weight logs yet";
           let planTitle = "No active plan";
-          let completionValue = 50;
+          let completionValue = 0;
 
           if (cId) {
             const [histRes, planRes] = await Promise.all([
@@ -70,13 +70,14 @@ export default function Progress() {
               } else {
                 weightChange = `${diff >= 0 ? "+" : ""}${diff} kg (${history.length} logs)`;
               }
+              completionValue = Math.min(100, history.length * 20);
             }
 
             if (planRes && (planRes.plan || planRes.title || planRes.name)) {
               const p = planRes.plan || planRes;
               planTitle = p.title || p.name || "Active Workout Plan";
               if (Array.isArray(p.exercises) && p.exercises.length > 0) {
-                completionValue = Math.min(100, Math.max(20, p.exercises.length * 20));
+                completionValue = Math.max(completionValue, Math.min(100, p.exercises.length * 20));
               }
             }
           }
@@ -114,10 +115,10 @@ export default function Progress() {
         action={
           <button
             onClick={fetchProgress}
-            className="inline-flex items-center gap-1.5 p-2 rounded-lg bg-(--color-surface-2) text-xs text-(--color-text-muted) hover:text-(--color-text)"
+            className="inline-flex items-center gap-1.5 p-2 rounded-lg bg-(--color-surface-2) text-xs text-(--color-text-muted) hover:text-(--color-text) border border-(--color-border)"
             title="Refresh Progress"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
+            <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} /> Refresh
           </button>
         }
       />
@@ -145,27 +146,43 @@ export default function Progress() {
           </p>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {clientProgress.map((p) => (
-            <Card key={p.id} className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-(--color-text)">{p.name}</p>
-                  <p className="text-xs text-(--color-text-muted) mt-0.5 flex items-center gap-1">
-                    <Dumbbell size={12} className="text-(--color-accent)" />
-                    {p.planTitle}
-                  </p>
+            <Card key={p.id} className="p-4.5 space-y-3 border border-(--color-border) bg-(--color-surface)">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-(--color-accent)/15 text-(--color-accent) font-bold text-sm flex items-center justify-center border border-(--color-accent)/30 shrink-0 uppercase">
+                    {p.name[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-(--color-text)">{p.name}</p>
+                    <p className="text-xs text-(--color-text-muted) mt-0.5 flex items-center gap-1">
+                      <Dumbbell size={13} className="text-(--color-accent) shrink-0" />
+                      {p.planTitle}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
-                  {p.latestWeight !== null && (
-                    <p className="text-sm font-bold text-(--color-text)">
+                  {p.latestWeight !== null ? (
+                    <p className="text-sm font-extrabold text-(--color-text)">
                       {p.latestWeight} <span className="text-xs font-normal text-(--color-text-muted)">kg</span>
                     </p>
+                  ) : (
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-(--color-surface-2) text-(--color-text-muted) border border-(--color-border)">
+                      No weigh-in
+                    </span>
                   )}
-                  <span className="text-xs text-(--color-good) font-medium">{p.weightChange}</span>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">{p.weightChange}</p>
                 </div>
               </div>
-              <ProgressBar value={p.completionValue} max={100} />
+
+              <div className="space-y-1 pt-1">
+                <div className="flex justify-between text-[11px] font-semibold text-(--color-text-muted)">
+                  <span>Activity & Tracking Progress</span>
+                  <span>{p.completionValue}%</span>
+                </div>
+                <ProgressBar value={p.completionValue} max={100} />
+              </div>
             </Card>
           ))}
         </div>

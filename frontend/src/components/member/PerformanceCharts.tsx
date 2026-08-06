@@ -255,7 +255,7 @@ export default function PerformanceCharts({
               )}
 
               {/* Line Curve */}
-              {svgChartData.pathString && (
+              {svgChartData.pathString ? (
                 <path
                   d={svgChartData.pathString}
                   fill="none"
@@ -263,6 +263,32 @@ export default function PerformanceCharts({
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
+              ) : (
+                /* Empty State Dotted Preview Line Curve */
+                <>
+                  <path
+                    d="M 35 140 C 150 90, 300 130, 450 70 L 565 100"
+                    fill="none"
+                    stroke="var(--color-accent, #6366f1)"
+                    strokeWidth="2.5"
+                    strokeDasharray="6 6"
+                    opacity="0.35"
+                  />
+                  <foreignObject x="100" y="45" width="400" height="110">
+                    <div className="flex flex-col items-center justify-center h-full text-center bg-(--color-surface)/90 backdrop-blur-md p-3.5 rounded-2xl border border-(--color-border) shadow-xl">
+                      <p className="text-xs font-extrabold text-(--color-text)">📈 Weight Progression Curve Preview</p>
+                      <p className="text-[11px] text-(--color-text-muted) mt-0.5">
+                        Log your weight to start mapping your personal weight trend graph!
+                      </p>
+                      <button
+                        onClick={onLogWeightClick}
+                        className="mt-2 text-[11px] font-bold text-white bg-(--color-accent) px-3.5 py-1.5 rounded-full shadow-md hover:brightness-110 transition-all flex items-center gap-1"
+                      >
+                        <Plus className="h-3 w-3" /> Log Weight Now
+                      </button>
+                    </div>
+                  </foreignObject>
+                </>
               )}
 
               {/* Data Points & Tooltip Dots */}

@@ -22,10 +22,11 @@ export class ProductController {
       const { gymId } = req.params;
       assertTenantMatch(gymId, req);
 
-      const { category, isActive, page, limit } = req.query;
+      const { category, isActive, branchId, page, limit } = req.query;
       const filters = {
         category: category as ProductCategory | undefined,
         isActive: isActive !== undefined ? isActive === 'true' : undefined,
+        branchId: (branchId as string) || (req.user?.branchId ? String(req.user.branchId) : undefined),
       };
 
       const result = await ProductService.listProducts(gymId, filters, {

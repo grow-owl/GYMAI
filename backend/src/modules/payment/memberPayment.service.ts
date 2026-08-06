@@ -274,7 +274,15 @@ export class MemberPaymentService {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
 
     const filter: Record<string, unknown> = {};
-    if (filters.memberId && mongoose.Types.ObjectId.isValid(filters.memberId)) filter.memberId = new mongoose.Types.ObjectId(filters.memberId);
+    if (mongoose.Types.ObjectId.isValid(_gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(_gymId);
+    }
+    if (filters.branchId && mongoose.Types.ObjectId.isValid(filters.branchId)) {
+      filter.branchId = new mongoose.Types.ObjectId(filters.branchId);
+    }
+    if (filters.memberId && mongoose.Types.ObjectId.isValid(filters.memberId)) {
+      filter.memberId = new mongoose.Types.ObjectId(filters.memberId);
+    }
     if (filters.status) filter.status = filters.status;
     if (filters.purpose) filter.purpose = filters.purpose;
 
@@ -294,8 +302,8 @@ export class MemberPaymentService {
 
   public static async getRevenueSummary(
     _gymId: string,
-    branchIdOrRange?: string | { startDate?: Date; endDate?: Date },
-    groupByOrRange?: 'day' | 'month' | { startDate?: Date; endDate?: Date },
+    branchIdOrRange?: string | { startDate?: Date; endDate?: Date; branchId?: string },
+    groupByOrRange?: 'day' | 'month' | { startDate?: Date; endDate?: Date; branchId?: string },
     startDateArg?: Date,
     endDateArg?: Date
   ): Promise<RevenueSummary> {
@@ -303,23 +311,38 @@ export class MemberPaymentService {
     let startDate: Date | undefined;
     let endDate: Date | undefined;
 
-    if (typeof branchIdOrRange === 'object') {
-      startDate = branchIdOrRange.startDate;
-      endDate = branchIdOrRange.endDate;
+    const matchFilter: any = {
+      status: PaymentStatus.SUCCESS,
+    };
+
+    if (mongoose.Types.ObjectId.isValid(_gymId)) {
+      matchFilter.gymId = new mongoose.Types.ObjectId(_gymId);
+    }
+
+    if (typeof branchIdOrRange === 'object' && branchIdOrRange !== null) {
+      startDate = (branchIdOrRange as any).startDate;
+      endDate = (branchIdOrRange as any).endDate;
+      const bId = (branchIdOrRange as any).branchId;
+      if (bId && mongoose.Types.ObjectId.isValid(bId)) {
+        matchFilter.branchId = new mongoose.Types.ObjectId(bId);
+      }
       if (typeof groupByOrRange === 'string') groupBy = groupByOrRange as 'day' | 'month';
     } else {
+      if (typeof branchIdOrRange === 'string' && mongoose.Types.ObjectId.isValid(branchIdOrRange)) {
+        matchFilter.branchId = new mongoose.Types.ObjectId(branchIdOrRange);
+      }
       if (typeof groupByOrRange === 'string') groupBy = groupByOrRange as 'day' | 'month';
-      else if (typeof groupByOrRange === 'object') {
-        startDate = groupByOrRange.startDate;
-        endDate = groupByOrRange.endDate;
+      else if (typeof groupByOrRange === 'object' && groupByOrRange !== null) {
+        startDate = (groupByOrRange as any).startDate;
+        endDate = (groupByOrRange as any).endDate;
+        const bId = (groupByOrRange as any).branchId;
+        if (bId && mongoose.Types.ObjectId.isValid(bId)) {
+          matchFilter.branchId = new mongoose.Types.ObjectId(bId);
+        }
       }
       if (startDateArg) startDate = startDateArg;
       if (endDateArg) endDate = endDateArg;
     }
-
-    const matchFilter: any = {
-      status: PaymentStatus.SUCCESS,
-    };
 
     if (startDate || endDate) {
       matchFilter.paidAt = {};

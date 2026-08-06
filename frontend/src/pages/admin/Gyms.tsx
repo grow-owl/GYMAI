@@ -1,12 +1,17 @@
-import { useState } from "react";
-import { Building2, Search, Plus, Filter, ShieldCheck, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
-import { useAdminStore } from "@/store/adminStore";
+import { useState, useEffect } from "react";
+import { Building2, Search, Plus, Filter, ShieldCheck, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { gymApi, authApi } from "@/lib/endpoints";
 import { useFormValidation } from "@/lib/useFormValidation";
+import { toast } from "sonner";
 
 export default function Gyms() {
-  const { gyms, searchQuery, statusFilter, setSearchQuery, setStatusFilter, toggleGymStatus, addGym } = useAdminStore();
+  const [gyms, setGyms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [tempCredentials, setTempCredentials] = useState<{ email: string; pass: string } | null>(null);
 
   const { values, errors, touched, handleChange, handleBlur, validateAll, resetForm } = useFormValidation(
     {
@@ -14,7 +19,7 @@ export default function Gyms() {
       ownerName: "",
       ownerEmail: "",
       ownerPhone: "",
-      subscriptionPlan: "STARTER" as "STARTER" | "PRO" | "ENTERPRISE",
+      subscriptionPlan: "PRO" as "STARTER" | "PRO" | "ENTERPRISE",
     },
     {
       name: { required: "Gym name is required" },
@@ -24,36 +29,73 @@ export default function Gyms() {
     }
   );
 
+  const fetchGyms = async () => {
+    setLoading(true);
+    try {
+      const res = await gymApi.listAllGyms();
+      setGyms(res.gyms || []);
+    } catch {
+      toast.error("Failed to load gym tenants list from database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGyms();
+  }, []);
+
+  const handleToggleStatus = async (gymId: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+    try {
+      await gymApi.updateGym(gymId, { status: nextStatus });
+      toast.success(`Gym status updated to ${nextStatus}!`);
+      fetchGyms();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to update gym status");
+    }
+  };
+
+  const handleCreateGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateAll()) return;
+    setSubmitting(true);
+    setTempCredentials(null);
+
+    const generatedPass = Math.random().toString(36).slice(-10) + "A1!";
+
+    try {
+      await authApi.registerOwner({
+        fullName: values.ownerName,
+        email: values.ownerEmail,
+        phone: values.ownerPhone,
+        password: generatedPass,
+        gymName: values.name,
+        branchName: "Main Branch",
+        plan: values.subscriptionPlan,
+      });
+
+      setTempCredentials({ email: values.ownerEmail, pass: generatedPass });
+      setIsModalOpen(false);
+      resetForm();
+      fetchGyms();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to onboard gym owner account");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredGyms = gyms.filter((gym) => {
+    const ownerName = gym.owner?.fullName || "";
+    const ownerEmail = gym.owner?.email || "";
     const matchesSearch =
       gym.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      gym.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      gym.ownerEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ownerEmail.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || gym.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
-  const handleCreateGym = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateAll()) return;
-
-    addGym({
-      name: values.name,
-      ownerName: values.ownerName,
-      ownerEmail: values.ownerEmail,
-      ownerPhone: values.ownerPhone,
-      subscriptionPlan: values.subscriptionPlan,
-      status: "ACTIVE",
-      branchesCount: 1,
-      totalMembers: 0,
-      monthlyRevenue: 0,
-    });
-
-    setIsModalOpen(false);
-    resetForm();
-    setToastMessage(`Gym "${values.name}" successfully onboarded to the SaaS platform!`);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -69,17 +111,28 @@ export default function Gyms() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setTempCredentials(null);
+            setIsModalOpen(true);
+          }}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-(--color-accent) text-white font-medium rounded-xl hover:bg-(--color-accent-strong) transition-colors shadow-lg shadow-(--color-accent-soft)"
         >
           <Plus size={18} /> Onboard New Gym
         </button>
       </div>
 
-      {toastMessage && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-3 animate-fade-in">
-          <CheckCircle2 size={20} />
-          <span>{toastMessage}</span>
+      {tempCredentials && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 space-y-2 animate-fade-in text-xs sm:text-sm">
+          <div className="flex items-center gap-2 font-bold">
+            <CheckCircle2 size={20} />
+            <span>Gym Tenant Successfully Onboarded!</span>
+          </div>
+          <p>Provide these credentials to the Gym Owner so they can log in to their dashboard:</p>
+          <div className="p-3 bg-black/30 rounded-lg font-mono space-y-1 select-all border border-white/5 max-w-md">
+            <p><span className="text-(--color-text-faint)">Email:</span> {tempCredentials.email}</p>
+            <p><span className="text-(--color-text-faint)">Password:</span> {tempCredentials.pass}</p>
+          </div>
+          <p className="text-xs text-emerald-500/70 font-semibold">⚠️ Note: Copy these now. The password cannot be recovered once this notice is dismissed.</p>
         </div>
       )}
 
@@ -105,7 +158,6 @@ export default function Gyms() {
           >
             <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active Only</option>
-            <option value="TRIAL">Trial Only</option>
             <option value="SUSPENDED">Suspended Only</option>
           </select>
         </div>
@@ -114,84 +166,94 @@ export default function Gyms() {
       {/* Gym Tenants Table */}
       <div className="rounded-2xl border border-(--color-border) bg-(--color-surface) overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-(--color-border) bg-white/5 text-xs text-(--color-text-muted) uppercase">
-                <th className="p-4 font-semibold">Gym Name</th>
-                <th className="p-4 font-semibold">Owner Info</th>
-                <th className="p-4 font-semibold">Plan</th>
-                <th className="p-4 font-semibold">Branches</th>
-                <th className="p-4 font-semibold">Members</th>
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-(--color-border)">
-              {filteredGyms.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-(--color-text-muted)">
-                    No gym tenants found matching your criteria.
-                  </td>
+          {loading ? (
+            <div className="p-12 text-center text-sm text-(--color-text-muted) flex items-center justify-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading registered gyms...
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-(--color-border) bg-white/5 text-xs text-(--color-text-muted) uppercase">
+                  <th className="p-4 font-semibold">Gym Name</th>
+                  <th className="p-4 font-semibold">Owner Info</th>
+                  <th className="p-4 font-semibold">Plan</th>
+                  <th className="p-4 font-semibold">Branches</th>
+                  <th className="p-4 font-semibold">Status</th>
+                  <th className="p-4 font-semibold text-right">Actions</th>
                 </tr>
-              ) : (
-                filteredGyms.map((gym) => (
-                  <tr key={gym.id} className="hover:bg-white/5 transition-colors">
-                    <td className="p-4">
-                      <p className="font-semibold text-(--color-text)">{gym.name}</p>
-                      <p className="text-xs text-(--color-text-faint)">ID: {gym.id}</p>
-                    </td>
-                    <td className="p-4">
-                      <p className="font-medium text-(--color-text)">{gym.ownerName}</p>
-                      <p className="text-xs text-(--color-text-muted)">{gym.ownerEmail} • {gym.ownerPhone}</p>
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
-                          gym.subscriptionPlan === "ENTERPRISE"
-                            ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                            : gym.subscriptionPlan === "PRO"
-                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                            : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                        }`}
-                      >
-                        {gym.subscriptionPlan}
-                      </span>
-                    </td>
-                    <td className="p-4 font-medium text-(--color-text)">{gym.branchesCount}</td>
-                    <td className="p-4 font-medium text-(--color-text)">{gym.totalMembers}</td>
-                    <td className="p-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full ${
-                          gym.status === "ACTIVE"
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : gym.status === "TRIAL"
-                            ? "bg-amber-500/10 text-amber-400"
-                            : "bg-rose-500/10 text-rose-400"
-                        }`}
-                      >
-                        {gym.status === "ACTIVE" && <CheckCircle2 size={12} />}
-                        {gym.status === "SUSPENDED" && <XCircle size={12} />}
-                        {gym.status === "TRIAL" && <AlertCircle size={12} />}
-                        {gym.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => toggleGymStatus(gym.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                          gym.status === "ACTIVE"
-                            ? "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
-                            : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                        }`}
-                      >
-                        {gym.status === "ACTIVE" ? "Suspend Gym" : "Activate Gym"}
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-(--color-border)">
+                {filteredGyms.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-(--color-text-muted)">
+                      No gym tenants found matching your criteria.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredGyms.map((gym) => {
+                    const gymId = gym._id || gym.id;
+                    const ownerName = gym.owner?.fullName || "—";
+                    const ownerEmail = gym.owner?.email || "";
+                    const ownerPhone = gym.owner?.phone || "";
+                    const branchCount = gym.branches?.length || 0;
+
+                    return (
+                      <tr key={gymId} className="hover:bg-white/5 transition-colors">
+                        <td className="p-4">
+                          <p className="font-semibold text-(--color-text)">{gym.name}</p>
+                          <p className="text-xs text-(--color-text-faint)">ID: {gymId}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className="font-medium text-(--color-text)">{ownerName}</p>
+                          <p className="text-xs text-(--color-text-muted)">
+                            {ownerEmail} {ownerPhone ? `• ${ownerPhone}` : ""}
+                          </p>
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
+                              gym.plan === "ENTERPRISE"
+                                ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                : gym.plan === "PRO"
+                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            }`}
+                          >
+                            {gym.plan}
+                          </span>
+                        </td>
+                        <td className="p-4 font-medium text-(--color-text)">{branchCount}</td>
+                        <td className="p-4">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full ${
+                              gym.status === "ACTIVE"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-rose-500/10 text-rose-400"
+                            }`}
+                          >
+                            {gym.status === "ACTIVE" ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                            {gym.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => handleToggleStatus(gymId, gym.status)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                              gym.status === "ACTIVE"
+                                ? "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                                : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                            }`}
+                          >
+                            {gym.status === "ACTIVE" ? "Suspend Gym" : "Activate Gym"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -288,15 +350,18 @@ export default function Gyms() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={submitting}
                   className="px-4 py-2 text-sm text-(--color-text-muted) hover:text-(--color-text)"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-(--color-accent) text-white font-semibold text-sm rounded-xl hover:bg-(--color-accent-strong) shadow-md"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-(--color-accent) text-white font-semibold text-sm rounded-xl hover:bg-(--color-accent-strong) shadow-md flex items-center gap-1.5"
                 >
-                  Create Gym Tenant
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {submitting ? "Onboarding..." : "Create Gym Tenant"}
                 </button>
               </div>
             </form>

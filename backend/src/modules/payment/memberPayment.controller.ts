@@ -6,6 +6,7 @@ import { PaymentStatus } from './platformSubscription.types';
 import { PaymentPurpose } from './memberPayment.types';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { Role } from '../../common/constants/roles.enum';
 
 export class MemberPaymentController {
   public static recordManualPayment = asyncHandler(async (req: Request, res: Response) => {
@@ -79,10 +80,17 @@ export class MemberPaymentController {
 
     const { branchId, memberId, status, purpose } = req.query;
 
+    let finalBranchId = branchId as string;
+    if (req.user!.role !== Role.SUPER_ADMIN && req.user!.role !== Role.GYM_OWNER) {
+      if (req.user!.branchId) {
+        finalBranchId = req.user!.branchId.toString();
+      }
+    }
+
     const { payments, meta } = await MemberPaymentService.listPayments(
       gymId.toString(),
       {
-        branchId: branchId as string,
+        branchId: finalBranchId,
         memberId: memberId as string,
         status: status as PaymentStatus,
         purpose: purpose as PaymentPurpose,
@@ -123,8 +131,19 @@ export class MemberPaymentController {
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
     const groupBy = (req.query.groupBy as 'day' | 'month') || 'day';
+    let finalBranchId = req.query.branchId as string;
 
-    const revenue = await MemberPaymentService.getRevenueSummary(gymId.toString(), { startDate, endDate }, groupBy);
+    if (req.user!.role !== Role.SUPER_ADMIN && req.user!.role !== Role.GYM_OWNER) {
+      if (req.user!.branchId) {
+        finalBranchId = req.user!.branchId.toString();
+      }
+    }
+
+    const revenue = await MemberPaymentService.getRevenueSummary(
+      gymId.toString(),
+      { startDate, endDate, branchId: finalBranchId },
+      groupBy
+    );
 
     return sendSuccess(res, { revenue: revenue.breakdown, summary: { total: revenue.totalRevenue, transactions: revenue.totalTransactions }, groupBy }, 'Revenue summary retrieved successfully');
   });

@@ -12,6 +12,8 @@ export interface AuthUser {
   role: Role;
   gymId?: string;
   branchId?: string;
+  gymName?: string;
+  branchName?: string;
   isActive: boolean;
   createdAt: string;
   [key: string]: unknown;
@@ -79,6 +81,10 @@ export const gymApi = {
   listBranches: (gymId: string) => api.get<{ branches: { _id: string; name: string }[] }>(`/gyms/${gymId}/branches`),
 
   getGymById: (gymId: string) => api.get<{ gym: any }>(`/gyms/${gymId}`),
+
+  updateGym: (gymId: string, data: any) => api.patch<{ gym: any }>(`/gyms/${gymId}`, data),
+
+  deleteGym: (gymId: string) => api.delete<any>(`/gyms/${gymId}`),
 };
 
 export interface DashboardOverview {
@@ -126,19 +132,19 @@ export const trainerApi = {
 };
 
 export const staffApi = {
-  list: (gymId: string, branchId: string) =>
-    api.get<{ staff: any[] }>(`/gyms/${gymId}/branches/${branchId}/staff`),
+  list: (gymId: string, branchId?: string) =>
+    api.get<{ staff: any[] }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`),
 
-  create: (gymId: string, branchId: string, data: any) =>
-    api.post<{ staff: any }>(`/gyms/${gymId}/branches/${branchId}/staff`, data),
+  create: (gymId: string, branchId?: string, data?: any) =>
+    api.post<{ staff: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`, data),
 };
 
 export const memberApi = {
-  list: (gymId: string, branchId: string) =>
-    api.get<{ members: any[] } | any[]>(`/gyms/${gymId}/branches/${branchId}/members`),
+  list: (gymId: string, branchId?: string) =>
+    api.get<{ members: any[] } | any[]>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`),
 
-  create: (gymId: string, branchId: string, data: any) =>
-    api.post<{ member: any }>(`/gyms/${gymId}/branches/${branchId}/members`, data),
+  create: (gymId: string, branchId?: string, data?: any) =>
+    api.post<{ member: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`, data),
 
   freeze: (gymId: string, _branchId: string, memberId: string, reason: string, startDate?: string, endDate?: string) =>
     api.patch<any>(`/gyms/${gymId}/members/${memberId}/freeze`, { freezeUntil: endDate || startDate, reason }),
@@ -177,13 +183,19 @@ export const attendanceApi = {
 
   checkOut: (attendanceId: string) => api.post<any>("/attendance/check-out", { attendanceId }),
 
-  generateQR: (gymId: string, branchId: string, ttlSeconds: number = 25) =>
+  generateQR: (gymId: string, branchId?: string, ttlSeconds: number = 25) =>
     api.get<{ qrToken: string; qrCodeDataUrl: string; ttlSeconds: number; expiresAt: string }>(
-      `/gyms/${gymId}/branches/${branchId}/attendance/generate-qr?ttlSeconds=${ttlSeconds}`
+      branchId
+        ? `/gyms/${gymId}/branches/${branchId}/attendance/generate-qr?ttlSeconds=${ttlSeconds}`
+        : `/gyms/${gymId}/attendance/generate-qr?ttlSeconds=${ttlSeconds}`
     ),
 
-  getToday: (gymId: string, branchId: string) =>
-    api.get<{ attendance: any[] }>(`/gyms/${gymId}/branches/${branchId}/attendance/daily`),
+  getToday: (gymId: string, branchId?: string) =>
+    api.get<{ attendance: any[] }>(
+      branchId
+        ? `/gyms/${gymId}/branches/${branchId}/attendance/daily`
+        : `/gyms/${gymId}/attendance/daily`
+    ),
 
   getCurrentSession: () => api.get<any>("/attendance/me/current"),
 
@@ -289,7 +301,8 @@ export const aiApi = {
 };
 
 export const productApi = {
-  list: (gymId: string) => api.get<any[]>(`/gyms/${gymId}/products`),
+  list: (gymId: string, branchId?: string) =>
+    api.get<any[]>(`/gyms/${gymId}/products${branchId ? `?branchId=${branchId}` : ""}`),
 
   add: (gymId: string, data: any) => api.post<any>(`/gyms/${gymId}/products`, data),
 

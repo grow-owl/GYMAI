@@ -84,13 +84,13 @@ router.post(
 
 router.get(
   '/:gymId/branches',
-  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER, Role.TRAINER),
+  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER, Role.TRAINER, Role.MEMBER, Role.KIOSK),
   GymController.listBranches
 );
 
 router.get(
   '/:gymId/branches/:branchId',
-  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER, Role.TRAINER),
+  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER, Role.TRAINER, Role.MEMBER, Role.KIOSK),
   GymController.getBranchById
 );
 

@@ -66,8 +66,8 @@ export default function TrainerDashboard() {
   const inGymCount = myClientAttendance.filter((a) => !a.checkOutTime).length;
 
   const sessionSegments = [
-    { label: "Completed", value: Math.max(doneCount, 0.0001), color: "var(--tone-green)" },
-    { label: "Active in Gym", value: Math.max(inGymCount, 0.0001), color: "var(--tone-blue)" },
+    { label: "Completed", value: doneCount, color: "var(--tone-green)" },
+    { label: "Active in Gym", value: inGymCount, color: "var(--tone-blue)" },
   ];
 
   return (

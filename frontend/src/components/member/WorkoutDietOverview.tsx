@@ -12,7 +12,17 @@ interface WorkoutDietProps {
 export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
   const [activePlan, setActivePlan] = useState<any | null>(null);
   const [dietPlan, setDietPlan] = useState<any | null>(null);
-  const [waterGlasses, setWaterGlasses] = useState<number>(5);
+
+  const dateKey = new Date().toISOString().slice(0, 10);
+  const storageKey = memberId ? `gymai_water_${memberId}_${dateKey}` : `gymai_water_${dateKey}`;
+  const [waterGlasses, setWaterGlasses] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved !== null ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   useEffect(() => {
     Promise.all([
@@ -23,8 +33,8 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
         if (wRes && (wRes.plan || wRes._id)) {
           setActivePlan(wRes.plan || wRes);
         }
-        if (dRes && (dRes.plan || dRes._id)) {
-          setDietPlan(dRes.plan || dRes);
+        if (dRes && (dRes.plan || dRes._id || dRes.dietPlan)) {
+          setDietPlan(dRes.plan || dRes.dietPlan || dRes);
         }
       })
       .catch(() => {});
@@ -33,12 +43,23 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
   const handleWaterAdd = (delta: number) => {
     const next = Math.max(0, Math.min(12, waterGlasses + delta));
     setWaterGlasses(next);
+    try {
+      localStorage.setItem(storageKey, String(next));
+    } catch {}
     if (delta > 0) {
       toast.success(`Hydration updated! ${next}/8 glasses completed 💧`);
     }
   };
 
   const exercises = activePlan?.exercises || [];
+  const hasDietPlan = !!(dietPlan && (dietPlan.name || dietPlan.title || dietPlan.dailyCalorieTarget || dietPlan.targetCalories));
+  const dietTitle = hasDietPlan ? (dietPlan.name || dietPlan.title || "Assigned Diet Plan") : "No Active Diet Plan";
+  const caloriesDisplay = hasDietPlan
+    ? `${dietPlan.dailyCalorieTarget || dietPlan.targetCalories || dietPlan.totalCalories || "--"} kcal`
+    : "-- kcal";
+  const proteinDisplay = hasDietPlan
+    ? `${dietPlan.dailyProteinTarget_g || dietPlan.proteinGrams || dietPlan.protein || "--"}g`
+    : "-- g";
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
@@ -72,10 +93,10 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
           <div className="text-center py-6 px-4">
             <p className="text-xs text-(--color-text-muted)">No active workout plan assigned.</p>
             <Link
-              to="/member/ai-coach"
+              to="/member/workout-plan"
               className="inline-block mt-2 text-xs font-semibold text-(--color-accent) hover:underline"
             >
-              Ask AI Coach to generate a plan →
+              View Workout Plans →
             </Link>
           </div>
         ) : (
@@ -123,7 +144,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
                 Diet & Nutrition
               </h3>
               <p className="text-xs text-(--color-text-muted)">
-                {dietPlan?.name || "High Protein Lean Muscle Plan"}
+                {dietTitle}
               </p>
             </div>
           </div>
@@ -138,23 +159,23 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
 
         {/* Macro Calories Cards */}
         <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="p-2.5 rounded-xl bg-(--color-surface-2)/40 border border-white/5">
-            <span className="text-[10px] text-(--color-text-muted) uppercase font-bold">Daily Calories</span>
-            <p className="text-base font-extrabold text-white mt-0.5">{dietPlan?.targetCalories || 2400} kcal</p>
+          <div className="p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border)">
+            <span className="text-[10px] text-(--color-text-muted) uppercase font-extrabold tracking-wider">Daily Calories</span>
+            <p className="text-base font-extrabold text-(--color-text) mt-0.5">{caloriesDisplay}</p>
           </div>
-          <div className="p-2.5 rounded-xl bg-(--color-surface-2)/40 border border-white/5">
-            <span className="text-[10px] text-(--color-text-muted) uppercase font-bold">Protein Goal</span>
-            <p className="text-base font-extrabold text-emerald-400 mt-0.5">{dietPlan?.proteinGrams || 165}g</p>
+          <div className="p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border)">
+            <span className="text-[10px] text-(--color-text-muted) uppercase font-extrabold tracking-wider">Protein Goal</span>
+            <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{proteinDisplay}</p>
           </div>
         </div>
 
         {/* Water Hydration Tracker */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-cyan-500/20 space-y-2">
+        <div className="p-3.5 rounded-2xl bg-cyan-500/10 dark:bg-cyan-950/40 border border-cyan-500/30 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-cyan-200 flex items-center gap-1.5">
-              <Droplets className="h-4 w-4 text-cyan-400" /> Water Hydration Log
+            <span className="text-xs font-bold text-cyan-900 dark:text-cyan-200 flex items-center gap-1.5">
+              <Droplets className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> Water Hydration Log
             </span>
-            <span className="text-xs font-mono font-bold text-cyan-300">
+            <span className="text-xs font-mono font-bold text-cyan-800 dark:text-cyan-300">
               {waterGlasses} / 8 Glasses
             </span>
           </div>
@@ -165,7 +186,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
               <span
                 key={i}
                 className={`text-base transition-all transform ${
-                  i < waterGlasses ? "scale-110 opacity-100" : "opacity-25 grayscale"
+                  i < waterGlasses ? "scale-110 opacity-100" : "opacity-30 grayscale"
                 }`}
               >
                 💧
@@ -174,17 +195,19 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
           </div>
 
           <div className="flex items-center justify-between pt-1">
-            <span className="text-[11px] text-cyan-200/70">{(waterGlasses * 0.25).toFixed(2)} / 2.0 Liters</span>
+            <span className="text-[11px] font-extrabold text-cyan-900 dark:text-cyan-200">
+              {(waterGlasses * 0.375).toFixed(2)} / 3.00 Liters
+            </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => handleWaterAdd(-1)}
-                className="h-7 w-7 rounded-lg bg-white/10 text-white flex items-center justify-center text-xs font-bold hover:bg-white/20"
+                className="h-7 w-7 rounded-lg bg-(--color-surface-2) text-(--color-text) flex items-center justify-center text-xs font-bold hover:bg-(--color-surface-3) border border-(--color-border)"
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <button
                 onClick={() => handleWaterAdd(1)}
-                className="h-7 w-7 rounded-lg bg-cyan-500 text-white flex items-center justify-center text-xs font-bold hover:bg-cyan-400 shadow-md"
+                className="h-7 w-7 rounded-lg bg-cyan-600 dark:bg-cyan-500 text-white flex items-center justify-center text-xs font-bold hover:bg-cyan-500 shadow-md"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>

@@ -15,34 +15,34 @@ router.use(tenantScope);
 // Scoped under /gyms/:gymId/products
 router.post(
   '/gyms/:gymId/products',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(createProductSchema, 'body'),
   ProductController.createProduct
 );
 
 router.get(
   '/gyms/:gymId/products',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.MEMBER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.MEMBER, Role.SUPER_ADMIN, Role.KIOSK),
   ProductController.listProducts
 );
 
 // Direct product ID endpoints
 router.patch(
   '/products/:productId',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(updateProductSchema, 'body'),
   ProductController.updateProduct
 );
 
 router.delete(
   '/products/:productId',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   ProductController.softDeleteProduct
 );
 
 router.post(
   '/products/:productId/purchase',
-  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(purchaseProductSchema, 'body'),
   ProductController.purchaseProduct
 );

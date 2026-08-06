@@ -83,7 +83,7 @@ export default function ReceptionPayments() {
     try {
       await paymentApi.recordMemberPayment(activeGymId, {
         ...formData,
-        branchId: user?.branchId || "65a000000000000000000002",
+        branchId: user?.branchId || "",
       });
     } catch {} finally {
       setSubmitting(false);

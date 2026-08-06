@@ -60,6 +60,7 @@ export default function MemberProfile() {
   const startDate = profileData?.membershipStartDate ? new Date(profileData.membershipStartDate).toLocaleDateString() : "—";
   const endDate = profileData?.membershipEndDate ? new Date(profileData.membershipEndDate).toLocaleDateString() : "—";
   const status = profileData?.membershipStatus || "ACTIVE";
+  const branchName = (typeof profileData?.branchId === 'object' && profileData?.branchId !== null ? profileData?.branchId?.name : user?.branchName) || "Registered Branch";
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto w-full">
@@ -144,12 +145,16 @@ export default function MemberProfile() {
 
           <Card className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text-faint)">Membership Summary</p>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+              <div className="rounded-xl bg-(--color-surface-2) p-3">
+                <p className="text-xs text-(--color-text-faint)">Branch Location</p>
+                <p className="font-semibold text-(--color-text) mt-0.5 truncate">{branchName}</p>
+              </div>
               <div className="rounded-xl bg-(--color-surface-2) p-3">
                 <p className="text-xs text-(--color-text-faint)">Member Since</p>
                 <p className="font-semibold text-(--color-text) mt-0.5">{startDate}</p>
               </div>
-              <div className="rounded-xl bg-(--color-surface-2) p-3">
+              <div className="rounded-xl bg-(--color-surface-2) p-3 col-span-2 sm:col-span-1">
                 <p className="text-xs text-(--color-text-faint)">Valid Until</p>
                 <p className="font-semibold text-(--color-text) mt-0.5">{endDate}</p>
               </div>

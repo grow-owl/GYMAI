@@ -41,80 +41,93 @@ gymMemberRouter.use(injectTenantScope);
 
 gymMemberRouter.post(
   '/:gymId/branches/:branchId/members',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  validate(createMemberSchema, 'body'),
+  MemberController.createMember
+);
+
+gymMemberRouter.post(
+  '/:gymId/members',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(createMemberSchema, 'body'),
   MemberController.createMember
 );
 
 gymMemberRouter.get(
   '/:gymId/branches/:branchId/members',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
+  MemberController.listMembers
+);
+
+gymMemberRouter.get(
+  '/:gymId/members',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
   MemberController.listMembers
 );
 
 gymMemberRouter.get(
   '/:gymId/members/:memberId',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
   MemberController.getMemberById
 );
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(updateMemberSchema, 'body'),
   MemberController.updateMember
 );
 
 gymMemberRouter.delete(
   '/:gymId/members/:memberId',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   MemberController.softDeleteMember
 );
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId/assign-trainer',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(assignTrainerSchema, 'body'),
   MemberController.assignTrainer
 );
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId/freeze',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(freezeMembershipSchema, 'body'),
   MemberController.freezeMembership
 );
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId/renew',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(renewMembershipSchema, 'body'),
   MemberController.renewMembership
 );
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId/extend',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(extendMembershipSchema, 'body'),
   MemberController.extendMembership
 );
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId/cancel',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(cancelMembershipSchema, 'body'),
   MemberController.cancelMembership
 );
 
 gymMemberRouter.post(
   '/:gymId/members/:memberId/regenerate-qr',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   MemberController.regenerateQRCode
 );
 
 gymMemberRouter.get(
   '/:gymId/members/:memberId/qr',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
   MemberController.getQRCode
 );
 

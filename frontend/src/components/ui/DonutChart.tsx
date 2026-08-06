@@ -113,7 +113,9 @@ export default function DonutChart({
                 <span className="text-xs font-semibold text-(--color-text) truncate">{seg.label}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-bold text-(--color-text)">{seg.value}</span>
+                <span className="text-xs font-bold text-(--color-text)">
+                  {Number.isInteger(seg.value) ? seg.value : Math.floor(seg.value) === 0 ? 0 : seg.value.toFixed(1)}
+                </span>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-(--color-surface-3) text-(--color-text-muted) tabular-nums">
                   {pct}%
                 </span>

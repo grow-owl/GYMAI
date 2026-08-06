@@ -11,6 +11,12 @@ const productSchema = new Schema<ProductDocument>(
       required: true,
       index: true,
     },
+    branchId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Branch',
+      required: false,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -18,7 +24,7 @@ const productSchema = new Schema<ProductDocument>(
     },
     category: {
       type: String,
-      enum: ['supplement', 'merchandise', 'service_package'],
+      enum: ['supplement', 'merchandise', 'service_package', 'gear'],
       required: true,
     },
     price: {

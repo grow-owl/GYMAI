@@ -107,13 +107,20 @@ function TrainerShell() {
 
 function ReceptionShell() {
   const { user } = useAuth();
+  const filteredNav = useMemo(() => {
+    if (user?.role === "KIOSK") {
+      return receptionNav.filter((item) => item.path !== "/reception/payments");
+    }
+    return receptionNav;
+  }, [user?.role]);
+
   return (
     <DashboardShell
-      primary={receptionNav}
-      roleLabel="Reception / Staff"
-      greeting="Front Desk"
+      primary={filteredNav}
+      roleLabel={user?.role === "BRANCH_MANAGER" ? "Branch Manager" : "Reception Staff"}
+      greeting={user?.role === "BRANCH_MANAGER" ? "Branch Desk" : "Front Desk Operations"}
       subtitle={String(user?.gymName || "My Gym")}
-      avatarInitial="R"
+      avatarInitial={user?.fullName ? user.fullName[0] : "R"}
     />
   );
 }

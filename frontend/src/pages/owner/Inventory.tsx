@@ -26,7 +26,7 @@ const paymentMethodOptions = [
 
 export default function Inventory() {
   const currentUserRole = useAuthStore((s) => s.user?.role);
-  const isOwnerOrAdmin = currentUserRole === "GYM_OWNER" || currentUserRole === "SUPER_ADMIN" || currentUserRole === "BRANCH_MANAGER";
+  const isOwnerOrAdmin = currentUserRole === "GYM_OWNER" || currentUserRole === "SUPER_ADMIN" || currentUserRole === "BRANCH_MANAGER" || currentUserRole === "KIOSK";
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [products, setProducts] = useState<any[]>([]);
   const [membersList, setMembersList] = useState<any[]>([]);
@@ -66,7 +66,7 @@ export default function Inventory() {
     setLoading(true);
     try {
       const [prodRes, memRes] = await Promise.all([
-        productApi.list(gymId).catch(() => []),
+        productApi.list(gymId, branchId || undefined).catch(() => []),
         memberApi.list(gymId, branchId || "").catch(() => []),
       ]);
 
@@ -97,6 +97,7 @@ export default function Inventory() {
     try {
       await productApi.add(activeGymId, {
         ...newProduct,
+        branchId: branchId || undefined,
         price: Number(newProduct.price),
         stockQuantity: Number(newProduct.stockQuantity),
       });

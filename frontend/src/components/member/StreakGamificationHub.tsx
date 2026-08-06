@@ -86,23 +86,19 @@ export default function StreakGamificationHub({ gameProfile, gameStats, onProfil
     }
   };
 
-  // Days of week flame tracker
-  const weekDays = [
-    { day: "M", active: true },
-    { day: "T", active: true },
-    { day: "W", active: true },
-    { day: "T", active: true },
-    { day: "F", active: true },
-    { day: "S", active: false },
-    { day: "S", active: false },
-  ];
+  const todayIndex = (new Date().getDay() + 6) % 7; // 0=Mon, 6=Sun
+  const weekDayNames = ["M", "T", "W", "T", "F", "S", "S"];
+  const weekDays = weekDayNames.map((day, idx) => {
+    const active = streak > 0 && idx <= todayIndex && (todayIndex - idx) < streak;
+    return { day, active };
+  });
 
-  // Default badges list
+  // Dynamic badges list based on real user achievements
   const badges = [
-    { title: "First Blood", icon: "⚡", unlocked: true, desc: "Completed first workout" },
-    { title: "Iron Will", icon: "🏋️", unlocked: true, desc: "5-Day Workout Streak" },
-    { title: "Early Bird", icon: "🌅", unlocked: true, desc: "Checked in before 8 AM" },
-    { title: "Centurion", icon: "👑", unlocked: false, desc: "Reach 10,000 XP" },
+    { title: "First Blood", icon: "⚡", unlocked: totalXp > 0 || level > 1, desc: "Completed first workout" },
+    { title: "Iron Will", icon: "🏋️", unlocked: streak >= 5, desc: "5-Day Workout Streak" },
+    { title: "Early Bird", icon: "🌅", unlocked: streak >= 3 || totalXp >= 300, desc: "Consistent check-ins" },
+    { title: "Centurion", icon: "👑", unlocked: totalXp >= 10000, desc: "Reach 10,000 XP" },
   ];
 
   return (
@@ -137,50 +133,50 @@ export default function StreakGamificationHub({ gameProfile, gameStats, onProfil
       {/* Hero Banner: Streak & Level XP */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         {/* Left: Streak Counter */}
-        <div className="md:col-span-5 p-4 rounded-2xl bg-gradient-to-br from-amber-500/20 via-orange-600/15 to-red-600/20 border border-orange-500/30 flex flex-col justify-between">
+        <div className="md:col-span-5 p-4 rounded-2xl bg-orange-500/10 dark:bg-orange-500/15 border border-orange-500/30 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-orange-300 flex items-center gap-1">
-              <Flame className="h-4 w-4 text-orange-400 animate-pulse" /> Active Streak
+            <span className="text-xs font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
+              <Flame className="h-4 w-4 text-orange-500 animate-pulse" /> Active Streak
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange-500/30 text-orange-200 border border-orange-400/30">
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/30">
               1.5x XP Boost
             </span>
           </div>
 
           <div className="my-3 text-center">
-            <p className="font-display text-4xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
-              {streak} <span className="text-lg font-bold text-orange-200">Days</span>
+            <p className="font-display text-4xl font-extrabold text-(--color-text) tracking-tight flex items-center justify-center gap-2">
+              {streak} <span className="text-lg font-bold text-orange-500">Days</span>
             </p>
-            <p className="text-xs text-orange-200/80 mt-0.5">Don't break your streak today!</p>
+            <p className="text-xs text-(--color-text-muted) font-medium mt-0.5">Don't break your streak today!</p>
           </div>
 
           {/* 7-Day Flame Track */}
-          <div className="flex justify-between items-center bg-black/30 p-2 rounded-xl border border-white/10">
+          <div className="flex justify-between items-center bg-(--color-surface-2) p-2 rounded-xl border border-(--color-border)">
             {weekDays.map((item, idx) => (
               <div key={idx} className="flex flex-col items-center">
                 <div
                   className={`h-7 w-7 rounded-full flex items-center justify-center text-xs transition-all ${
                     item.active
-                      ? "bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-lg scale-105"
-                      : "bg-white/10 text-white/40"
+                      ? "bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-md scale-105"
+                      : "bg-(--color-surface-3) text-(--color-text-muted)/50"
                   }`}
                 >
                   <Flame className="h-3.5 w-3.5" />
                 </div>
-                <span className="text-[10px] font-semibold text-white/60 mt-1">{item.day}</span>
+                <span className="text-[10px] font-bold text-(--color-text-muted) mt-1">{item.day}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Right: Level & XP Bar */}
-        <div className="md:col-span-7 p-4 rounded-2xl bg-(--color-surface-2)/50 border border-white/5 flex flex-col justify-between">
+        <div className="md:col-span-7 p-4 rounded-2xl bg-(--color-surface-2)/60 border border-(--color-border) flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="font-display text-lg font-bold text-white flex items-center gap-1.5">
-                <Trophy className="h-5 w-5 text-amber-400" /> Level {level} Spartan
+              <span className="font-display text-lg font-bold text-(--color-text) flex items-center gap-1.5">
+                <Trophy className="h-5 w-5 text-amber-500" /> Level {level} Spartan
               </span>
-              <span className="text-xs font-mono text-(--color-accent) font-bold">
+              <span className="text-xs font-mono text-(--color-accent) font-extrabold">
                 {totalXp.toLocaleString()} XP
               </span>
             </div>
@@ -188,32 +184,32 @@ export default function StreakGamificationHub({ gameProfile, gameStats, onProfil
             <ProgressBar
               value={totalXp}
               max={xpToNext}
-              trackClassName="bg-white/10 h-3"
+              trackClassName="bg-(--color-surface-3) h-3"
               className="bg-gradient-to-r from-amber-400 via-accent to-purple-500"
             />
             
-            <div className="flex justify-between text-[11px] text-(--color-text-muted) mt-1.5 font-mono">
+            <div className="flex justify-between text-[11px] text-(--color-text-muted) font-semibold mt-1.5 font-mono">
               <span>Current Progress</span>
               <span>{Math.round((totalXp / xpToNext) * 100)}% to Level {level + 1}</span>
             </div>
           </div>
 
           {/* Badges Grid */}
-          <div className="mt-4 pt-3 border-t border-white/5">
-            <p className="text-xs font-semibold text-(--color-text-muted) mb-2">Recent Badges Unlocked</p>
+          <div className="mt-4 pt-3 border-t border-(--color-border-soft)">
+            <p className="text-xs font-bold text-(--color-text-muted) mb-2">Recent Badges Unlocked</p>
             <div className="grid grid-cols-4 gap-2">
               {badges.map((b, idx) => (
                 <div
                   key={idx}
                   className={`p-2 rounded-xl border text-center transition-all ${
                     b.unlocked
-                      ? "bg-white/5 border-amber-500/30 text-white"
-                      : "bg-white/5 border-white/5 opacity-40 grayscale"
+                      ? "bg-amber-500/10 border-amber-500/30 text-(--color-text)"
+                      : "bg-(--color-surface-3)/40 border-(--color-border) opacity-40 grayscale text-(--color-text-muted)"
                   }`}
                   title={b.desc}
                 >
                   <span className="text-lg">{b.icon}</span>
-                  <p className="text-[10px] font-bold truncate mt-0.5">{b.title}</p>
+                  <p className="text-[10px] font-extrabold truncate mt-0.5">{b.title}</p>
                 </div>
               ))}
             </div>

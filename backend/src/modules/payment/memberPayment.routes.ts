@@ -21,14 +21,14 @@ gymMemberPaymentRouter.use(authenticate);
 
 gymMemberPaymentRouter.post(
   '/manual',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(recordMemberPaymentSchema, 'body'),
   MemberPaymentController.recordManualPayment
 );
 
 gymMemberPaymentRouter.post(
   '/online-order',
-  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(createMemberOnlineOrderSchema, 'body'),
   MemberPaymentController.initiateOnlineOrder
 );
@@ -41,13 +41,13 @@ gymMemberPaymentRouter.get(
 
 gymMemberPaymentRouter.get(
   '/',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   MemberPaymentController.listPayments
 );
 
 gymMemberPaymentRouter.get(
   '/revenue-summary',
-  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   MemberPaymentController.getRevenueSummary
 );
 

@@ -15,14 +15,14 @@ reportRouter.use(injectTenantScope);
 // GET /api/v1/gyms/:gymId/dashboard/overview
 reportRouter.get(
   '/:gymId/dashboard/overview',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   ReportController.getOverview
 );
 
 // GET /api/v1/gyms/:gymId/dashboard/expiring-memberships
 reportRouter.get(
   '/:gymId/dashboard/expiring-memberships',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   ReportController.getExpiringMemberships
 );
 
