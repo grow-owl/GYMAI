@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Building2, Users, Bell, ShieldCheck, CreditCard, Plus, Loader2, Download, Trash2 } from "lucide-react";
+import { Building2, Users, Bell, ShieldCheck, CreditCard, Plus, Loader2, Download, Trash2, Megaphone, Send } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { gymApi, privacyApi, notificationApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -96,6 +97,46 @@ export default function Settings() {
   // Channel toggles
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [broadcastEnabled, setBroadcastEnabled] = useState(true);
+
+  // Broadcast state
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastTargetRole, setBroadcastTargetRole] = useState("ALL");
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
+
+  const handleSendBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastTitle.trim()) {
+      toast.error("Announcement title is required.");
+      return;
+    }
+    if (!broadcastMessage.trim()) {
+      toast.error("Announcement message is required.");
+      return;
+    }
+    const gymId = user?.gymId || "";
+    if (!gymId) {
+      toast.error("Gym ID not found.");
+      return;
+    }
+    setSendingBroadcast(true);
+    try {
+      const res = await notificationApi.broadcast(gymId, {
+        title: broadcastTitle.trim(),
+        body: broadcastMessage.trim(),
+        message: broadcastMessage.trim(),
+        targetRole: broadcastTargetRole,
+      });
+      toast.success(res?.message || "Gym broadcast announcement sent successfully!");
+      setBroadcastTitle("");
+      setBroadcastMessage("");
+      setBroadcastTargetRole("ALL");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to send broadcast announcement.");
+    } finally {
+      setSendingBroadcast(false);
+    }
+  };
 
   // Modals state
   const [showAddBranchModal, setShowAddBranchModal] = useState(false);
@@ -395,6 +436,62 @@ export default function Settings() {
                     <Badge tone={broadcastEnabled ? "good" : "danger"}>{broadcastEnabled ? "Enabled" : "Disabled"}</Badge>
                   </button>
                 </div>
+              </div>
+
+              {/* Send Announcement Form */}
+              <div className="pt-4 border-t border-(--color-border-soft) space-y-3">
+                <div className="flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-(--color-accent)" />
+                  <p className="text-xs font-semibold text-(--color-text) uppercase tracking-wide">Send Gym-wide Announcement</p>
+                </div>
+                <form onSubmit={handleSendBroadcast} className="p-4 rounded-2xl bg-(--color-surface-2) border border-(--color-border) space-y-3">
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-(--color-text-muted) mb-1">Announcement Title</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Special Holiday Hours / Maintenance Notice"
+                        value={broadcastTitle}
+                        onChange={(e) => setBroadcastTitle(e.target.value)}
+                        className="w-full rounded-xl bg-(--color-surface) p-2.5 text-xs text-(--color-text) border border-(--color-border) outline-none focus:border-(--color-accent)"
+                      />
+                    </div>
+                    <div>
+                      <CustomSelect
+                        label="Target Audience"
+                        value={broadcastTargetRole}
+                        onChange={(val) => setBroadcastTargetRole(val)}
+                        options={[
+                          { label: "All Gym Users", value: "ALL" },
+                          { label: "Members Only", value: "MEMBER" },
+                          { label: "Trainers Only", value: "TRAINER" },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-(--color-text-muted) mb-1">Message Content</label>
+                    <textarea
+                      required
+                      rows={3}
+                      placeholder="Write your announcement details here..."
+                      value={broadcastMessage}
+                      onChange={(e) => setBroadcastMessage(e.target.value)}
+                      className="w-full rounded-xl bg-(--color-surface) p-2.5 text-xs text-(--color-text) border border-(--color-border) outline-none focus:border-(--color-accent) resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={sendingBroadcast}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 shadow-sm"
+                    >
+                      {sendingBroadcast ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      {sendingBroadcast ? "Sending Broadcast..." : "Send Announcement"}
+                    </button>
+                  </div>
+                </form>
               </div>
 
               <div className="pt-3 border-t border-(--color-border-soft) space-y-2">

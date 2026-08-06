@@ -4,6 +4,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { trainerApi, memberApi, authApi } from "@/lib/endpoints";
 import { useSearchStore } from "../../store/searchStore";
@@ -28,6 +29,7 @@ interface TrainerRow {
 export default function Trainers() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [trainers, setTrainers] = useState<TrainerRow[]>([]);
+  const [workloads, setWorkloads] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
@@ -83,6 +85,23 @@ export default function Trainers() {
       const res = await trainerApi.list(gymId, branchId);
       const list = Array.isArray(res) ? res : (res as any)?.trainers || [];
       setTrainers(list);
+
+      // Async batch-fetch workloads per trainer without blocking initial render
+      if (gymId && list.length > 0) {
+        Promise.all(
+          list.map(async (t: TrainerRow) => {
+            const tId = t._id;
+            if (!tId) return;
+            try {
+              const wRes = await trainerApi.getWorkload(gymId, tId);
+              const count = typeof wRes?.activeMembersAssigned === "number" ? wRes.activeMembersAssigned : (wRes as any)?.count ?? 0;
+              setWorkloads((prev) => ({ ...prev, [tId]: count }));
+            } catch {
+              setWorkloads((prev) => ({ ...prev, [tId]: 0 }));
+            }
+          })
+        );
+      }
     } catch {
       setError("Failed to load trainers from backend.");
       setTrainers([]);
@@ -259,7 +278,8 @@ export default function Trainers() {
             const specs = Array.isArray(t.specializations) && t.specializations.length > 0
               ? t.specializations.join(", ")
               : t.specialization || "General Fitness";
-            const clientsCount = t.clients ?? t.assignedMembersCount ?? t.activeClientsCount ?? 0;
+            const workloadVal = workloads[tId];
+            const clientsCount = workloadVal ?? t.clients ?? t.assignedMembersCount ?? t.activeClientsCount ?? 0;
 
             return (
               <Card key={tId} className="p-4 space-y-3 flex flex-col justify-between">
@@ -269,7 +289,14 @@ export default function Trainers() {
                       {name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-display font-semibold text-sm text-(--color-text) truncate">{name}</h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-display font-semibold text-sm text-(--color-text) truncate">{name}</h4>
+                        {workloadVal !== undefined && workloadVal !== null ? (
+                          <Badge tone="accent">{workloadVal} active {workloadVal === 1 ? "client" : "clients"}</Badge>
+                        ) : (
+                          <span className="text-[10px] text-(--color-text-faint) animate-pulse">Loading workload...</span>
+                        )}
+                      </div>
                       <p className="text-xs text-(--color-accent) font-medium truncate">{specs}</p>
                       {email && <p className="text-[11px] text-(--color-text-muted) truncate">{email}</p>}
                     </div>

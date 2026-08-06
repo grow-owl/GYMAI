@@ -39,6 +39,60 @@ export default function WorkoutPlans() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submittingPlan, setSubmittingPlan] = useState(false);
 
+  // Custom Exercise Modal State
+  const [showAddCustomExerciseModal, setShowAddCustomExerciseModal] = useState(false);
+  const [submittingCustomExercise, setSubmittingCustomExercise] = useState(false);
+  const [customExForm, setCustomExForm] = useState({
+    name: "",
+    muscleGroup: "CHEST",
+    equipment: "",
+    instructions: "",
+    defaultSets: 3,
+    defaultReps: 10,
+  });
+
+  const handleCreateCustomExerciseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customExForm.name.trim()) {
+      toast.error("Exercise name is required.");
+      return;
+    }
+    setSubmittingCustomExercise(true);
+    try {
+      const payload = {
+        name: customExForm.name.trim(),
+        muscleGroup: customExForm.muscleGroup,
+        equipment: customExForm.equipment.trim() || undefined,
+        instructions: customExForm.instructions.trim() || undefined,
+        defaultSets: Number(customExForm.defaultSets) || 3,
+        defaultReps: Number(customExForm.defaultReps) || 10,
+      };
+      const res = await workoutApi.createExercise(payload);
+      const newEx = res?.exercise || res?.data || res;
+      toast.success(`Custom exercise "${customExForm.name}" created!`);
+      setShowAddCustomExerciseModal(false);
+      setCustomExForm({
+        name: "",
+        muscleGroup: "CHEST",
+        equipment: "",
+        instructions: "",
+        defaultSets: 3,
+        defaultReps: 10,
+      });
+      const updatedList = await workoutApi.listExercises().catch(() => null);
+      const exList = Array.isArray(updatedList) ? updatedList : updatedList?.exercises || [];
+      if (exList.length > 0) {
+        setExercisesList(exList);
+      } else if (newEx && newEx._id) {
+        setExercisesList((prev) => [...prev, newEx]);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to create custom exercise");
+    } finally {
+      setSubmittingCustomExercise(false);
+    }
+  };
+
   // Form State
   const [title, setTitle] = useState("");
   const [goal, setGoal] = useState("Muscle Building");
@@ -416,13 +470,22 @@ export default function WorkoutPlans() {
                         </div>
 
                         <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] text-(--color-text-muted) font-medium">Exercise</label>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddCustomExerciseModal(true)}
+                              className="text-[10px] text-(--color-accent) font-semibold hover:underline flex items-center gap-0.5"
+                            >
+                              <Plus size={11} /> Add custom exercise
+                            </button>
+                          </div>
                           <CustomSelect
-                            label="Exercise"
                             value={ex.exerciseId}
                             onChange={(val) => updateExercise(dIdx, exIdx, "exerciseId", val)}
                             options={exercisesList.map((item) => ({
                               value: String(item._id || item.id),
-                              label: `${item.name} (${item.category || "General"})`,
+                              label: `${item.name} (${item.muscleGroup || item.category || "General"})`,
                             }))}
                           />
                         </div>
@@ -490,6 +553,106 @@ export default function WorkoutPlans() {
                 className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save & Assign Plan"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {/* Add Custom Exercise Modal */}
+      {showAddCustomExerciseModal && (
+        <Modal onClose={() => setShowAddCustomExerciseModal(false)} maxWidth="md" title="Add Custom Exercise">
+          <form onSubmit={handleCreateCustomExerciseSubmit} className="space-y-3.5 text-xs">
+            <div>
+              <label className="block text-(--color-text-muted) mb-1 font-medium">Exercise Name</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Incline Cable Flyes"
+                value={customExForm.name}
+                onChange={(e) => setCustomExForm({ ...customExForm, name: e.target.value })}
+                className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) outline-none focus:border-(--color-accent)"
+              />
+            </div>
+
+            <div>
+              <CustomSelect
+                label="Muscle Group"
+                value={customExForm.muscleGroup}
+                onChange={(val) => setCustomExForm({ ...customExForm, muscleGroup: val })}
+                options={[
+                  { label: "Chest", value: "CHEST" },
+                  { label: "Back", value: "BACK" },
+                  { label: "Legs", value: "LEGS" },
+                  { label: "Shoulders", value: "SHOULDERS" },
+                  { label: "Arms", value: "ARMS" },
+                  { label: "Core", value: "CORE" },
+                  { label: "Full Body", value: "FULL_BODY" },
+                  { label: "Cardio", value: "CARDIO" },
+                ]}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Equipment (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cable Machine / Dumbbell"
+                  value={customExForm.equipment}
+                  onChange={(e) => setCustomExForm({ ...customExForm, equipment: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-xs text-(--color-text) border border-(--color-border) outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Default Sets</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={customExForm.defaultSets}
+                    onChange={(e) => setCustomExForm({ ...customExForm, defaultSets: Number(e.target.value) })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-xs text-(--color-text) border border-(--color-border) outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Default Reps</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={customExForm.defaultReps}
+                    onChange={(e) => setCustomExForm({ ...customExForm, defaultReps: Number(e.target.value) })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-xs text-(--color-text) border border-(--color-border) outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-(--color-text-muted) mb-1 font-medium">Instructions / Notes (Optional)</label>
+              <textarea
+                rows={2}
+                placeholder="Form cues, bench angle, safety instructions..."
+                value={customExForm.instructions}
+                onChange={(e) => setCustomExForm({ ...customExForm, instructions: e.target.value })}
+                className="w-full rounded-xl bg-(--color-surface-2) p-2 text-xs text-(--color-text) border border-(--color-border) outline-none resize-none"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddCustomExerciseModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingCustomExercise}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingCustomExercise ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Custom Exercise"}
               </button>
             </div>
           </form>

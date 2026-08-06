@@ -344,7 +344,7 @@ export const notificationApi = {
 
   markAllAsRead: () => api.patch<{ markedCount: number }>("/notifications/read-all"),
 
-  broadcast: (gymId: string, data: { title: string; message: string; targetRole?: string }) =>
+  broadcast: (gymId: string, data: { title: string; message?: string; body?: string; targetRole?: string }) =>
     api.post<any>(`/gyms/${gymId}/notifications/broadcast`, data),
 
   getWhatsAppLogs: (gymId?: string) =>
@@ -362,10 +362,5 @@ export const feedbackApi = {
   create: (memberId: string, data: { note: string; rating?: number; workoutLogId?: string }) =>
     api.post<any>(`/members/${memberId}/feedback`, { memberId, ...data }),
 
-  submitFeedback: (memberId: string, data: { note: string; rating?: number; workoutLogId?: string }) =>
-    api.post<any>(`/members/${memberId}/feedback`, { memberId, ...data }),
-
   list: (memberId: string) => api.get<any>(`/members/${memberId}/feedback`),
-
-  listFeedback: (memberId: string) => api.get<any>(`/members/${memberId}/feedback`),
 };

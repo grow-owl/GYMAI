@@ -35,7 +35,7 @@ export default function FeedbackModal({ memberId, workoutLogId, onClose, onSucce
     }
     setSubmitting(true);
     try {
-      await feedbackApi.submitFeedback(memberId, {
+      await feedbackApi.create(memberId, {
         rating,
         note: note.trim(),
         workoutLogId,
