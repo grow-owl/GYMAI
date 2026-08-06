@@ -68,7 +68,7 @@ export default function DashboardShell({
                 <X size={20} />
               </button>
             </div>
-            <nav className="space-y-1">
+            <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
               {allItems.map((item) => {
                 const Icon = (icons as unknown as Record<string, icons.LucideIcon>)[item.icon] ?? icons.Circle;
                 return (
@@ -79,19 +79,21 @@ export default function DashboardShell({
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       clsx(
-                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
-                        isActive ? "bg-white/10 text-(--color-navbar-text)" : "text-(--color-navbar-text-muted)"
+                        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                        isActive
+                          ? "bg-(--color-accent) text-(--color-navbar) shadow-md font-semibold"
+                          : "text-(--color-navbar-text-muted) hover:text-(--color-navbar-text) hover:bg-white/10 hover:translate-x-1"
                       )
                     }
                   >
-                    <Icon size={18} />
+                    <Icon size={18} className="icon-hover-pop shrink-0" />
                     {item.label}
                   </NavLink>
                 );
               })}
             </nav>
-            <button onClick={handleLogout} className="btn-press mt-auto text-left text-sm text-(--color-navbar-text-muted) px-3 py-2.5">
-              ← Log out
+            <button onClick={handleLogout} className="btn-press mt-auto flex items-center gap-2 text-left text-sm font-medium text-(--color-danger) hover:bg-white/10 rounded-xl px-3 py-2.5 transition-colors">
+              <icons.LogOut size={16} /> Log out
             </button>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { GitBranch, Search, Plus, MapPin, Phone, CheckCircle2, Loader2 } from "l
 import { gymApi } from "@/lib/endpoints";
 import { useFormValidation } from "@/lib/useFormValidation";
 import { toast } from "sonner";
+import CustomSelect from "@/components/ui/CustomSelect";
 
 export default function Branches() {
   const [gyms, setGyms] = useState<any[]>([]);
@@ -155,21 +156,18 @@ export default function Branches() {
           />
         </div>
 
-        <select
+        <CustomSelect
           value={selectedGymId}
-          onChange={(e) => setSelectedGymId(e.target.value)}
-          className="px-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-        >
-          <option value="ALL">All Gym Tenants</option>
-          {gyms.map((g) => {
-            const gId = g._id || g.id;
-            return (
-              <option key={gId} value={gId}>
-                {g.name}
-              </option>
-            );
-          })}
-        </select>
+          onChange={(val) => setSelectedGymId(val)}
+          options={[
+            { value: "ALL", label: "All Gym Tenants" },
+            ...gyms.map((g) => ({
+              value: g._id || g.id,
+              label: g.name,
+            })),
+          ]}
+          className="w-56"
+        />
       </div>
 
       {/* Branch Grid */}
@@ -237,21 +235,15 @@ export default function Branches() {
 
             <form onSubmit={handleCreateBranch} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-(--color-text-muted) mb-1">Select Gym Tenant</label>
-                <select
+                <CustomSelect
+                  label="Select Gym Tenant"
                   value={values.gymId}
-                  onChange={(e) => handleChange("gymId", e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-                >
-                  {gyms.map((g) => {
-                    const gId = g._id || g.id;
-                    return (
-                      <option key={gId} value={gId}>
-                        {g.name}
-                      </option>
-                    );
-                  })}
-                </select>
+                  onChange={(val) => handleChange("gymId", val)}
+                  options={gyms.map((g) => ({
+                    value: g._id || g.id,
+                    label: g.name,
+                  }))}
+                />
               </div>
 
               <div>

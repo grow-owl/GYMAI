@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Dumbbell,
@@ -14,6 +15,11 @@ import {
   ClipboardList,
   LineChart,
   UserCog,
+  Mail,
+  Phone,
+  Send,
+  MessageSquare,
+  CheckCircle2,
 } from "lucide-react";
 import heroImg from "@/assets/hero-gym.png";
 
@@ -122,34 +128,49 @@ const toneBg: Record<string, string> = {
 };
 
 export default function Landing() {
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "", message: "" });
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    setTimeout(() => {
+      setSubmitted(false);
+      setFormData({ name: "", email: "", phone: "", message: "" });
+    }, 4000);
+  };
+
   return (
     <div className="relative z-10 min-h-screen bg-(--color-surface)">
       {/* Navbar — clean white bar, sits above the dark hero */}
       <header className="sticky top-0 z-30 border-b border-(--color-border) bg-(--color-surface)/95 backdrop-blur-sm">
         <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-6xl mx-auto">
-          <div className="flex items-center gap-2.5 animate-fade-in">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md">
+          <div className="flex items-center gap-2.5 animate-fade-in group cursor-pointer">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md icon-hover-pop">
               <Dumbbell size={18} strokeWidth={2.5} />
             </span>
-            <span className="font-display text-lg font-bold tracking-tight text-(--color-text)">GYMAI</span>
+            <span className="font-display text-lg font-bold tracking-tight text-(--color-text) group-hover:text-(--color-accent-text) transition-colors">GYMAI</span>
           </div>
           <nav className="hidden sm:flex items-center gap-7 animate-fade-in">
-            <a href="#features" className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
+            <a href="#features" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
               Features
             </a>
-            <a href="#how-it-works" className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
+            <a href="#how-it-works" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
               How it works
             </a>
-            <a href="#pricing" className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
+            <a href="#pricing" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
               Pricing
             </a>
-            <Link to="/login" className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
+            <a href="#contact" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
+              Contact Us
+            </a>
+            <Link to="/login" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
               Sign in
             </Link>
           </nav>
           <Link
             to="/register"
-            className="btn-press text-sm font-semibold text-(--color-navbar) bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] rounded-xl px-4 py-2.5 transition-all animate-fade-in"
+            className="btn-press btn-sheen text-sm font-semibold text-(--color-navbar) bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] rounded-xl px-4 py-2.5 transition-all animate-fade-in"
           >
             Start Free Trial
           </Link>
@@ -157,12 +178,17 @@ export default function Landing() {
       </header>
 
       {/* Hero — dark, image-backed, motivational */}
-      <section className="relative overflow-hidden bg-(--color-navbar)">
+      <section className="relative overflow-hidden bg-(--color-navbar) group">
         <img
           src={heroImg}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 h-full w-full sm:w-3/4 lg:w-3/5 object-cover object-[75%_30%] opacity-90"
+          alt="GYMAI Gym member training"
+          // Mandatory LCP Optimization: fetchpriority="high" for hero image
+          // @ts-ignore
+          fetchpriority="high"
+          decoding="async"
+          width={1200}
+          height={800}
+          className="pointer-events-none absolute inset-y-0 right-0 h-full w-full sm:w-3/4 lg:w-3/5 object-cover object-[75%_30%] opacity-90 group-hover:scale-105 transition-transform duration-700 ease-out"
         />
         {/* Gradient scrim: solid navy on the left where the copy sits, fading out over the photo */}
         <div
@@ -183,8 +209,8 @@ export default function Landing() {
 
         <div className="relative max-w-6xl mx-auto px-6 sm:px-10 pt-16 pb-20 sm:pt-24 sm:pb-28">
           <div className="max-w-xl">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 mb-6 animate-fade-in-up">
-              <Sparkles size={13} className="text-(--color-accent)" />
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 mb-6 animate-fade-in-up hover:border-white/30 hover:bg-white/10 transition-all cursor-pointer">
+              <Sparkles size={13} className="text-(--color-accent) icon-hover-pop" />
               <span className="text-xs font-semibold tracking-[0.15em] uppercase text-white/80">
                 A new way to gym
               </span>
@@ -213,9 +239,9 @@ export default function Landing() {
             >
               <Link
                 to="/register"
-                className="btn-press flex items-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] text-(--color-navbar) font-semibold text-sm px-6 py-3.5 transition-all"
+                className="btn-press btn-sheen flex items-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] text-(--color-navbar) font-semibold text-sm px-6 py-3.5 transition-all"
               >
-                Start 1-week free trial <ArrowRight size={16} />
+                Start 1-week free trial <ArrowRight size={16} className="icon-hover-pop" />
               </Link>
               <Link
                 to="/login"
@@ -242,14 +268,14 @@ export default function Landing() {
         </h2>
         <div className="grid sm:grid-cols-3 gap-8 sm:gap-6">
           {steps.map(({ n, title, desc, icon: Icon }, i) => (
-            <div key={n} className="animate-fade-in-up stagger-item" style={{ ["--stagger-i" as string]: i }}>
+            <div key={n} className="card-hover group p-5 rounded-2xl border border-(--color-border) bg-(--color-surface) animate-fade-in-up stagger-item" style={{ ["--stagger-i" as string]: i }}>
               <div className="flex items-center gap-3 mb-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--color-accent-soft) text-(--color-accent-text)">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--color-accent-soft) text-(--color-accent-text) icon-hover-pop">
                   <Icon size={17} strokeWidth={2.25} />
                 </span>
                 <span className="font-mono text-xs font-semibold text-(--color-text-faint)">{n}</span>
               </div>
-              <p className="font-display text-lg font-bold text-(--color-text)">{title}</p>
+              <p className="font-display text-lg font-bold text-(--color-text) group-hover:text-(--color-accent-text) transition-colors">{title}</p>
               <p className="text-sm text-(--color-text-muted) mt-1.5 leading-relaxed">{desc}</p>
             </div>
           ))}
@@ -257,7 +283,7 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section id="features" className="bg-(--color-surface-2) border-y border-(--color-border-soft)">
+      <section id="features" className="heavy-section-deferred bg-(--color-surface-2) border-y border-(--color-border-soft)">
         <div className="max-w-6xl mx-auto px-6 sm:px-10 py-20">
           <p className="text-xs font-semibold tracking-wide uppercase text-(--color-accent-text) mb-2">Everything included</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-(--color-text) mb-10">
@@ -268,15 +294,15 @@ export default function Landing() {
               <div
                 key={title}
                 data-tone={tone}
-                className="glow-hover card-hover rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-5 animate-fade-in-up stagger-item"
+                className="glow-hover card-hover group rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-5 animate-fade-in-up stagger-item"
                 style={{ ["--stagger-i" as string]: i }}
               >
                 <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl text-white mb-4 ${toneBg[tone]}`}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl text-white mb-4 icon-hover-pop ${toneBg[tone]}`}
                 >
                   <Icon size={18} strokeWidth={2.25} />
                 </span>
-                <p className="font-display text-base font-semibold text-(--color-text)">{title}</p>
+                <p className="font-display text-base font-semibold text-(--color-text) group-hover:text-(--color-accent-text) transition-colors">{title}</p>
                 <p className="text-sm text-(--color-text-muted) mt-1.5 leading-relaxed">{desc}</p>
               </div>
             ))}
@@ -285,7 +311,7 @@ export default function Landing() {
       </section>
 
       {/* Roles */}
-      <section id="roles" className="max-w-6xl mx-auto px-6 sm:px-10 py-20">
+      <section id="roles" className="heavy-section-deferred max-w-6xl mx-auto px-6 sm:px-10 py-20">
         <p className="text-xs font-semibold tracking-wide uppercase text-(--color-accent-text) mb-2">One login, every role</p>
         <h2 className="font-display text-2xl sm:text-3xl font-bold text-(--color-text) mb-10">
           Built for everyone in the gym.
@@ -294,17 +320,17 @@ export default function Landing() {
           {roleCards.map(({ label, tone, icon: Icon, points }, i) => (
             <div
               key={label}
-              className="rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-5 animate-fade-in-up stagger-item"
+              className="card-hover group rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-5 animate-fade-in-up stagger-item"
               style={{ ["--stagger-i" as string]: i }}
             >
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-white mb-4 ${toneBg[tone]}`}>
+              <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-white mb-4 icon-hover-pop ${toneBg[tone]}`}>
                 <Icon size={18} strokeWidth={2.25} />
               </span>
-              <p className="font-display text-xs font-bold tracking-wide uppercase text-(--color-text)">{label}</p>
+              <p className="font-display text-xs font-bold tracking-wide uppercase text-(--color-text) group-hover:text-(--color-accent-text) transition-colors">{label}</p>
               <ul className="mt-3 flex flex-col gap-2">
                 {points.map((p) => (
                   <li key={p} className="flex items-start gap-2 text-sm text-(--color-text-muted) leading-snug">
-                    <Check size={14} className="text-(--color-good) shrink-0 mt-0.5" /> {p}
+                    <Check size={14} className="text-(--color-good) shrink-0 mt-0.5 icon-hover-pop" /> {p}
                   </li>
                 ))}
               </ul>
@@ -314,7 +340,7 @@ export default function Landing() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="bg-(--color-surface-2) border-y border-(--color-border-soft)">
+      <section id="pricing" className="heavy-section-deferred bg-(--color-surface-2) border-y border-(--color-border-soft)">
         <div className="max-w-6xl mx-auto px-6 sm:px-10 py-20">
           <p className="text-xs font-semibold tracking-wide uppercase text-(--color-accent-text) mb-2">Simple pricing</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-(--color-text) mb-10">
@@ -324,7 +350,7 @@ export default function Landing() {
             {plans.map((plan, i) => (
               <div
                 key={plan.name}
-                className={`relative flex flex-col rounded-(--radius-card) border p-5 animate-fade-in-up stagger-item ${
+                className={`card-hover group relative flex flex-col rounded-(--radius-card) border p-5 animate-fade-in-up stagger-item ${
                   plan.popular
                     ? "border-(--color-accent) bg-(--color-surface) shadow-lg"
                     : "border-(--color-border) bg-(--color-surface)"
@@ -332,28 +358,28 @@ export default function Landing() {
                 style={{ ["--stagger-i" as string]: i }}
               >
                 {plan.popular && (
-                  <span className="absolute -top-3 left-5 rounded-full bg-(--color-accent) text-(--color-navbar) text-[10px] font-bold tracking-wide uppercase px-2.5 py-1">
+                  <span className="absolute -top-3 left-5 rounded-full bg-(--color-accent) text-(--color-navbar) text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 shadow-sm">
                     Popular
                   </span>
                 )}
                 <p className="text-xs font-semibold tracking-wide uppercase text-(--color-text-faint)">{plan.name}</p>
                 <p className="mt-2 flex items-baseline gap-1">
-                  <span className="font-display text-2xl font-bold text-(--color-text)">{plan.price}</span>
+                  <span className="font-display text-2xl font-bold text-(--color-text) group-hover:text-(--color-accent-text) transition-colors">{plan.price}</span>
                   {plan.period && <span className="text-xs text-(--color-text-faint)">{plan.period}</span>}
                 </p>
                 {plan.sub && <p className="text-xs text-(--color-text-faint) mt-1">{plan.sub}</p>}
                 <ul className="mt-4 flex flex-col gap-2 flex-1">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm text-(--color-text-muted) leading-snug">
-                      <Check size={14} className="text-(--color-good) shrink-0 mt-0.5" /> {f}
+                      <Check size={14} className="text-(--color-good) shrink-0 mt-0.5 icon-hover-pop" /> {f}
                     </li>
                   ))}
                 </ul>
                 <Link
                   to="/register"
-                  className={`mt-5 text-center rounded-xl text-sm font-semibold py-2.5 transition-colors ${
+                  className={`btn-press btn-sheen mt-5 text-center rounded-xl text-sm font-semibold py-2.5 transition-all ${
                     plan.tone === "accent"
-                      ? "bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar)"
+                      ? "bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) shadow-sm"
                       : "bg-(--color-surface-3) hover:bg-(--color-border) text-(--color-text)"
                   }`}
                 >
@@ -366,13 +392,13 @@ export default function Landing() {
       </section>
 
       {/* Trust strip */}
-      <section id="trust" className="max-w-4xl mx-auto px-6 sm:px-10 py-20">
-        <div className="rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-(--color-accent-soft) text-(--color-accent-text)">
+      <section id="trust" className="heavy-section-deferred max-w-4xl mx-auto px-6 sm:px-10 py-20">
+        <div className="card-hover group rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-(--color-accent-soft) text-(--color-accent-text) icon-hover-pop">
             <ShieldCheck size={22} />
           </span>
           <div className="flex-1">
-            <p className="font-display text-base font-semibold text-(--color-text)">
+            <p className="font-display text-base font-semibold text-(--color-text) group-hover:text-(--color-accent-text) transition-colors">
               Role-based access, built in.
             </p>
             <p className="text-sm text-(--color-text-muted) mt-1 leading-relaxed">
@@ -383,41 +409,157 @@ export default function Landing() {
           <ul className="flex flex-col gap-1.5 text-sm text-(--color-text-muted) shrink-0">
             {["Secure sign in", "Per-role dashboards", "No shared logins"].map((t) => (
               <li key={t} className="flex items-center gap-2">
-                <Check size={14} className="text-(--color-good)" /> {t}
+                <Check size={14} className="text-(--color-good) icon-hover-pop" /> {t}
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="bg-(--color-navbar) border-t border-(--color-navbar-border)">
-        <div className="max-w-3xl mx-auto px-6 sm:px-10 py-20 text-center">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold uppercase text-white">
-            Run your gym from one screen.
-          </h2>
-          <p className="text-white/60 mt-3 max-w-lg mx-auto leading-relaxed">
-            Set up your gym in a couple of minutes and start checking members in today.
-          </p>
-          <Link
-            to="/register"
-            className="btn-press mt-8 inline-flex items-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] text-(--color-navbar) font-semibold text-sm px-6 py-3.5 transition-all"
-          >
-            Start 1-week free trial <ArrowRight size={16} />
-          </Link>
+      {/* Final CTA & Contact Section */}
+      <section id="contact" className="heavy-section-deferred bg-(--color-navbar) border-t border-(--color-navbar-border)">
+        <div className="max-w-6xl mx-auto px-6 sm:px-10 py-16 sm:py-20">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            {/* Left Side: CTA Copy & Buttons */}
+            <div className="lg:col-span-6 text-left">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-(--color-accent) mb-4">
+                <Sparkles size={13} /> Get Started Today
+              </span>
+              <h2 className="font-display text-3xl sm:text-4xl lg:text-4xl font-bold uppercase leading-tight text-white">
+                Run your gym from one screen.
+              </h2>
+              <p className="text-white/70 mt-3 text-base leading-relaxed max-w-lg">
+                Set up your gym in a couple of minutes and start checking members in today.
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/register"
+                  className="btn-press btn-sheen inline-flex items-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] text-(--color-navbar) font-semibold text-sm px-6 py-3.5 transition-all"
+                >
+                  Start 1-week free trial <ArrowRight size={16} className="icon-hover-pop" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="btn-press inline-flex items-center gap-2 rounded-xl border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 text-white font-semibold text-sm px-5 py-3.5 transition-all"
+                >
+                  Sign in
+                </Link>
+              </div>
+
+              {/* Direct Support Contacts below left copy */}
+              <div className="mt-8 pt-6 border-t border-white/10 flex flex-wrap items-center gap-6 text-xs text-white/70">
+                <a href="mailto:admin@admin.com" className="inline-flex items-center gap-2 hover:text-(--color-accent) transition-colors">
+                  <Mail size={15} className="text-(--color-accent)" /> admin@admin.com
+                </a>
+                <a href="tel:+918609504186" className="inline-flex items-center gap-2 hover:text-(--color-accent) transition-colors">
+                  <Phone size={15} className="text-(--color-good)" /> +91 86095 04186
+                </a>
+              </div>
+            </div>
+
+            {/* Right Side: Contact Form Card */}
+            <div className="lg:col-span-6 rounded-2xl border border-white/15 bg-white/5 p-6 sm:p-8 backdrop-blur-sm shadow-xl">
+              <h3 className="font-display text-xl font-bold text-white mb-1 flex items-center gap-2">
+                <MessageSquare size={20} className="text-(--color-accent)" /> Contact Us
+              </h3>
+              <p className="text-xs text-white/60 mb-5">Have questions or need a demo? Drop us a message below.</p>
+
+              {submitted ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center animate-fade-in">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-(--color-good-soft) text-(--color-good) mb-3">
+                    <CheckCircle2 size={28} />
+                  </span>
+                  <h4 className="font-display text-lg font-bold text-white">Message Sent Successfully!</h4>
+                  <p className="text-xs text-white/70 mt-1.5 max-w-xs">
+                    Thank you for reaching out. We will get back to you at <span className="font-medium text-white">{formData.email || "your email"}</span> soon.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Name</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Rahul Sharma"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Email</label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="rahul@fitgym.com"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Phone</label>
+                      <input
+                        type="tel"
+                        placeholder="+91 98765 43210"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Gym Name / Subject</label>
+                      <input
+                        type="text"
+                        placeholder="Gold's Fitness"
+                        value={formData.message.slice(0, 25)}
+                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                        className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Message</label>
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Ask about gym onboarding, trainer plans, or pricing..."
+                      value={formData.message}
+                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                      className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn-press btn-sheen mt-1 flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) font-semibold text-xs py-2.5 transition-all cursor-pointer shadow-md"
+                  >
+                    Send Message <Send size={14} className="icon-hover-pop" />
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Footer — dark navy/black bar, yellow accent, gray text */}
+      {/* Footer — dark navy bar */}
       <footer className="border-t border-(--color-navbar-border) bg-(--color-navbar)">
         <div className="max-w-6xl mx-auto px-6 sm:px-10 py-10">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-8">
             <div className="max-w-xs">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md">
+              <div className="flex items-center gap-2.5 group cursor-pointer">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md icon-hover-pop">
                   <Dumbbell size={18} strokeWidth={2.5} />
                 </span>
-                <span className="font-display text-lg font-semibold text-(--color-navbar-text)">GYMAI</span>
+                <span className="font-display text-lg font-semibold text-(--color-navbar-text) group-hover:text-(--color-accent) transition-colors">GYMAI</span>
               </div>
               <p className="text-sm text-(--color-navbar-text-muted) mt-3 leading-relaxed">
                 AI-powered gym management for owners, trainers, reception and members — one dashboard, every role.
@@ -428,24 +570,25 @@ export default function Landing() {
               <div>
                 <p className="text-xs font-semibold tracking-wide uppercase text-(--color-accent) mb-3">Product</p>
                 <ul className="flex flex-col gap-2 text-sm text-(--color-navbar-text-muted)">
-                  <li><a href="#features" className="hover:text-(--color-navbar-text) transition-colors">Features</a></li>
-                  <li><a href="#how-it-works" className="hover:text-(--color-navbar-text) transition-colors">How it works</a></li>
-                  <li><a href="#pricing" className="hover:text-(--color-navbar-text) transition-colors">Pricing</a></li>
+                  <li><a href="#features" className="nav-link-underline hover:text-(--color-navbar-text) transition-colors">Features</a></li>
+                  <li><a href="#how-it-works" className="nav-link-underline hover:text-(--color-navbar-text) transition-colors">How it works</a></li>
+                  <li><a href="#pricing" className="nav-link-underline hover:text-(--color-navbar-text) transition-colors">Pricing</a></li>
+                  <li><a href="#contact" className="nav-link-underline hover:text-(--color-navbar-text) transition-colors">Contact Us</a></li>
                 </ul>
               </div>
               <div>
                 <p className="text-xs font-semibold tracking-wide uppercase text-(--color-accent) mb-3">Account</p>
                 <ul className="flex flex-col gap-2 text-sm text-(--color-navbar-text-muted)">
-                  <li><Link to="/login" className="hover:text-(--color-navbar-text) transition-colors">Sign in</Link></li>
-                  <li><Link to="/register" className="hover:text-(--color-navbar-text) transition-colors">Start free trial</Link></li>
-                  <li><Link to="/roles" className="hover:text-(--color-navbar-text) transition-colors">Explore demo</Link></li>
+                  <li><Link to="/login" className="nav-link-underline hover:text-(--color-navbar-text) transition-colors">Sign in</Link></li>
+                  <li><Link to="/register" className="nav-link-underline hover:text-(--color-navbar-text) transition-colors">Start free trial</Link></li>
+                  <li><Link to="/roles" className="nav-link-underline hover:text-(--color-navbar-text) transition-colors">Explore demo</Link></li>
                 </ul>
               </div>
             </div>
           </div>
 
           <div className="mt-10 pt-6 border-t border-(--color-navbar-border) flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-(--color-navbar-text-muted)">
-            <span>© {new Date().getFullYear()} GYMAI. Not just attendance.</span>
+            <span>© {new Date().getFullYear()} GYMAI. Direct Contact: admin@admin.com | +91 86095 04186</span>
             <span>Owner accounts require an invite code — ask your GYMAI admin.</span>
           </div>
         </div>

@@ -12,7 +12,7 @@ export default function Card({
   return (
     <div
       className={clsx(
-        "rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-4 sm:p-5",
+        "card-hover rounded-(--radius-card) border border-(--color-border) bg-(--color-surface) p-4 sm:p-5 transition-all duration-250",
         sweep && "energy-sweep",
         className
       )}

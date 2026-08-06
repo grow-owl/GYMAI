@@ -300,9 +300,9 @@ export default function TopBar({
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             onClick={onMenuClick}
-            className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-(--color-text-muted) hover:bg-(--color-surface-2) transition-colors"
+            className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-2) transition-all hover:scale-105"
           >
-            <Menu size={18} />
+            <Menu size={18} className="icon-hover-pop" />
           </button>
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-base sm:text-xl font-semibold text-(--color-text) truncate">{greeting}</h1>
@@ -325,8 +325,8 @@ export default function TopBar({
             ) : null
           ) : (
             branches.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) shrink-0 max-w-[150px] sm:max-w-none">
-                <Building2 size={14} className="text-(--color-accent) shrink-0" />
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) hover:border-(--color-accent) transition-all shrink-0 max-w-[160px] sm:max-w-none">
+                <Building2 size={14} className="text-(--color-accent) shrink-0 icon-hover-pop" />
                 <CustomSelect
                   compact
                   value={activeBranchId || (branches[0]?._id || branches[0]?.id)}
@@ -343,8 +343,8 @@ export default function TopBar({
           {/* Search — visible only on Dashboard */}
           {isDashboard && (
             <div ref={searchRef} className="relative hidden lg:block">
-              <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-3.5 py-2 text-sm text-(--color-text-muted) w-64 focus-within:text-(--color-text) transition-colors">
-                <Search size={15} />
+              <div className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-3.5 py-2 text-sm text-(--color-text-muted) w-64 focus-within:text-(--color-text) focus-within:border-(--color-accent) focus-within:shadow-sm transition-all">
+                <Search size={15} className="icon-hover-pop" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -361,7 +361,7 @@ export default function TopBar({
               </div>
 
               {searchOpen && query.trim() && (
-                <div className="absolute left-0 top-full mt-1.5 w-64 z-[9999] rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden">
+                <div className="absolute left-0 top-full mt-1.5 w-64 z-[9999] rounded-xl border border-(--color-border) bg-(--color-surface) shadow-lg overflow-hidden animate-fade-in">
                   {results.length === 0 ? (
                     <p className="px-4 py-3 text-xs text-(--color-text-muted)">No matching pages found</p>
                   ) : (
@@ -369,7 +369,7 @@ export default function TopBar({
                       <button
                         key={r.path}
                         onClick={() => goTo(r.path)}
-                        className="w-full text-left px-4 py-2.5 text-sm text-(--color-text) hover:bg-(--color-surface-2) transition-colors border-b border-(--color-border-soft) last:border-0"
+                        className="w-full text-left px-4 py-2.5 text-sm text-(--color-text) hover:bg-(--color-surface-2) hover:text-(--color-accent-text) transition-colors border-b border-(--color-border-soft) last:border-0"
                       >
                         {r.label}
                       </button>
@@ -380,8 +380,6 @@ export default function TopBar({
             </div>
           )}
 
-
-
           {/* Notifications Dropdown */}
           <div ref={notifRef} className="relative">
             <button
@@ -390,9 +388,9 @@ export default function TopBar({
                 setProfileOpen(false);
               }}
               aria-label="Notifications"
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-text) transition-colors"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-text) hover:border-(--color-accent) hover:bg-(--color-surface-2) transition-all hover:scale-105"
             >
-              <Bell size={17} />
+              <Bell size={17} className="icon-hover-pop" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-(--color-accent) text-[10px] font-bold text-white shadow-xs animate-pulse">
                   {unreadCount > 9 ? "9+" : unreadCount}
@@ -485,7 +483,7 @@ export default function TopBar({
                 setProfileOpen((o) => !o);
                 setNotifOpen(false);
               }}
-              className="hidden sm:flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) pl-1 pr-3 py-1 hover:border-(--color-accent) transition-all"
+              className="hidden sm:flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) pl-1 pr-3 py-1 hover:border-(--color-accent) hover:bg-(--color-surface-2) transition-all hover:scale-102"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-(--color-accent) text-[11px] font-bold text-white uppercase">
                 {avatarInitial || (user?.fullName ? user.fullName[0] : "S")}

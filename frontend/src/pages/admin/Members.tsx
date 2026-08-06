@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Users, Search, Mail, Phone, Calendar, Loader2, GitBranch } from "lucide-react";
 import { gymApi, memberApi } from "@/lib/endpoints";
 import { toast } from "sonner";
+import CustomSelect from "@/components/ui/CustomSelect";
 
 export default function Members() {
   const [gyms, setGyms] = useState<any[]>([]);
@@ -115,38 +116,32 @@ export default function Members() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-(--color-text-faint) mb-1.5">Gym Tenant</label>
-              <select
+              <CustomSelect
+                label="GYM TENANT"
                 value={selectedGymId}
-                onChange={(e) => handleGymChange(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-              >
-                {gyms.map((g) => (
-                  <option key={g._id || g.id} value={g._id || g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => handleGymChange(val)}
+                options={gyms.map((g) => ({
+                  value: g._id || g.id,
+                  label: g.name,
+                }))}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-(--color-text-faint) mb-1.5">Branch Location</label>
-              <select
+              <CustomSelect
+                label="BRANCH LOCATION"
                 value={selectedBranchId}
-                onChange={(e) => handleBranchChange(e.target.value)}
+                onChange={(val) => handleBranchChange(val)}
                 disabled={branchesList.length === 0}
-                className="w-full px-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent) disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {branchesList.length === 0 ? (
-                  <option value="">No branches registered</option>
-                ) : (
-                  branchesList.map((b: any) => (
-                    <option key={b._id || b.id} value={b._id || b.id}>
-                      {b.name}
-                    </option>
-                  ))
-                )}
-              </select>
+                options={
+                  branchesList.length === 0
+                    ? [{ value: "", label: "No branches registered" }]
+                    : branchesList.map((b: any) => ({
+                        value: b._id || b.id,
+                        label: b.name,
+                      }))
+                }
+              />
             </div>
 
             <div className="sm:col-span-2 lg:col-span-1">

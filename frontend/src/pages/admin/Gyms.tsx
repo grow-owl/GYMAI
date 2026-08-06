@@ -3,6 +3,7 @@ import { Building2, Search, Plus, Filter, ShieldCheck, CheckCircle2, XCircle, Lo
 import { gymApi, authApi } from "@/lib/endpoints";
 import { useFormValidation } from "@/lib/useFormValidation";
 import { toast } from "sonner";
+import CustomSelect from "@/components/ui/CustomSelect";
 
 export default function Gyms() {
   const [gyms, setGyms] = useState<any[]>([]);
@@ -151,15 +152,16 @@ export default function Gyms() {
 
         <div className="flex items-center gap-2">
           <Filter size={18} className="text-(--color-text-faint)" />
-          <select
+          <CustomSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active Only</option>
-            <option value="SUSPENDED">Suspended Only</option>
-          </select>
+            onChange={(val) => setStatusFilter(val)}
+            options={[
+              { value: "ALL", label: "All Statuses" },
+              { value: "ACTIVE", label: "Active Only" },
+              { value: "SUSPENDED", label: "Suspended Only" },
+            ]}
+            className="w-44"
+          />
         </div>
       </div>
 
@@ -334,16 +336,16 @@ export default function Gyms() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-(--color-text-muted) mb-1">SaaS Subscription Tier</label>
-                <select
+                <CustomSelect
+                  label="SaaS Subscription Tier"
                   value={values.subscriptionPlan}
-                  onChange={(e) => handleChange("subscriptionPlan", e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-                >
-                  <option value="STARTER">Starter Tier (1 Branch)</option>
-                  <option value="PRO">Pro Tier (Up to 5 Branches)</option>
-                  <option value="ENTERPRISE">Enterprise Tier (Unlimited)</option>
-                </select>
+                  onChange={(val) => handleChange("subscriptionPlan", val as any)}
+                  options={[
+                    { value: "STARTER", label: "Starter Tier (1 Branch)" },
+                    { value: "PRO", label: "Pro Tier (Up to 5 Branches)" },
+                    { value: "ENTERPRISE", label: "Enterprise Tier (Unlimited)" },
+                  ]}
+                />
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-(--color-border)">

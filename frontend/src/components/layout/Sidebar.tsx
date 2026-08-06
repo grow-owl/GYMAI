@@ -40,18 +40,18 @@ export default function Sidebar({
         end={item.path === "/owner" || item.path === "/trainer" || item.path === "/reception"}
         className={({ isActive }) =>
           clsx(
-            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
             collapsed && "justify-center px-0",
             isActive
               ? accent
-                ? "bg-(--color-accent) text-(--color-sidebar)"
-                : "bg-white/10 text-(--color-sidebar-text)"
-              : "text-(--color-sidebar-text-muted) hover:text-(--color-sidebar-text) hover:bg-white/5"
+                ? "bg-(--color-accent) text-(--color-sidebar) shadow-md"
+                : "bg-white/15 text-(--color-sidebar-text) shadow-sm font-semibold"
+              : "text-(--color-sidebar-text-muted) hover:text-(--color-sidebar-text) hover:bg-white/10 hover:translate-x-1"
           )
         }
         title={collapsed ? item.label : undefined}
       >
-        <Icon size={18} strokeWidth={2} />
+        <Icon size={18} strokeWidth={2} className="icon-hover-pop shrink-0" />
         {!collapsed && <span className="truncate">{item.label}</span>}
       </NavLink>
     );
