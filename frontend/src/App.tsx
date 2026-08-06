@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense, useMemo } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import RoleSelect from "@/pages/RoleSelect";
 import Landing from "@/pages/Landing";

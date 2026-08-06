@@ -88,7 +88,6 @@ export default function MemberHome() {
   const gymId = memberProfile?.gymId || user?.gymId || "";
   
   const rawBranch = memberProfile?.branchId;
-  const branchId = (typeof rawBranch === "object" && rawBranch !== null ? rawBranch._id : rawBranch) || user?.branchId || "";
   const branchName = (typeof rawBranch === "object" && rawBranch !== null ? rawBranch.name : user?.branchName) || "";
   const memberId = memberProfile?._id || user?._id || "";
 
