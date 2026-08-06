@@ -16,7 +16,7 @@ const envSchema = z.object({
 
   SALT_ROUNDS: z.string().default('10').transform((val) => parseInt(val, 10)),
   RATE_LIMIT_WINDOW_MS: z.string().default('900000').transform((val) => parseInt(val, 10)),
-  RATE_LIMIT_MAX: z.string().default('100').transform((val) => parseInt(val, 10)),
+  RATE_LIMIT_MAX: z.string().default('2000').transform((val) => parseInt(val, 10)),
 
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),

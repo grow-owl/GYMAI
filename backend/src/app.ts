@@ -38,6 +38,9 @@ import jobRoutes from './jobs/job.routes';
 
 const app: Express = express();
 
+// Trust reverse proxy headers (e.g. Nginx, Cloudflare, Heroku, Vercel)
+app.set('trust proxy', 1);
+
 // 1. Request ID correlation middleware
 app.use(requestId);
 
