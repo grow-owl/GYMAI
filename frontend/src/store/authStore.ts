@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { authApi, gymApi, type AuthUser } from "@/lib/endpoints";
+import { authApi, type AuthUser } from "@/lib/endpoints";
 import { getAccessToken, setAccessToken, ApiError } from "@/lib/api";
 
 export interface OwnerAddress {
@@ -71,7 +71,7 @@ function describeApiError(e: unknown, fallback: string): { message: string; fiel
   return { message: fallback, fieldErrors: {} };
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   loading: true,
@@ -112,19 +112,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       // Gym owners need a gym (+ a first branch) to use the rest of the app.
       // This mirrors the real onboarding flow: register -> create gym -> create branch.
-      if (input.gymName) {
-        try {
-          const { gym } = await gymApi.createGym({ name: input.gymName, billingEmail: normalizedEmail });
-          await gymApi.createBranch(gym._id, {
-            name: "Main Branch",
-            address: { ...input.address, country: "India" },
-            contactPhone: input.phone,
-          });
-        } catch {
-          // Gym/branch creation failing shouldn't block the account from being created —
-          // the owner can finish setup from Settings.
-        }
-      }
+
       return newUser;
     } catch (e) {
       const { message, fieldErrors } = describeApiError(e, "Registration failed. Please check your details and try again.");
@@ -152,6 +140,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    // Capture current user ID before clearing state
+    const currentUser = get().user;
+    const userId = currentUser?.id || currentUser?._id || '';
+    // Clear generic and user‑scoped branch selections
+    try {
+      localStorage.removeItem('gymai.selected_branch_id');
+      localStorage.removeItem('gymai.branches_list');
+      if (userId) {
+        localStorage.removeItem(`gymai.selected_branch_id.${userId}`);
+        localStorage.removeItem(`gymai.branches_list.${userId}`);
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
     authApi.logout().catch(() => {
       // Even if the network call fails, clear the local session.
     });

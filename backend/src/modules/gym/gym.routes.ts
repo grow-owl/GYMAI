@@ -15,6 +15,7 @@ import {
   updateBranchSchema,
   assignManagerSchema,
 } from './gym.validation';
+import { registerStaffSchema } from '../auth/auth.validation';
 
 const router = Router();
 
@@ -117,6 +118,7 @@ router.patch(
 router.post(
   '/:gymId/branches/:branchId/staff',
   authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
+  validate(registerStaffSchema, 'body'),
   AuthController.registerStaff
 );
 

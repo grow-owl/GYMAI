@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { Lead } from './lead.model';
 import { ILead, LeadStatus } from './lead.types';
@@ -187,11 +188,13 @@ export class LeadService {
       }
     }
 
+    const generatedPassword = input.password || `Mem@${crypto.randomBytes(4).toString('hex')}1`;
+
     const member = await MemberService.createMember(gymId, lead.branchId.toString(), {
       fullName: lead.fullName,
       email: emailToUse,
       phone: lead.phone,
-      password: input.password || 'Member@123',
+      password: generatedPassword,
       branchId: lead.branchId.toString(),
       planName: input.planName,
       membershipStartDate: input.membershipStartDate || new Date(),

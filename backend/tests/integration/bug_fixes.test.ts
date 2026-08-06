@@ -120,8 +120,6 @@ describe('Bug Fixes Verification Suite', () => {
       phone: '+919876543222',
       password: 'Password123',
       role: Role.MEMBER,
-      gymId: new mongoose.Types.ObjectId(gymId),
-      branchId: new mongoose.Types.ObjectId(branchId),
       referralCode: referralCode,
     });
 

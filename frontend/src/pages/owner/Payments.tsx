@@ -7,6 +7,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { paymentApi, memberApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 const paymentMethodOptions = [
@@ -24,6 +25,11 @@ const purposeOptions = [
 ];
 
 export default function Payments() {
+  const currentUserRole = useAuthStore((s) => s.user?.role);
+  const isOwnerOrAdmin =
+    currentUserRole === "GYM_OWNER" ||
+    currentUserRole === "SUPER_ADMIN" ||
+    currentUserRole === "BRANCH_MANAGER";
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,18 +176,20 @@ export default function Payments() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card sweep>
-          <p className="text-xs text-(--color-text-muted) mb-1">Total Revenue Collected</p>
-          <p className="font-display text-2xl font-bold text-emerald-400 font-mono">
-            ₹{summary.total.toLocaleString("en-IN")}
-          </p>
-        </Card>
-        <Card>
-          <p className="text-xs text-(--color-text-muted) mb-1">Successful Payment Transactions</p>
-          <p className="font-display text-2xl font-bold text-(--color-text) font-mono">{summary.transactions} payments</p>
-        </Card>
-      </div>
+      {isOwnerOrAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card sweep>
+            <p className="text-xs text-(--color-text-muted) mb-1">Total Revenue Collected</p>
+            <p className="font-display text-2xl font-bold text-emerald-400 font-mono">
+              ₹{summary.total.toLocaleString("en-IN")}
+            </p>
+          </Card>
+          <Card>
+            <p className="text-xs text-(--color-text-muted) mb-1">Successful Payment Transactions</p>
+            <p className="font-display text-2xl font-bold text-(--color-text) font-mono">{summary.transactions} payments</p>
+          </Card>
+        </div>
+      )}
 
       {resolvingBranch || loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -193,6 +201,12 @@ export default function Payments() {
           <button onClick={fetchData} className="px-4 py-2 rounded-full bg-(--color-surface-2) text-xs font-semibold">
             Retry Loading
           </button>
+        </Card>
+      ) : !isOwnerOrAdmin ? (
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
+          <CreditCard className="w-8 h-8 mx-auto text-(--color-text-faint)" />
+          <p className="text-sm font-medium text-(--color-text)">Reception Payment Terminal</p>
+          <p className="text-xs text-(--color-text-muted)">Click "Record payment" to log member cash, card, or UPI payments.</p>
         </Card>
       ) : payments.length === 0 ? (
         <Card className="text-center py-12 text-(--color-text-muted) space-y-2">
@@ -229,7 +243,7 @@ export default function Payments() {
                   : p.purpose?.replace(/_/g, " ") || "Payment");
 
               return (
-                <div key={pId} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex items-center justify-between gap-3">
+                <div key={pId} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
                   <div>
                     <h4 className="font-display text-sm font-semibold text-(--color-text)">{memberName}</h4>
                     <p className="text-xs text-(--color-text-muted) mt-0.5 flex items-center gap-1.5 flex-wrap">
@@ -240,7 +254,7 @@ export default function Payments() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-(--color-border)/30">
                     <Badge tone="good">{p.status || "SUCCESS"}</Badge>
                     <span className="font-mono text-sm font-bold text-emerald-400">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
                   </div>

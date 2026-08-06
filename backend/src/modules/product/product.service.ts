@@ -27,6 +27,7 @@ export interface PurchaseProductInput {
 }
 
 export class ProductService {
+  public static async createProduct(gymId: string, input: CreateProductInput): Promise<IProduct> {
     let branch = await Branch.findOne({ gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined, isDeleted: false });
     const targetGymId = branch ? branch.gymId : (mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : null);
     if (!targetGymId) {

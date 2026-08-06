@@ -9,6 +9,8 @@
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
     "test": "jest --passWithNoTests",
+    "seed:admin": "ts-node src/scripts/seedSuperAdmin.ts",
+    "seed:demo": "ts-node src/scripts/cleanAndSeed.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\""

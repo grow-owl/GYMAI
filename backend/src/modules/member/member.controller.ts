@@ -31,7 +31,8 @@ export class MemberController {
   });
 
   public static getMemberById = asyncHandler(async (req: Request, res: Response) => {
-    const member = await MemberService.getMemberById(req.params.memberId);
+    const gymId = req.tenant?.gymId || req.user?.gymId;
+    const member = await MemberService.getMemberById(req.params.memberId, gymId ? gymId.toString() : undefined);
     return sendSuccess(res, { member }, 'Member profile retrieved successfully');
   });
 
@@ -50,28 +51,31 @@ export class MemberController {
     const updated = await MemberService.updateMember(
       member._id.toString(),
       req.body,
+      member.gymId.toString(),
       Role.MEMBER
     );
     return sendSuccess(res, { member: updated }, 'Member profile updated successfully');
   });
 
   public static updateMember = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.tenant?.gymId || req.user?.gymId;
     const member = await MemberService.updateMember(
       req.params.memberId,
       req.body,
+      gymId ? gymId.toString() : undefined,
       req.user!.role as Role
     );
     return sendSuccess(res, { member }, 'Member updated successfully');
   });
 
   public static assignTrainer = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user?.gymId;
+    const gymId = req.tenant?.gymId || req.user?.gymId;
     const member = await MemberService.assignTrainer(req.params.memberId, req.body.trainerId, gymId ? gymId.toString() : undefined);
     return sendSuccess(res, { member }, 'Trainer assigned to member successfully');
   });
 
   public static freezeMembership = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user?.gymId;
+    const gymId = req.tenant?.gymId || req.user?.gymId;
     const member = await MemberService.freezeMembership(
       req.params.memberId,
       new Date(req.body.freezeUntil),
@@ -82,7 +86,7 @@ export class MemberController {
   });
 
   public static renewMembership = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user?.gymId;
+    const gymId = req.tenant?.gymId || req.user?.gymId;
     const member = await MemberService.renewMembership(
       req.params.memberId,
       new Date(req.body.newEndDate),
@@ -93,7 +97,7 @@ export class MemberController {
   });
 
   public static extendMembership = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user?.gymId;
+    const gymId = req.tenant?.gymId || req.user?.gymId;
     const member = await MemberService.extendMembership(
       req.params.memberId,
       Number(req.body.days),
@@ -104,7 +108,7 @@ export class MemberController {
   });
 
   public static cancelMembership = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user?.gymId;
+    const gymId = req.tenant?.gymId || req.user?.gymId;
     const member = await MemberService.cancelMembership(
       req.params.memberId,
       req.body.reason,
@@ -114,18 +118,20 @@ export class MemberController {
   });
 
   public static regenerateQRCode = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user?.gymId;
+    const gymId = req.tenant?.gymId || req.user?.gymId;
     const result = await MemberService.regenerateQRCode(req.params.memberId, gymId ? gymId.toString() : undefined);
     return sendSuccess(res, result, 'QR code regenerated successfully');
   });
 
   public static getQRCode = asyncHandler(async (req: Request, res: Response) => {
-    const member = await MemberService.getMemberById(req.params.memberId);
+    const gymId = req.tenant?.gymId || req.user?.gymId;
+    const member = await MemberService.getMemberById(req.params.memberId, gymId ? gymId.toString() : undefined);
     return sendSuccess(res, { qrCodeToken: member.qrCode }, 'QR code retrieved successfully');
   });
 
   public static softDeleteMember = asyncHandler(async (req: Request, res: Response) => {
-    await MemberService.softDeleteMember(req.params.memberId);
+    const gymId = req.tenant?.gymId || req.user?.gymId;
+    await MemberService.softDeleteMember(req.params.memberId, gymId ? gymId.toString() : undefined);
     return sendSuccess(res, null, 'Member soft deleted successfully');
   });
 }

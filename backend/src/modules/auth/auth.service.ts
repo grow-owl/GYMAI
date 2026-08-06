@@ -54,8 +54,6 @@ export class AuthService {
       phone: input.phone,
       password: input.password,
       role: input.role || Role.MEMBER,
-      gymId: input.gymId,
-      branchId: input.branchId,
       referredByMemberId,
       isActive: true,
     });
@@ -101,8 +99,7 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      user.isActive = true;
-      await user.save();
+      throw AppError.forbidden('Account is deactivated');
     }
 
     // Account lock check
@@ -153,6 +150,7 @@ export class AuthService {
     logger.info(`🔓 User logged in: [ID: ${user._id}] [Role: ${user.role}]`);
 
     const userObj: any = user.toObject();
+    delete userObj.password;
     if (user.gymId) {
       const gymDoc = await Gym.findById(user.gymId);
       if (gymDoc) {
@@ -269,8 +267,9 @@ export class AuthService {
 
   public static async forgotPassword(email: string): Promise<string> {
     const user = await User.findOne({ email: email.toLowerCase(), isDeleted: false });
+    const message = 'If a matching account exists, password reset instructions have been sent.';
     if (!user) {
-      return 'If a matching account exists, a password reset token has been generated.';
+      return message;
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -283,14 +282,14 @@ export class AuthService {
     const template = notificationTemplates[NotificationType.PASSWORD_RESET]();
     await NotificationService.sendToUser(
       user._id.toString(),
-      user.gymId?.toString() || '000000000000000000000000',
+      user.gymId?.toString(),
       NotificationType.PASSWORD_RESET,
       template.title,
       template.body
     );
 
     logger.info(`🔑 Password reset token generated for User ID: ${user._id}`);
-    return resetToken;
+    return message;
   }
 
   public static async resetPassword(resetToken: string, newPassword: string): Promise<void> {

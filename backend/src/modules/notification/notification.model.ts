@@ -12,7 +12,7 @@ const notificationSchema = new Schema<INotification>(
     gymId: {
       type: Schema.Types.ObjectId,
       ref: 'Gym',
-      required: true,
+      required: false,
       index: true,
     },
     type: {

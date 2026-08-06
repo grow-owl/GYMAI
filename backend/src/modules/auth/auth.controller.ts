@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { AppError } from '../../common/utils/AppError';
 import { env } from '../../config/env';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
@@ -138,16 +139,22 @@ export class AuthController {
   });
 
   public static registerStaff = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user!.gymId;
-    const branchId = req.params.branchId || req.user!.branchId;
+    const gymId = req.params.gymId || req.user?.gymId;
+    const branchId = req.params.branchId || req.user?.branchId;
+    if (!gymId || !branchId) {
+      throw AppError.badRequest('Gym ID and Branch ID are required for staff registration');
+    }
     const user = await AuthService.registerStaff(gymId, branchId, req.body);
     const safeUser = user.toSafeJSON ? user.toSafeJSON() : user;
     return sendSuccess(res, { staff: safeUser }, 'Staff member created successfully', 201);
   });
 
   public static listStaff = asyncHandler(async (req: Request, res: Response) => {
-    const gymId = req.params.gymId || req.user!.gymId;
-    const branchId = req.params.branchId || req.query.branchId as string;
+    const gymId = req.params.gymId || req.user?.gymId;
+    if (!gymId) {
+      throw AppError.badRequest('Gym ID is required to list staff members');
+    }
+    const branchId = req.params.branchId || (req.query.branchId as string);
     const staff = await AuthService.listStaff(gymId, branchId);
     return sendSuccess(res, { staff }, 'Staff members retrieved successfully', 200);
   });

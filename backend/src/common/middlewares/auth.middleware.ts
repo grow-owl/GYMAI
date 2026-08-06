@@ -34,8 +34,7 @@ export const authenticate = async (
     }
 
     if (!user.isActive) {
-      user.isActive = true;
-      await user.save();
+      return next(AppError.forbidden('Account is deactivated'));
     }
 
     req.user = {

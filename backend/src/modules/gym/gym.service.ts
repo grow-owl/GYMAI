@@ -208,9 +208,13 @@ export class GymService {
     return branch;
   }
 
-  public static async verifyOwnerAccess(ownerUserId: string, gymId: string, _role?: Role): Promise<boolean> {
+  public static async verifyOwnerAccess(ownerUserId: string, gymId: string, role?: Role): Promise<boolean> {
+    if (role === Role.SUPER_ADMIN) return true;
     const gym = await Gym.findOne({ _id: gymId, ownerId: ownerUserId, isDeleted: false });
-    return !!gym;
+    if (!gym) {
+      throw AppError.forbidden('Access denied: You do not own this gym organization');
+    }
+    return true;
   }
 
   public static async checkAndUpdateExpiredGyms(): Promise<{ suspendedCount: number; expiredTrialCount: number }> {

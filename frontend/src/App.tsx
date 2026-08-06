@@ -55,6 +55,15 @@ import ReceptionLeads from "@/pages/reception/Leads";
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AdminPanel from "@/pages/admin/AdminPanel";
+import AdminShell from "@/components/layout/AdminShell";
+import Gyms from "@/pages/admin/Gyms";
+import Branches from "@/pages/admin/Branches";
+import AdminMembers from "@/pages/admin/Members";
+import AdminTrainers from "@/pages/admin/Trainers";
+import AdminStaff from "@/pages/admin/Staff";
+import PasswordReset from "@/pages/admin/PasswordReset";
+import Analytics from "@/pages/admin/Analytics";
+import AdminSettings from "@/pages/admin/Settings";
 
 import BranchComparison from "@/pages/owner/BranchComparison";
 import Notifications from "@/pages/Notifications";
@@ -130,10 +139,18 @@ export default function App() {
             <Route path="/roles" element={<RoleSelect />} />
 
             <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
-              <Route path="/admin" element={<OwnerShell />}>
-                <Route index element={<AdminPanel />} />
-                <Route path="notifications" element={<Notifications />} />
-              </Route>
+          <Route path="/admin" element={<AdminShell />}>
+            <Route index element={<AdminPanel />} />
+            <Route path="gyms" element={<Gyms />} />
+            <Route path="branches" element={<Branches />} />
+            <Route path="members" element={<AdminMembers />} />
+            <Route path="trainers" element={<AdminTrainers />} />
+            <Route path="staff" element={<AdminStaff />} />
+            <Route path="password-reset" element={<PasswordReset />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="settings" element={<AdminSettings />} />
+            <Route path="notifications" element={<Notifications />} />
+          </Route>
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN", "BRANCH_MANAGER"]} />}>

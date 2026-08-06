@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { useAuth, roleHome } from "@/store/authStore";
+import { useFormValidation } from "@/lib/useFormValidation";
 
 const roleCopy: Record<string, { eyebrow: string; title: string; subtitle: string }> = {
   owner: {
@@ -30,11 +31,17 @@ const roleCopy: Record<string, { eyebrow: string; title: string; subtitle: strin
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, loading, error, fieldErrors, clearError } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { login, loading, error, fieldErrors: apiFieldErrors, clearError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
+
+  const { values, errors, touched, handleChange, handleBlur, validateAll } = useFormValidation(
+    { email: "", password: "" },
+    {
+      email: { required: "Email address is required", email: "Enter a valid email address" },
+      password: { required: "Password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } },
+    }
+  );
 
   const roleHint = searchParams.get("role");
   const copy = (roleHint && roleCopy[roleHint]) || roleCopy.owner;
@@ -42,13 +49,18 @@ export default function Login() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     clearError();
+    if (!validateAll()) return;
+
     try {
-      const loggedInUser = await login(email, password);
+      const loggedInUser = await login(values.email, values.password);
       navigate(roleHome[loggedInUser.role] ?? "/owner");
     } catch {
-      // error already surfaced via the store
+      // error handled via store
     }
   };
+
+  const emailError = (touched.email && errors.email) || apiFieldErrors.email;
+  const passwordError = (touched.password && errors.password) || apiFieldErrors.password;
 
   return (
     <AuthLayout eyebrow={copy.eyebrow} title={copy.title} subtitle={copy.subtitle}>
@@ -70,16 +82,16 @@ export default function Login() {
             <Mail size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-faint)" />
             <input
               type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={values.email}
+              onChange={(e) => handleChange("email", e.target.value)}
+              onBlur={() => handleBlur("email")}
               placeholder="owner@yourgym.com"
               className={`w-full rounded-xl border bg-(--color-surface) pl-10 pr-4 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint) transition-colors ${
-                fieldErrors.email ? "border-(--color-danger)" : "border-(--color-border)"
+                emailError ? "border-rose-500" : "border-(--color-border)"
               }`}
             />
           </div>
-          {fieldErrors.email && <p className="text-xs text-(--color-danger) mt-1">{fieldErrors.email}</p>}
+          {emailError && <p className="text-xs text-rose-400 mt-1">{emailError}</p>}
         </div>
 
         <div>
@@ -93,11 +105,13 @@ export default function Login() {
             <Lock size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-faint)" />
             <input
               type={showPassword ? "text" : "password"}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={values.password}
+              onChange={(e) => handleChange("password", e.target.value)}
+              onBlur={() => handleBlur("password")}
               placeholder="••••••••"
-              className="w-full rounded-xl border border-(--color-border) bg-(--color-surface) pl-10 pr-10 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint) transition-colors"
+              className={`w-full rounded-xl border bg-(--color-surface) pl-10 pr-10 py-2.5 text-sm text-(--color-text) placeholder:text-(--color-text-faint) outline-none focus:border-(--color-accent) hover:border-(--color-text-faint) transition-colors ${
+                passwordError ? "border-rose-500" : "border-(--color-border)"
+              }`}
             />
             <button
               type="button"
@@ -107,6 +121,7 @@ export default function Login() {
               {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
             </button>
           </div>
+          {passwordError && <p className="text-xs text-rose-400 mt-1">{passwordError}</p>}
         </div>
 
         <label className="flex items-center gap-2 text-sm text-(--color-text-muted) cursor-pointer select-none">

@@ -109,7 +109,15 @@ export class AttendanceService {
     // 5. Fetch Branch & GPS Verification Check
     const branchId = input.branchId || member.branchId.toString();
     const branch = await Branch.findOne({ _id: branchId, isDeleted: false });
-    const timezone = branch?.timezone || 'UTC';
+    if (!branch) {
+      throw AppError.notFound('Branch not found for check-in');
+    }
+
+    if (!branch.gymId.equals(member.gymId)) {
+      throw AppError.forbidden('Check-in rejected: Member does not belong to this gym organization');
+    }
+
+    const timezone = branch.timezone || 'UTC';
 
     if (branch?.gpsVerificationEnabled) {
       if (input.lat == null || input.lng == null) {

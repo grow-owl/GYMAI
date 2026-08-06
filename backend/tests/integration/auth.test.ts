@@ -35,21 +35,21 @@ describe('Auth & User Module Integration Tests', () => {
   });
 
   describe('POST /api/v1/auth/register', () => {
-    it('should register a new GYM_OWNER user successfully and never expose password', async () => {
+    it('should register a new MEMBER user successfully and never expose password', async () => {
       const payload = {
-        fullName: 'John Owner',
-        email: 'owner@example.com',
+        fullName: 'John Member',
+        email: 'member@example.com',
         phone: '1234567890',
         password: 'Password123',
-        role: Role.GYM_OWNER,
+        role: Role.MEMBER,
       };
 
       const res = await request(app).post('/api/v1/auth/register').send(payload);
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.user.email).toBe('owner@example.com');
-      expect(res.body.data.user.role).toBe(Role.GYM_OWNER);
+      expect(res.body.data.user.email).toBe('member@example.com');
+      expect(res.body.data.user.role).toBe(Role.MEMBER);
       expect(res.body.data.user.password).toBeUndefined();
     });
 
@@ -70,19 +70,19 @@ describe('Auth & User Module Integration Tests', () => {
 
     it('should reject registration if email is already taken', async () => {
       await User.create({
-        fullName: 'John Owner',
-        email: 'owner@example.com',
+        fullName: 'John Member',
+        email: 'member@example.com',
         phone: '1234567890',
         password: 'Password123',
-        role: Role.GYM_OWNER,
+        role: Role.MEMBER,
       });
 
       const payload = {
-        fullName: 'Another Owner',
-        email: 'owner@example.com',
+        fullName: 'Another Member',
+        email: 'member@example.com',
         phone: '1112223333',
         password: 'Password123',
-        role: Role.GYM_OWNER,
+        role: Role.MEMBER,
       };
 
       const res = await request(app).post('/api/v1/auth/register').send(payload);
@@ -154,15 +154,15 @@ describe('Auth & User Module Integration Tests', () => {
     it('should rotate refresh token and revoke old token on reuse', async () => {
       // 1. Register & Login
       await request(app).post('/api/v1/auth/register').send({
-        fullName: 'John Owner',
-        email: 'owner@example.com',
+        fullName: 'John Member',
+        email: 'member@example.com',
         phone: '1234567890',
         password: 'Password123',
-        role: Role.GYM_OWNER,
+        role: Role.MEMBER,
       });
 
       const loginRes = await request(app).post('/api/v1/auth/login').send({
-        email: 'owner@example.com',
+        email: 'member@example.com',
         password: 'Password123',
       });
 
@@ -190,15 +190,15 @@ describe('Auth & User Module Integration Tests', () => {
   describe('GET /api/v1/auth/me', () => {
     it('should return user profile when authenticated with Bearer token', async () => {
       await request(app).post('/api/v1/auth/register').send({
-        fullName: 'John Owner',
-        email: 'owner@example.com',
+        fullName: 'John Member',
+        email: 'member@example.com',
         phone: '1234567890',
         password: 'Password123',
-        role: Role.GYM_OWNER,
+        role: Role.MEMBER,
       });
 
       const loginRes = await request(app).post('/api/v1/auth/login').send({
-        email: 'owner@example.com',
+        email: 'member@example.com',
         password: 'Password123',
       });
 
@@ -209,7 +209,7 @@ describe('Auth & User Module Integration Tests', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(meRes.status).toBe(200);
-      expect(meRes.body.data.user.email).toBe('owner@example.com');
+      expect(meRes.body.data.user.email).toBe('member@example.com');
     });
   });
 });

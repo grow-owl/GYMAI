@@ -17,10 +17,10 @@ async function seedSuperAdmin() {
     await mongoose.connect(mongoUri);
     console.log('✅ Connected to MongoDB');
 
-    const email = 'admin@admin.com';
-    const password = 'Admin@123';
+    const email = (process.env.SUPER_ADMIN_EMAIL || 'admin@gymai.com').toLowerCase();
+    const password = process.env.SUPER_ADMIN_PASSWORD || 'SuperAdmin@123';
 
-    let user = await User.findOne({ email: email.toLowerCase() });
+    let user = await User.findOne({ email });
 
     if (user) {
       console.log(`User ${email} already exists. Updating credentials...`);

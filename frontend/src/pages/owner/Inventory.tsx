@@ -180,7 +180,7 @@ export default function Inventory() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className={`grid grid-cols-1 ${isOwnerOrAdmin ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-3`}>
         <Card className="flex items-center gap-3">
           <div className="p-3 rounded-full bg-amber-500/10 text-amber-400">
             <Package size={20} />
@@ -191,15 +191,17 @@ export default function Inventory() {
           </div>
         </Card>
 
-        <Card className="flex items-center gap-3">
-          <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-400">
-            <ShoppingCart size={20} />
-          </div>
-          <div>
-            <p className="text-xs text-(--color-text-muted)">Inventory Value</p>
-            <p className="font-display text-lg font-semibold text-(--color-text)">₹{totalValue.toLocaleString("en-IN")}</p>
-          </div>
-        </Card>
+        {isOwnerOrAdmin && (
+          <Card className="flex items-center gap-3">
+            <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-400">
+              <ShoppingCart size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-(--color-text-muted)">Inventory Value</p>
+              <p className="font-display text-lg font-semibold text-(--color-text)">₹{totalValue.toLocaleString("en-IN")}</p>
+            </div>
+          </Card>
+        )}
 
         <Card className="flex items-center gap-3">
           <div className="p-3 rounded-full bg-rose-500/10 text-rose-400">
@@ -229,7 +231,7 @@ export default function Inventory() {
               const stock = p.stockQuantity || 0;
               const isLow = stock <= 5;
               return (
-                <div key={p._id || p.id} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex items-center justify-between gap-3">
+                <div key={p._id || p.id} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
                   <div>
                     <h4 className="font-display text-sm font-semibold text-(--color-text)">{p.name}</h4>
                     <p className="text-xs text-(--color-text-muted) capitalize mt-0.5">
@@ -237,7 +239,7 @@ export default function Inventory() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-(--color-border)/30">
                     <Badge tone={isLow ? "warn" : "good"}>
                       {isLow ? `Low Stock (${stock})` : `${stock} in stock`}
                     </Badge>
@@ -249,7 +251,7 @@ export default function Inventory() {
                         setSalePaymentMethod("cash");
                         setShowSaleModal(true);
                       }}
-                      className="px-3 py-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                      className="px-3.5 py-2 min-h-[38px] rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center"
                     >
                       Sell (POS)
                     </button>

@@ -39,6 +39,7 @@ export class GymController {
 
   public static createBranch = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId;
+    await GymService.verifyOwnerAccess(req.user!.id, gymId, req.user!.role as Role);
     const branch = await GymService.createBranch(
       gymId,
       req.body,
@@ -55,7 +56,7 @@ export class GymController {
   });
 
   public static getBranchById = asyncHandler(async (req: Request, res: Response) => {
-    const branch = await GymService.getBranchById(req.params.branchId);
+    const branch = await GymService.getBranchById(req.params.branchId, req.params.gymId);
     return sendSuccess(res, { branch }, 'Branch details retrieved successfully');
   });
 
@@ -92,7 +93,7 @@ export class GymController {
     return sendSuccess(res, { branch }, 'Branch manager assigned successfully');
   });
 
-  public static listAllGyms = asyncHandler(async (req: Request, res: Response) => {
+  public static listAllGyms = asyncHandler(async (_req: Request, res: Response) => {
     const result = await GymService.listAllGyms();
     return sendSuccess(res, result, 'All gyms retrieved successfully');
   });

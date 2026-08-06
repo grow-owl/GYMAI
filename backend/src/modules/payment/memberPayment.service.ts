@@ -106,9 +106,9 @@ export class MemberPaymentService {
     if (renewMembership) {
       const newEndDate = typeof gymIdOrData === 'object' ? gymIdOrData.newEndDate : undefined;
       if (newEndDate) {
-        await MemberService.renewMembership(member._id.toString(), new Date(newEndDate));
+        await MemberService.renewMembership(member._id.toString(), new Date(newEndDate), undefined, gymId);
       } else {
-        await MemberService.renewMembership(member._id.toString(), renewMonths);
+        await MemberService.renewMembership(member._id.toString(), renewMonths, undefined, gymId);
       }
     }
 

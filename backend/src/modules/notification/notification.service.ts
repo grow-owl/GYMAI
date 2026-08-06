@@ -14,14 +14,14 @@ export class NotificationService {
    */
   public static async sendToUser(
     userId: string,
-    gymId: string,
+    gymId: string | undefined | null,
     type: NotificationType,
     title: string,
     body: string,
     data?: Record<string, string>
   ): Promise<INotification> {
     const userObjectId = new mongoose.Types.ObjectId(userId);
-    const gymObjectId = new mongoose.Types.ObjectId(gymId);
+    const gymObjectId = gymId && mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined;
 
     // 1. Persist INotification record FIRST (In-App History)
     const notification = new Notification({

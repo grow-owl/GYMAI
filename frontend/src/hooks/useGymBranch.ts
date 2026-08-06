@@ -23,9 +23,10 @@ export function useGymBranch() {
   const rawBranchId = extractId(user?.branchId) || "";
 
   const [gymId, setGymId] = useState<string>(rawGymId);
+  const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : 'gymai.selected_branch_id';
   const [branchId, setBranchId] = useState<string>(() => {
     try {
-      const stored = localStorage.getItem("gymai.selected_branch_id");
+      const stored = localStorage.getItem(storageKey);
       if (stored && isValidMongoId(stored)) return stored;
     } catch {}
     return rawBranchId;
@@ -39,10 +40,23 @@ export function useGymBranch() {
     setGymId(activeGymId);
 
     try {
-      const stored = localStorage.getItem("gymai.selected_branch_id");
+      const stored = localStorage.getItem(storageKey);
       if (stored && isValidMongoId(stored)) {
-        setBranchId(stored);
-        setLoading(false);
+        // Verify stored branch belongs to current gym
+        gymApi.listBranches(activeGymId).then((res) => {
+          const branches = res?.branches || [];
+          const exists = branches.some((b: any) => (b._id || b.id) === stored);
+          if (exists) {
+            setBranchId(stored);
+          } else {
+            localStorage.removeItem(storageKey);
+            setBranchId(activeBranchId);
+          }
+          setLoading(false);
+        }).catch(() => {
+          setBranchId(activeBranchId);
+          setLoading(false);
+        });
         return;
       }
     } catch {}

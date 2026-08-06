@@ -1,8 +1,9 @@
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { Member } from './member.model';
 import { User } from '../user/user.model';
-import { Gym } from '../gym/gym.model';
 import { Branch } from '../gym/branch.model';
+import { Gym } from '../gym/gym.model';
 import { Trainer } from '../trainer/trainer.model';
 import { Role } from '../../common/constants/roles.enum';
 import { IMember, MembershipStatus } from './member.types';
@@ -55,11 +56,13 @@ export class MemberService {
     const resolvedGymId = branch.gymId;
     const resolvedBranchId = branch._id;
 
+    const generatedPassword = memberData.password || `Mem@${crypto.randomBytes(4).toString('hex')}1`;
+
     const user = new User({
       fullName: memberData.fullName,
       email: memberData.email.toLowerCase(),
       phone: memberData.phone,
-      password: memberData.password || 'Member@123',
+      password: generatedPassword,
       role: Role.MEMBER,
       gymId: resolvedGymId,
       branchId: resolvedBranchId,
@@ -133,12 +136,16 @@ export class MemberService {
 
     logger.info(`🏋️ New Member onboarded: [ID: ${member._id}] [User: ${user._id}] [Gym: ${gymId}]`);
 
+    // Fetch gym details for notification
+    const gymDoc = await Gym.findById(resolvedGymId);
+    const gymName = gymDoc ? gymDoc.name : 'Your Gym';
+
     // 1. Send WELCOME_NEW_MEMBER WhatsApp Notification
     await WhatsAppNotificationService.sendWhatsApp(
       member._id.toString(),
       gymId,
       NotificationType.WELCOME_NEW_MEMBER,
-      [user.fullName, 'Spartan Fitness']
+      [user.fullName, gymName]
     );
 
     // 2. Notify trainer using NEW_MEMBER_ASSIGNED notification type
@@ -207,8 +214,15 @@ export class MemberService {
   }
 
   public static async getMemberById(memberId: string, gymId?: string): Promise<IMember> {
-    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
+
+    const filter: Record<string, unknown> = {
+      _id: memberId,
+      gymId: new mongoose.Types.ObjectId(gymId),
+      isDeleted: false,
+    };
 
     const member = await Member.findOne(filter)
       .populate('userId', 'fullName email phone isActive')
@@ -230,20 +244,12 @@ export class MemberService {
 
   public static async updateMember(
     memberId: string,
-    updateDataOrGymId: any,
-    gymIdOrRole?: any
+    updateData: Record<string, unknown>,
+    gymId?: string,
+    role?: string
   ): Promise<IMember> {
-    let updateData: Record<string, unknown>;
-    let role: string | undefined;
-
-    if (typeof updateDataOrGymId === 'object' && typeof gymIdOrRole === 'string') {
-      // Called as updateMember(id, data, role)
-      updateData = updateDataOrGymId;
-      role = gymIdOrRole;
-    } else if (typeof updateDataOrGymId === 'object') {
-      updateData = updateDataOrGymId;
-    } else {
-      updateData = gymIdOrRole || {};
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
     }
 
     // Trainers cannot update billing-sensitive fields
@@ -257,7 +263,7 @@ export class MemberService {
     }
 
     const member = await Member.findOneAndUpdate(
-      { _id: memberId, isDeleted: false },
+      { _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false },
       updateData,
       { new: true, runValidators: true }
     );
@@ -266,10 +272,11 @@ export class MemberService {
   }
 
   public static async assignTrainer(memberId: string, trainerId: string, gymId?: string): Promise<IMember> {
-    const trainerFilter: Record<string, unknown> = { _id: trainerId, isDeleted: false };
-    if (gymId) trainerFilter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
 
-    const trainer = await Trainer.findOne(trainerFilter);
+    const trainer = await Trainer.findOne({ _id: trainerId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     if (!trainer) throw AppError.notFound('Trainer profile not found in your gym');
 
     // Capacity check
@@ -284,11 +291,8 @@ export class MemberService {
       }
     }
 
-    const memberFilter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) memberFilter.gymId = new mongoose.Types.ObjectId(gymId);
-
     const member = await Member.findOneAndUpdate(
-      memberFilter,
+      { _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false },
       { assignedTrainerId: trainer._id },
       { new: true }
     );
@@ -302,10 +306,11 @@ export class MemberService {
     reason?: string,
     gymId?: string
   ): Promise<IMember> {
-    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
 
-    const member = await Member.findOne(filter);
+    const member = await Member.findOne({ _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     if (!member) throw AppError.notFound('Member profile not found');
 
     const freezeUntil = freezeUntilOrDays instanceof Date ? freezeUntilOrDays : new Date(Date.now() + freezeUntilOrDays * 24 * 60 * 60 * 1000);
@@ -325,10 +330,11 @@ export class MemberService {
     newPlanName?: string,
     gymId?: string
   ): Promise<IMember> {
-    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
 
-    const member = await Member.findOne(filter);
+    const member = await Member.findOne({ _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     if (!member) {
       throw AppError.notFound('Member profile not found');
     }
@@ -361,10 +367,11 @@ export class MemberService {
     _reason?: string,
     gymId?: string
   ): Promise<IMember> {
-    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
 
-    const member = await Member.findOne(filter);
+    const member = await Member.findOne({ _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     if (!member) throw AppError.notFound('Member profile not found');
 
     const currentEnd = new Date(member.membershipEndDate);
@@ -384,10 +391,11 @@ export class MemberService {
     _reason?: string,
     gymId?: string
   ): Promise<IMember> {
-    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
 
-    const member = await Member.findOne(filter);
+    const member = await Member.findOne({ _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     if (!member) throw AppError.notFound('Member profile not found');
 
     member.membershipStatus = MembershipStatus.CANCELLED;
@@ -398,13 +406,14 @@ export class MemberService {
   }
 
   public static async regenerateQRCode(memberId: string, gymId?: string): Promise<{ qrCode: string; qrCodeToken: string }> {
-    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
 
-    const member = await Member.findOne(filter);
+    const member = await Member.findOne({ _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     if (!member) throw AppError.notFound('Member profile not found');
 
-    const qrTokenResult = await generateQRPayload({ memberId: member.userId.toString(), gymId: gymId || member.gymId.toString(), branchId: member.branchId.toString(), type: 'CHECK_IN' });
+    const qrTokenResult = await generateQRPayload({ memberId: member.userId.toString(), gymId: gymId, branchId: member.branchId.toString(), type: 'CHECK_IN' });
     const qrCode = qrTokenResult.token;
 
     member.qrCode = qrCode;
@@ -413,10 +422,11 @@ export class MemberService {
   }
 
   public static async softDeleteMember(memberId: string, gymId?: string): Promise<void> {
-    const filter: Record<string, unknown> = { _id: memberId, isDeleted: false };
-    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+    if (!gymId || !mongoose.Types.ObjectId.isValid(gymId)) {
+      throw AppError.notFound('Member profile not found');
+    }
 
-    const member = await Member.findOne(filter);
+    const member = await Member.findOne({ _id: memberId, gymId: new mongoose.Types.ObjectId(gymId), isDeleted: false });
     if (!member) throw AppError.notFound('Member profile not found');
 
     await Member.findByIdAndUpdate(member._id, { isDeleted: true });

@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { AppError } from '../utils/AppError';
 import { Role } from '../constants/roles.enum';
+import { Gym } from '../../modules/gym/gym.model';
+import { GymStatus } from '../../modules/gym/gym.types';
 
 /**
  * Middleware: Inject tenant scope into req.tenant based on req.user
@@ -61,4 +63,36 @@ export const assertTenantMatch = (
       throw AppError.forbidden('Access denied: Resource belongs to a different tenant organization');
     }
   }
+};
+
+/**
+ * Middleware: Verify that gym organization status is ACTIVE for non-SuperAdmins
+ */
+export const checkGymActive = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+  if (req.user?.role === Role.SUPER_ADMIN) {
+    return next();
+  }
+
+  const gymId = req.tenant?.gymId;
+  if (!gymId || !Types.ObjectId.isValid(gymId)) {
+    return next();
+  }
+
+  try {
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false }).select('status');
+    if (gym && (gym.status === GymStatus.SUSPENDED || gym.status === GymStatus.TRIAL_EXPIRED)) {
+      if (req.originalUrl.includes('/billing') || req.originalUrl.includes('/payments')) {
+        return next();
+      }
+      return next(
+        AppError.forbidden(
+          `Gym organization subscription status is '${gym.status}'. Please upgrade or renew your plan to continue accessing services.`
+        )
+      );
+    }
+  } catch (e) {
+    // Pass error to next or continue
+  }
+
+  next();
 };

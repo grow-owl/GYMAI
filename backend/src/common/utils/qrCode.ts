@@ -25,7 +25,7 @@ export const generateQRPayload = async (
       nonce: uuidv4(), // Ensures cryptographic uniqueness on every generation
     };
 
-    const token = jwt.sign(signedPayload, env.JWT_ACCESS_SECRET, {
+    const token = jwt.sign(signedPayload, env.JWT_QR_SECRET, {
       expiresIn: '5m', // Short TTL for dynamic security QR codes
     });
 
@@ -47,5 +47,5 @@ export const generateQRPayload = async (
  * Verify and decode member QR token
  */
 export const verifyQRPayload = (qrToken: string): QRPayload => {
-  return jwt.verify(qrToken, env.JWT_ACCESS_SECRET) as QRPayload;
+  return jwt.verify(qrToken, env.JWT_QR_SECRET) as QRPayload;
 };

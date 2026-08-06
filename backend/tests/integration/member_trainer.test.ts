@@ -318,7 +318,7 @@ describe('Member & Trainer Module Integration Tests', () => {
       const count = await MemberService.checkAndExpireMemberships();
       expect(count).toBe(1);
 
-      const updated = await MemberService.getMemberById(member._id.toString());
+      const updated = await MemberService.getMemberById(member._id.toString(), gymId);
       expect(updated.membershipStatus).toBe(MembershipStatus.EXPIRED);
     });
   });

@@ -49,3 +49,19 @@ export const memberNav = [
   { label: "Referral", path: "/member/referral", icon: "Gift" },
   { label: "Profile", path: "/member/profile", icon: "User" },
 ];
+
+// ==== Admin navigation ====
+export const adminNav = [
+  { label: "Dashboard", path: "/admin", icon: "LayoutGrid" },
+  { label: "Gyms", path: "/admin/gyms", icon: "Building2" },
+  { label: "Branches", path: "/admin/branches", icon: "Map" },
+  { label: "Members", path: "/admin/members", icon: "Users" },
+  { label: "Trainers", path: "/admin/trainers", icon: "Dumbbell" },
+  { label: "Staff", path: "/admin/staff", icon: "UserCheck" },
+  { label: "Password Reset", path: "/admin/password-reset", icon: "KeyRound" },
+];
+
+export const adminNavSecondary = [
+  { label: "Settings", path: "/admin/settings", icon: "Settings" },
+  { label: "Analytics", path: "/admin/analytics", icon: "BarChart3" },
+];

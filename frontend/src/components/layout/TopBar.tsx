@@ -98,9 +98,11 @@ export default function TopBar({
 
   // Branch Switcher state
   const [branches, setBranches] = useState<any[]>([]);
+  const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : 'gymai.selected_branch_id';
+  const branchesKey = user?._id ? `gymai.branches_list.${user._id}` : 'gymai.branches_list';
   const [activeBranchId, setActiveBranchId] = useState<string>(() => {
     try {
-      const stored = localStorage.getItem("gymai.selected_branch_id");
+      const stored = localStorage.getItem(storageKey);
       if (stored) return stored;
     } catch {}
     return "65a000000000000000000002";
@@ -112,7 +114,7 @@ export default function TopBar({
 
   const fetchBranches = useCallback(async () => {
     try {
-      const storedLocal = localStorage.getItem("gymai.branches_list");
+      const storedLocal = localStorage.getItem(branchesKey);
       if (storedLocal) {
         const parsed = JSON.parse(storedLocal);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -132,16 +134,17 @@ export default function TopBar({
     } catch {
       setBranches([{ _id: "65a000000000000000000002", name: "Main Branch" }]);
     }
-  }, [user?.gymId]);
+  }, [user?.gymId, branchesKey]);
 
   useEffect(() => {
     fetchBranches();
   }, [fetchBranches]);
 
   const handleSelectBranch = (bId: string) => {
+    const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : 'gymai.selected_branch_id';
     setActiveBranchId(bId);
     try {
-      localStorage.setItem("gymai.selected_branch_id", bId);
+      localStorage.setItem(storageKey, bId);
     } catch {}
     const chosen = branches.find((b) => (b._id || b.id) === bId);
     toast.success(`Switched active branch view to: ${chosen?.name || "Selected Branch"}`);
