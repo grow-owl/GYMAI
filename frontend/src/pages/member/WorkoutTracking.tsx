@@ -129,10 +129,22 @@ export default function WorkoutTracking() {
 
     setSubmitting(true);
     try {
-      await workoutApi.logWorkout({
+      const res = await workoutApi.logWorkout({
         loggedAt: new Date().toISOString(),
         exercises: loggedSets,
       });
+
+      const logId = res?._id || res?.id || res?.log?._id;
+      if (logId) {
+        for (const item of loggedSets) {
+          const exId = item.exerciseName.toLowerCase().replace(/\s+/g, "-");
+          for (let s = 1; s <= item.sets; s++) {
+            await workoutApi.logSetProgress(logId, exId, s, { reps: item.reps, weightKg: item.weightKg, completed: true }).catch(() => null);
+          }
+          await workoutApi.markExerciseComplete(logId, exId).catch(() => null);
+        }
+        await workoutApi.completeWorkoutLog(logId).catch(() => null);
+      }
 
       const totalVolume = loggedSets.reduce((sum, s) => sum + s.sets * s.reps * s.weightKg, 0);
       const totalSets = loggedSets.reduce((sum, s) => sum + s.sets, 0);
@@ -146,7 +158,7 @@ export default function WorkoutTracking() {
       });
 
       setIsCompleted(true);
-      toast.success("Workout logged successfully! +100 XP Earned 🎉");
+      toast.success("Workout logged & completed successfully! +100 XP Earned 🎉");
     } catch {
       toast.error("Failed to log workout session.");
     } finally {

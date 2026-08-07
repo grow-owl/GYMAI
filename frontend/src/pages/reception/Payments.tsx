@@ -36,7 +36,7 @@ export default function ReceptionPayments() {
     try {
       const [payRes, memRes] = await Promise.all([
         paymentApi.listMemberPayments(user.gymId).catch(() => null),
-        user.branchId ? memberApi.list(user.gymId, user.branchId).catch(() => []) : Promise.resolve([]),
+        memberApi.list(user.gymId, user.branchId || undefined).catch(() => []),
       ]);
 
       const paymentArray = Array.isArray(payRes) ? payRes : payRes?.payments || [];

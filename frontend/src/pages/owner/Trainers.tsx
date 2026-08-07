@@ -26,20 +26,23 @@ interface TrainerRow {
   maxMemberCapacity?: number;
 }
 
-export default function Trainers() {
-  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
+interface TrainersProps {
+  overrideGymId?: string;
+  overrideBranchId?: string;
+  backTo?: string;
+}
+
+export default function Trainers({ overrideGymId, overrideBranchId, backTo: _backTo = "/owner" }: TrainersProps = {}) {
+  const { gymId: resolvedGymId, branchId: resolvedBranchId, loading: resolvingBranch } = useGymBranch();
+  const gymId = overrideGymId || resolvedGymId;
+  const branchId = overrideBranchId || resolvedBranchId;
+
   const [trainers, setTrainers] = useState<TrainerRow[]>([]);
   const [workloads, setWorkloads] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
 
-  // Clear old cached mock localStorage items on mount
-  useEffect(() => {
-    try {
-      localStorage.removeItem("gymai.trainers_list");
-    } catch {}
-  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);

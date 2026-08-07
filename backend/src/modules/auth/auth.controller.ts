@@ -158,4 +158,12 @@ export class AuthController {
     const staff = await AuthService.listStaff(gymId, branchId);
     return sendSuccess(res, { staff }, 'Staff members retrieved successfully', 200);
   });
+
+  public static updateProfile = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const user = await AuthService.updateProfile(userId, req.body);
+    const safeUser = user.toSafeJSON ? user.toSafeJSON() : user;
+    return sendSuccess(res, { user: safeUser }, 'Profile updated successfully', 200);
+  });
 }
+

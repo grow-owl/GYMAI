@@ -41,29 +41,17 @@ router.post(
   AttendanceController.manualCheckInOut
 );
 
-// Daily Branch Attendance Log Endpoint (Mounted under /api/v1/gyms/:gymId/branches/:branchId/attendance/daily)
+// Daily Branch Attendance Log Endpoint & QR Generation Endpoints
 branchAttendanceRouter.use(authenticate);
 branchAttendanceRouter.use(injectTenantScope);
 branchAttendanceRouter.get(
-  '/:gymId/branches/:branchId/attendance/daily',
+  ['/:gymId/branches/:branchId/attendance/daily', '/:gymId/attendance/daily'],
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
   AttendanceController.getBranchDailyAttendance
 );
 
 branchAttendanceRouter.get(
-  '/:gymId/attendance/daily',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN, Role.KIOSK),
-  AttendanceController.getBranchDailyAttendance
-);
-
-branchAttendanceRouter.get(
-  '/:gymId/branches/:branchId/attendance/generate-qr',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.KIOSK, Role.SUPER_ADMIN),
-  AttendanceController.generateDynamicQR
-);
-
-branchAttendanceRouter.get(
-  '/:gymId/attendance/generate-qr',
+  ['/:gymId/branches/:branchId/attendance/generate-qr', '/:gymId/attendance/generate-qr'],
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.KIOSK, Role.SUPER_ADMIN),
   AttendanceController.generateDynamicQR
 );

@@ -17,29 +17,16 @@ const router = Router();
 router.use(authenticate);
 router.use(tenantScope);
 
-// Scoped under /gyms/:gymId/branches/:branchId/leads
+// Scoped under /gyms/:gymId/branches/:branchId/leads & /gyms/:gymId/leads
 router.post(
-  '/gyms/:gymId/branches/:branchId/leads',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
-  validate(createLeadSchema, 'body'),
-  LeadController.createLead
-);
-
-router.post(
-  '/gyms/:gymId/leads',
+  ['/gyms/:gymId/branches/:branchId/leads', '/gyms/:gymId/leads'],
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   validate(createLeadSchema, 'body'),
   LeadController.createLead
 );
 
 router.get(
-  '/gyms/:gymId/branches/:branchId/leads',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
-  LeadController.listLeads
-);
-
-router.get(
-  '/gyms/:gymId/leads',
+  ['/gyms/:gymId/branches/:branchId/leads', '/gyms/:gymId/leads'],
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   LeadController.listLeads
 );

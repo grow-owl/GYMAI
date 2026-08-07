@@ -114,10 +114,21 @@ export default function Progress() {
 
       const memberId = m?._id || user?._id;
       if (memberId) {
-        const [wRes, compRes] = await Promise.all([
+        const [wRes, compRes, photoRes, _summaryRes] = await Promise.all([
           progressApi.getHistory(memberId).catch(() => null),
           workoutApi.getCompletionStats(memberId).catch(() => null),
+          progressApi.getPhotos().catch(() => []),
+          progressApi.getSummary().catch(() => null),
         ]);
+
+        if (photoRes && Array.isArray(photoRes) && photoRes.length > 0) {
+          const remotePhotos = photoRes.map((p: any) => ({
+            id: p._id || p.id,
+            capturedAt: p.createdAt || p.capturedAt || new Date().toISOString(),
+            src: p.photoUrl || p.url,
+          }));
+          setPhotos(remotePhotos);
+        }
 
         if (wRes) {
           const rawList = Array.isArray(wRes) ? wRes : wRes?.history || wRes?.logs || [];
@@ -201,9 +212,15 @@ export default function Progress() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const src = String(reader.result ?? "");
       if (!src) return;
+
+      try {
+        await progressApi.uploadPhoto({ photoUrl: src, notes: "Member Progress Photo" });
+      } catch (err) {
+        console.warn("Backend photo upload warning:", err);
+      }
 
       const next: ProgressPhoto[] = [
         { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), src },

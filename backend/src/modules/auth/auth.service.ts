@@ -450,4 +450,25 @@ export class AuthService {
     }
     return User.find(filter).select('-password').sort({ createdAt: -1 });
   }
+
+  /**
+   * Update authenticated user's profile (fullName, phone, avatarUrl)
+   */
+  public static async updateProfile(
+    userId: string,
+    data: { fullName?: string; phone?: string; avatarUrl?: string }
+  ): Promise<IUser> {
+    const user = await User.findById(userId);
+    if (!user || user.isDeleted) {
+      throw AppError.notFound('User account not found');
+    }
+
+    if (data.fullName !== undefined) user.fullName = data.fullName;
+    if (data.phone !== undefined) user.phone = data.phone;
+    if (data.avatarUrl !== undefined) (user as any).avatarUrl = data.avatarUrl;
+
+    await user.save();
+    return user;
+  }
 }
+

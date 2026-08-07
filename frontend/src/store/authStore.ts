@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { authApi, type AuthUser } from "@/lib/endpoints";
+import { authApi, notificationApi, type AuthUser } from "@/lib/endpoints";
 import { getAccessToken, setAccessToken, ApiError } from "@/lib/api";
 
 export interface OwnerAddress {
@@ -143,6 +143,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Capture current user ID before clearing state
     const currentUser = get().user;
     const userId = currentUser?.id || currentUser?._id || '';
+
+    // Deactivate FCM push notification token if registered
+    try {
+      const fcmToken = localStorage.getItem('gymai.fcmToken');
+      if (fcmToken) {
+        notificationApi.deactivateDeviceToken(fcmToken).catch(() => null);
+        localStorage.removeItem('gymai.fcmToken');
+      }
+    } catch {}
+
     // Clear generic and user‑scoped branch selections
     try {
       localStorage.removeItem('gymai.selected_branch_id');

@@ -261,6 +261,17 @@ export default function WorkoutPlans() {
     }
   };
 
+  const handleSeedExercises = async () => {
+    try {
+      await workoutApi.seedGlobalExercises();
+      toast.success("Global exercise library seeded!");
+      const exRes = await workoutApi.listExercises().catch(() => null);
+      if (exRes) setExercisesList(Array.isArray(exRes) ? exRes : (exRes as any)?.exercises || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to seed exercise library");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -268,13 +279,22 @@ export default function WorkoutPlans() {
         subtitle="Create, assign, and manage client workout routines"
         backTo="/trainer"
         action={
-          <button
-            onClick={() => setShowCreateModal(true)}
-            disabled={!selectedClientId}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50"
-          >
-            <Plus size={15} /> Create Plan
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSeedExercises}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) text-(--color-text) text-xs font-semibold px-3.5 py-2 hover:bg-(--color-surface-3) transition-colors border border-(--color-border)"
+              title="Seed Default Exercise Library"
+            >
+              <Dumbbell size={14} /> Seed Exercises
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              disabled={!selectedClientId}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50"
+            >
+              <Plus size={15} /> Create Plan
+            </button>
+          </div>
         }
       />
 

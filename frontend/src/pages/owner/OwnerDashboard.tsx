@@ -6,7 +6,7 @@ import QuickAccessCard from "@/components/ui/QuickAccessCard";
 import Card from "@/components/ui/Card";
 import DonutChart from "@/components/ui/DonutChart";
 import Heatmap, { type HeatmapCell } from "@/components/ui/Heatmap";
-import { ownerQuickAccess } from "@/data/mock";
+import { ownerQuickAccess } from "@/data/nav";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { reportApi, memberApi, aiApi, type DashboardOverview } from "@/lib/endpoints";
 
@@ -53,6 +53,7 @@ export default function OwnerDashboard() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [memberList, setMemberList] = useState<any[]>([]);
+  const [expiringList, setExpiringList] = useState<any[]>([]);
   const [weeklyDigest, setWeeklyDigest] = useState<string | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [digestLoading, setDigestLoading] = useState(true);
@@ -67,8 +68,9 @@ export default function OwnerDashboard() {
       reportApi.getOverview(gymId, branchId ?? undefined).catch(() => null),
       branchId ? memberApi.list(gymId, branchId).catch(() => []) : Promise.resolve([]),
       aiApi.getWeeklyDigest(gymId).catch(() => null),
+      reportApi.getExpiringMemberships(gymId).catch(() => []),
     ])
-      .then(([ovRes, memRes, digestRes]) => {
+      .then(([ovRes, memRes, digestRes, expRes]) => {
         const zeroOverview: DashboardOverview = {
           totalActiveMembers: 0,
           totalTrainers: 0,
@@ -81,6 +83,10 @@ export default function OwnerDashboard() {
 
         const mList = Array.isArray(memRes) ? memRes : memRes?.members || [];
         setMemberList(mList);
+
+        const expList = Array.isArray(expRes) ? expRes : (expRes as any)?.expiringMemberships || [];
+        setExpiringList(expList);
+
         if (digestRes?.weeklyDigest) {
           setWeeklyDigest(digestRes.weeklyDigest);
         } else {
@@ -105,7 +111,7 @@ export default function OwnerDashboard() {
         { label: "Members", value: String(totalMembersCount), icon: "Users" },
         { label: "Revenue (this month)", value: `₹${(overview.revenueThisMonth || 0).toLocaleString("en-IN")}`, icon: "IndianRupee" },
         { label: "Trainers", value: String(overview.totalTrainers), icon: "Dumbbell" },
-        { label: "Expiring in 7d", value: String(overview.membershipsExpiringIn7Days), icon: "AlertTriangle" },
+        { label: "Expiring in 7d", value: String(expiringList.length || overview.membershipsExpiringIn7Days || 0), icon: "AlertTriangle" },
       ]
     : [];
 

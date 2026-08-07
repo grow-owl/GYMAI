@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { KeyRound, Mail, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { useAdminStore } from "@/store/adminStore";
+import { authApi } from "@/lib/endpoints";
 import { useFormValidation } from "@/lib/useFormValidation";
 
 export default function PasswordReset() {
-  const { resetUserPassword } = useAdminStore();
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -21,11 +20,17 @@ export default function PasswordReset() {
     setResult(null);
 
     try {
-      const res = await resetUserPassword(values.email);
-      setResult(res);
-      if (res.success) resetForm();
-    } catch {
-      setResult({ success: false, message: "An error occurred while resetting password." });
+      const res = await authApi.forgotPassword(values.email);
+      setResult({
+        success: true,
+        message: res.message || "Password reset token sent to user's registered email.",
+      });
+      resetForm();
+    } catch (err: any) {
+      setResult({
+        success: false,
+        message: err.response?.data?.message || err.message || "An error occurred while resetting password.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -86,10 +91,10 @@ export default function PasswordReset() {
           >
             {submitting ? (
               <>
-                <Loader2 size={16} className="animate-spin" /> Dispatching Reset OTP...
+                <Loader2 size={16} className="animate-spin" /> Dispatching Reset Token...
               </>
             ) : (
-              "Send Security Reset OTP"
+              "Send Security Reset Link"
             )}
           </button>
         </form>

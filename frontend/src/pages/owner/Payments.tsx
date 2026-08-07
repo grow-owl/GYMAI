@@ -38,13 +38,6 @@ export default function Payments() {
   const [summary, setSummary] = useState<{ total: number; transactions: number }>({ total: 0, transactions: 0 });
   const [membersList, setMembersList] = useState<any[]>([]);
 
-  // Clear old cached mock localStorage items on mount
-  useEffect(() => {
-    try {
-      localStorage.removeItem("gymai.payments_list");
-      localStorage.removeItem("gymai.payments_summary");
-    } catch {}
-  }, []);
 
   // Modal state
   const [showRecordModal, setShowRecordModal] = useState(false);

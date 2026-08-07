@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, DollarSign, Receipt, Loader2, RefreshCw } from "lucide-react";
+import { Plus, DollarSign, Receipt, Loader2, RefreshCw, Trash2 } from "lucide-react";
+
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import CustomSelect from "@/components/ui/CustomSelect";
@@ -79,6 +80,17 @@ export default function Expenses() {
     }
   };
 
+  const handleDeleteExpense = async (id: string, name: string) => {
+    if (!confirm(`Delete expense record "${name}"?`)) return;
+    try {
+      await expenseApi.delete(id);
+      toast.success("Expense deleted.");
+      fetchExpenses();
+    } catch {
+      toast.error("Failed to delete expense.");
+    }
+  };
+
   const totalExpense = expenseList.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   return (
@@ -140,7 +152,17 @@ export default function Expenses() {
                     <p className="text-xs text-(--color-text-faint) capitalize">{e.category || "General"}</p>
                   </div>
                 </div>
-                <p className="font-mono text-sm font-bold text-rose-400">₹{(e.amount || 0).toLocaleString("en-IN")}</p>
+                <div className="flex items-center gap-3">
+                  <p className="font-mono text-sm font-bold text-rose-400">₹{(e.amount || 0).toLocaleString("en-IN")}</p>
+                  <button
+                    onClick={() => handleDeleteExpense(e._id || e.id, e.description || e.title || e.name || "Expense")}
+                    className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all"
+                    title="Delete Expense"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+
               </div>
             ))}
           </div>

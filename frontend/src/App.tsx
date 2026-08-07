@@ -60,6 +60,7 @@ const ReceptionDashboard = lazy(() => import("@/pages/reception/ReceptionDashboa
 const MemberSearch = lazy(() => import("@/pages/reception/MemberSearch"));
 const CheckIn = lazy(() => import("@/pages/reception/CheckIn"));
 const ReceptionLeads = lazy(() => import("@/pages/reception/Leads"));
+const ReceptionPayments = lazy(() => import("@/pages/reception/Payments"));
 const AdminPanel = lazy(() => import("@/pages/admin/AdminPanel"));
 const AdminShell = lazy(() => import("@/components/layout/AdminShell"));
 const Gyms = lazy(() => import("@/pages/admin/Gyms"));
@@ -215,7 +216,7 @@ export default function App() {
                   <Route path="search" element={<MemberSearch />} />
                   <Route path="check-in" element={<CheckIn />} />
                   <Route path="leads" element={<ReceptionLeads />} />
-                  <Route path="payments" element={<OwnerPayments />} />
+                  <Route path="payments" element={<ReceptionPayments />} />
                   <Route path="notifications" element={<Notifications />} />
                 </Route>
               </Route>

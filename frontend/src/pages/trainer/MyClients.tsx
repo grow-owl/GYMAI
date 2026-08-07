@@ -137,9 +137,27 @@ export default function MyClients() {
                                 {fb.rating || 5}/5
                               </span>
                             </div>
-                            <span className="text-[10px] text-(--color-text-faint)">
-                              {new Date(fb.createdAt).toLocaleDateString()}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-(--color-text-faint)">
+                                {new Date(fb.createdAt || Date.now()).toLocaleDateString()}
+                              </span>
+                              <button
+                                onClick={async () => {
+                                  const fbId = fb._id || fb.id;
+                                  if (!fbId) return;
+                                  try {
+                                    await feedbackApi.delete(fbId);
+                                    fetchClients();
+                                  } catch (err) {
+                                    console.warn("Failed to delete feedback:", err);
+                                  }
+                                }}
+                                className="text-rose-400 hover:text-rose-300 text-[10px] cursor-pointer"
+                                title="Delete Feedback"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
                           <p className="text-(--color-text) text-xs leading-relaxed">{fb.note}</p>
                         </div>

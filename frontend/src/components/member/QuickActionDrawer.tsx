@@ -47,6 +47,9 @@ export default function QuickActionDrawer({
     setSubmittingWeight(true);
     try {
       await progressApi.logWeight(val, weightNotes);
+      if (weightNotes) {
+        await progressApi.logWellness({ sorenessNotes: weightNotes, energyRating: 8 }).catch(() => null);
+      }
       toast.success(`Logged ${val} kg successfully!`);
       if (onWeightSuccess) onWeightSuccess();
       onClose();

@@ -156,11 +156,11 @@ export class GamificationService {
   }
 
   /**
-   * Record check-in for streak — supports (memberId, gymId) or (memberId, dayKey) (legacy 2-arg)
+   * Record check-in for streak
    */
   public static async recordCheckInForStreak(
     memberId: string,
-    gymIdOrDayKey: string,
+    _gymId?: string,
     checkInDateArg?: Date
   ): Promise<{ currentStreak: number; bestStreak: number }> {
     const member = await Member.findOne({
@@ -171,17 +171,9 @@ export class GamificationService {
     });
     if (!member) throw AppError.notFound('Member not found');
 
-    // Detect if 2nd arg is a dayKey (YYYY-MM-DD) vs gymId
-    let checkInDate: Date;
-    const isDayKey = /^\d{4}-\d{2}-\d{2}$/.test(gymIdOrDayKey);
-    if (checkInDateArg) {
-      checkInDate = checkInDateArg;
-    } else if (isDayKey) {
-      checkInDate = new Date(`${gymIdOrDayKey}T12:00:00Z`);
-    } else {
-      checkInDate = new Date();
-    }
-    const todayStr = isDayKey && !checkInDateArg ? gymIdOrDayKey : checkInDate.toISOString().split('T')[0];
+    const checkInDate = checkInDateArg || new Date();
+    const todayStr = checkInDate.toISOString().split('T')[0];
+
 
     const stats = await this.getOrCreateMemberGameStats(member._id.toString());
 

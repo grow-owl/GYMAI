@@ -20,7 +20,7 @@ interface LeaderboardEntry {
   isCurrentUser?: boolean;
 }
 
-export default function LeaderboardCard({ gymId }: LeaderboardCardProps) {
+export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"xp" | "streak" | "score">("xp");
@@ -31,13 +31,25 @@ export default function LeaderboardCard({ gymId }: LeaderboardCardProps) {
       .getLeaderboard(gymId)
       .then((res) => {
         const list = Array.isArray(res) ? res : res?.leaderboard || [];
-        setLeaderboard(list);
+        const enriched = list.map((item: any) => ({
+          ...item,
+          isCurrentUser:
+            item.isCurrentUser ||
+            Boolean(
+              currentUserId &&
+                (item._id === currentUserId ||
+                  item.memberId === currentUserId ||
+                  item.userId === currentUserId)
+            ),
+        }));
+        setLeaderboard(enriched);
       })
       .catch(() => {
         setLeaderboard([]);
       })
       .finally(() => setLoading(false));
-  }, [gymId]);
+  }, [gymId, currentUserId]);
+
 
   return (
     <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">

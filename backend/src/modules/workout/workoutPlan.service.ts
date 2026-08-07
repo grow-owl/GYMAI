@@ -12,33 +12,18 @@ import { logger } from '../../config/logger';
 
 export class WorkoutPlanService {
   /**
-   * Create a Workout Plan for a Member (Supports both new and legacy positional parameters)
+  /**
+   * Create a Workout Plan for a Member
    */
   public static async createWorkoutPlan(
-    arg1: string,
-    arg2: any,
-    arg3?: any,
+    memberId: string,
+    planData: any,
+    creatorUserId: string,
     _actorRole?: Role,
-    arg5GymId?: string
+    targetGymId?: string
   ): Promise<IWorkoutPlan> {
-    let memberId: string;
-    let planData: any;
-    let creatorUserId: string;
-    let gymId: string | undefined;
+    const gymId = targetGymId || planData.gymId;
 
-    if (typeof arg2 === 'object') {
-      // Called as createWorkoutPlan(memberId, planData, creatorUserId, role, gymId)
-      memberId = arg1;
-      planData = arg2;
-      creatorUserId = arg3;
-      gymId = arg5GymId || planData.gymId;
-    } else {
-      // Called as createWorkoutPlan(gymId, creatorUserId, planData)
-      gymId = arg1;
-      creatorUserId = arg2;
-      planData = arg3;
-      memberId = planData.memberId;
-    }
 
     const memberFilter: any = {
       $or: [

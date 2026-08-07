@@ -48,6 +48,7 @@ export default function DietPlans() {
   const [dailyCalorieTarget, setDailyCalorieTarget] = useState<number>(2400);
   const [dailyProteinTargetG, setDailyProteinTargetG] = useState<number>(160);
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [meals, setMeals] = useState<MealInput[]>([
     {
       mealType: "breakfast",
@@ -168,9 +169,16 @@ export default function DietPlans() {
         })),
       };
 
-      await dietApi.createPlan(selectedClientId, payload);
-      toast.success("Diet plan created & assigned successfully!");
+      if (editingPlanId) {
+        await dietApi.updatePlan(editingPlanId, payload);
+        toast.success("Diet plan updated successfully!");
+      } else {
+        await dietApi.createPlan(selectedClientId, payload);
+        toast.success("Diet plan created & assigned successfully!");
+      }
+
       setShowCreateModal(false);
+      setEditingPlanId(null);
       setTitle("");
       setMeals([{ mealType: "breakfast", items: [{ name: "Oats & Eggs", quantity: "1 bowl + 4 whites", calories: 450, protein_g: 35 }] }]);
 
@@ -178,7 +186,7 @@ export default function DietPlans() {
       const res = await dietApi.listPlans(selectedClientId).catch(() => null);
       setPlans(Array.isArray(res) ? res : res?.plans || []);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to create diet plan");
+      toast.error(err.response?.data?.message || err.message || "Failed to save diet plan");
     } finally {
       setSubmittingPlan(false);
     }
@@ -193,6 +201,19 @@ export default function DietPlans() {
     } catch (err: any) {
       toast.error(err.message || "Failed to archive diet plan");
     }
+  };
+
+  // Update Existing Plan
+  const handleEditPlanClick = (p: any) => {
+    setEditingPlanId(p._id || p.id);
+    setTitle(p.title || "");
+    setDailyCalorieTarget(Number(p.dailyCalorieTarget || 2200));
+    setDailyProteinTargetG(Number(p.dailyProteinTarget_g || 140));
+    setStartDate(p.startDate ? p.startDate.split("T")[0] : new Date().toISOString().split("T")[0]);
+    if (p.meals && Array.isArray(p.meals)) {
+      setMeals(p.meals);
+    }
+    setShowCreateModal(true);
   };
 
   return (
@@ -286,13 +307,20 @@ export default function DietPlans() {
                 </div>
 
                 <div className="flex items-center gap-2 pt-2 border-t border-(--color-border)">
+                  <button
+                    onClick={() => handleEditPlanClick(p)}
+                    className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-lg bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:border-(--color-accent) border border-transparent transition-all cursor-pointer"
+                    title="Edit Plan"
+                  >
+                    Edit Plan
+                  </button>
                   {status === "ACTIVE" && (
                     <button
                       onClick={() => handleArchivePlan(pId)}
-                      className="w-full inline-flex items-center justify-center gap-1 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20"
+                      className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 cursor-pointer"
                       title="Archive Plan"
                     >
-                      <Archive size={13} /> Archive Plan
+                      <Archive size={13} /> Archive
                     </button>
                   )}
                 </div>

@@ -28,18 +28,28 @@ export default function AICoach() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [upsellData, setUpsellData] = useState<any>(null);
+  const [goalPrediction, setGoalPrediction] = useState<any>(null);
+  const [dietRec, setDietRec] = useState<any>(null);
 
   useEffect(() => {
     // Fetch initial AI recommendation & conversation history
     const loadAiData = async () => {
       try {
-        const [upsellRes, convsRes] = await Promise.allSettled([
+        const [upsellRes, convsRes, goalRes, dietRes] = await Promise.allSettled([
           aiApi.getUpsellRecommendation(),
           aiApi.listConversations(),
+          aiApi.getGoalPrediction("me"),
+          aiApi.getDietRecommendation("me"),
         ]);
 
         if (upsellRes.status === "fulfilled" && upsellRes.value) {
           setUpsellData(upsellRes.value);
+        }
+        if (goalRes.status === "fulfilled" && goalRes.value) {
+          setGoalPrediction(goalRes.value);
+        }
+        if (dietRes.status === "fulfilled" && dietRes.value) {
+          setDietRec(dietRes.value);
         }
 
         if (convsRes.status === "fulfilled" && convsRes.value?.conversations?.length) {
@@ -133,11 +143,29 @@ export default function AICoach() {
             </p>
             <button
               onClick={() => send("Tell me more about gym supplements and protein gap")}
-              className="mt-2 text-[11px] font-medium underline text-amber-300 hover:text-amber-100"
+              className="mt-2 text-[11px] font-medium underline text-amber-300 hover:text-amber-100 cursor-pointer"
             >
               Ask AI Coach about Supplement Store &rarr;
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Goal Prediction & AI Diet Recommendation Cards */}
+      {(goalPrediction || dietRec) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-xs">
+          {goalPrediction && (
+            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200">
+              <p className="font-semibold text-indigo-300 mb-0.5">🎯 Target Goal Prediction</p>
+              <p className="text-indigo-200/90 leading-snug">{goalPrediction.prediction || goalPrediction.message || "Target weight projected within 6 weeks based on consistency."}</p>
+            </div>
+          )}
+          {dietRec && (
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">
+              <p className="font-semibold text-emerald-300 mb-0.5">🥗 Daily Macro AI Recommendation</p>
+              <p className="text-emerald-200/90 leading-snug">{dietRec.recommendation || dietRec.message || "Aim for 140g protein daily with balanced carb timing around workouts."}</p>
+            </div>
+          )}
         </div>
       )}
 

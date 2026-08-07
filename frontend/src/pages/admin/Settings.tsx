@@ -1,19 +1,37 @@
 import { useState } from "react";
 import { Settings as SettingsIcon, Save, ShieldAlert, CheckCircle2 } from "lucide-react";
-import { useAdminStore } from "@/store/adminStore";
 import { useFormValidation } from "@/lib/useFormValidation";
 
+const STORAGE_KEY = "gymai.admin_settings";
+
+const defaultAdminSettings = {
+  supportEmail: "support@gymai-saas.com",
+  defaultTrialDays: 14,
+  platformCurrency: "INR",
+  maintenanceMode: false,
+  whatsappAlertsEnabled: true,
+};
+
 export default function AdminSettings() {
-  const { settings, updateSettings } = useAdminStore();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const getInitialSettings = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return defaultAdminSettings;
+  };
+
+  const initial = getInitialSettings();
 
   const { values, errors, touched, handleChange, handleBlur, validateAll } = useFormValidation(
     {
-      supportEmail: settings.supportEmail,
-      defaultTrialDays: settings.defaultTrialDays,
-      platformCurrency: settings.platformCurrency,
-      maintenanceMode: settings.maintenanceMode,
-      whatsappAlertsEnabled: settings.whatsappAlertsEnabled,
+      supportEmail: initial.supportEmail,
+      defaultTrialDays: initial.defaultTrialDays,
+      platformCurrency: initial.platformCurrency,
+      maintenanceMode: initial.maintenanceMode,
+      whatsappAlertsEnabled: initial.whatsappAlertsEnabled,
     },
     {
       supportEmail: { required: "Support email is required", email: "Enter a valid email" },
@@ -25,13 +43,17 @@ export default function AdminSettings() {
     e.preventDefault();
     if (!validateAll()) return;
 
-    updateSettings({
+    const updated = {
       supportEmail: values.supportEmail,
       defaultTrialDays: Number(values.defaultTrialDays),
       platformCurrency: values.platformCurrency,
       maintenanceMode: values.maintenanceMode,
       whatsappAlertsEnabled: values.whatsappAlertsEnabled,
-    });
+    };
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
 
     setToastMessage("SaaS Platform settings updated successfully!");
     setTimeout(() => setToastMessage(null), 4000);

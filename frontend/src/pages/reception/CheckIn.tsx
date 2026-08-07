@@ -58,12 +58,16 @@ export default function CheckIn() {
     if (!identifier.trim()) return;
     setLoading(true);
     try {
+      let res: any = null;
       if (user?.gymId && user?.branchId) {
-        await attendanceApi.checkIn({ gymId: user.gymId, branchId: user.branchId, identifier: identifier.trim() });
+        res = await attendanceApi.checkIn({ gymId: user.gymId, branchId: user.branchId, identifier: identifier.trim() });
       } else {
-        await attendanceApi.checkIn({ identifier: identifier.trim() });
+        res = await attendanceApi.checkIn({ identifier: identifier.trim() });
       }
-      toast.success(`Check-in verified for ${identifier}! Access Granted.`);
+      const memberName = res?.attendance?.memberId?.userId?.fullName || res?.checkIn?.memberId?.userId?.fullName || res?.attendance?.memberName || identifier;
+      const streak = res?.streakCount || res?.checkIn?.streakCount;
+      const streakText = streak ? ` 🔥 ${streak}-day streak!` : "";
+      toast.success(`Check-in verified for ${memberName}!${streakText} Access Granted.`);
       setIdentifier("");
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || `Check-in failed for ${identifier}. Member not found or membership invalid.`);

@@ -9,8 +9,17 @@ import { staffApi, authApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 
-export default function Staff() {
-  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
+interface StaffProps {
+  overrideGymId?: string;
+  overrideBranchId?: string;
+  backTo?: string;
+}
+
+export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo = "/owner" }: StaffProps = {}) {
+  const { gymId: resolvedGymId, branchId: resolvedBranchId, loading: resolvingBranch } = useGymBranch();
+  const gymId = overrideGymId || resolvedGymId;
+  const branchId = overrideBranchId || resolvedBranchId;
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);

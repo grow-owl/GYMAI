@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Building2, Users, Bell, ShieldCheck, CreditCard, Plus, Loader2, Download, Trash2, Megaphone, Send } from "lucide-react";
+import { Building2, Users, Bell, ShieldCheck, CreditCard, Plus, Loader2, Download, Trash2, Megaphone, Send, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
-import { gymApi, privacyApi, notificationApi } from "@/lib/endpoints";
+import { gymApi, privacyApi, notificationApi, jobApi, authApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -263,6 +263,37 @@ export default function Settings() {
     }
   };
 
+  const handleCancelDeletion = async () => {
+    try {
+      await privacyApi.cancelDeletion();
+      toast.success("Account deletion request cancelled successfully!");
+    } catch {
+      toast.error("Failed to cancel deletion request.");
+    }
+  };
+
+  const handleRunReminders = async () => {
+    const activeId = user?.gymId || "";
+    if (!activeId) return;
+    try {
+      await jobApi.runReminders(activeId);
+      toast.success("Automated membership reminders job triggered successfully!");
+    } catch {
+      toast.error("Failed to run automated reminders.");
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    if (!confirm("Are you sure you want to log out from all active devices?")) return;
+    try {
+      await authApi.logoutAll();
+      toast.success("Logged out from all devices.");
+      useAuthStore.getState().logout();
+    } catch {
+      toast.error("Failed to log out from all devices.");
+    }
+  };
+
   const tabs: { key: TabKey; icon: any; label: string; desc: string }[] = [
     { key: "branches", icon: Building2, label: "Gym & Branches", desc: "Branch locations & address setup" },
     { key: "staff", icon: Users, label: "Staff Roles", desc: "Role permissions & staff access" },
@@ -495,7 +526,16 @@ export default function Settings() {
               </div>
 
               <div className="pt-3 border-t border-(--color-border-soft) space-y-2">
-                <p className="text-xs font-semibold text-(--color-text) uppercase tracking-wide">WhatsApp Message Delivery History</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-(--color-text-muted)">Recent WhatsApp Logs & Reminders</p>
+                  <button
+                    type="button"
+                    onClick={handleRunReminders}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 cursor-pointer"
+                  >
+                    <RefreshCw size={13} /> Run Reminders Job Now
+                  </button>
+                </div>
                 {waLogs.length === 0 ? (
                   <p className="text-xs text-(--color-text-faint) py-3 text-center">No WhatsApp messages dispatched yet.</p>
                 ) : (
@@ -541,26 +581,37 @@ export default function Settings() {
               <p className="text-sm font-semibold text-(--color-text) border-b border-(--color-border-soft) pb-3">
                 GDPR & Data Privacy Actions
               </p>
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-3 gap-3">
                 <button
                   onClick={handleExportData}
-                  className="flex items-center gap-2 p-4 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-left hover:border-(--color-accent) transition-colors"
+                  className="flex items-center gap-2 p-4 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-left hover:border-(--color-accent) transition-colors cursor-pointer"
                 >
                   <Download size={18} className="text-(--color-accent) shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-(--color-text)">Export User Data</p>
-                    <p className="text-xs text-(--color-text-faint) mt-0.5">Download JSON copy of your account data</p>
+                    <p className="text-xs text-(--color-text-faint) mt-0.5">Download JSON copy of account data</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleCancelDeletion}
+                  className="flex items-center gap-2 p-4 rounded-xl bg-(--color-surface-2) border border-emerald-500/30 text-left hover:border-emerald-500 transition-colors cursor-pointer"
+                >
+                  <RefreshCw size={18} className="text-emerald-400 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-400">Cancel Deletion Request</p>
+                    <p className="text-xs text-(--color-text-faint) mt-0.5">Withdraw account purge request</p>
                   </div>
                 </button>
 
                 <button
                   onClick={handleRequestDeletion}
-                  className="flex items-center gap-2 p-4 rounded-xl bg-(--color-surface-2) border border-rose-500/30 text-left hover:border-rose-500 transition-colors"
+                  className="flex items-center gap-2 p-4 rounded-xl bg-(--color-surface-2) border border-rose-500/30 text-left hover:border-rose-500 transition-colors cursor-pointer"
                 >
                   <Trash2 size={18} className="text-rose-400 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-rose-400">Request Account Deletion</p>
-                    <p className="text-xs text-(--color-text-faint) mt-0.5">Submit request for data purging</p>
+                    <p className="text-sm font-medium text-rose-400">Request Deletion</p>
+                    <p className="text-xs text-(--color-text-faint) mt-0.5">Purge account and personal data</p>
                   </div>
                 </button>
               </div>
@@ -615,11 +666,18 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="pt-2 flex justify-end">
+                <div className="pt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={handleLogoutAll}
+                    className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
+                  >
+                    Logout from All Devices
+                  </button>
                   <button
                     type="submit"
                     disabled={changingPass}
-                    className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:bg-(--color-accent-strong) disabled:opacity-50"
+                    className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:bg-(--color-accent-strong) disabled:opacity-50 cursor-pointer"
                   >
                     {changingPass ? "Updating Password..." : "Update Password"}
                   </button>

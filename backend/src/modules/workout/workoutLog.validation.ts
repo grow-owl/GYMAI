@@ -1,9 +1,21 @@
-import { z } from 'zod';
+import z from "zod";
+
+
+const batchExerciseSchema = z.object({
+  exerciseId: z.string().optional(),
+  exerciseName: z.string().trim().optional(),
+  name: z.string().trim().optional(),
+  sets: z.number().int().positive().optional().default(1),
+  reps: z.number().int().positive().optional().default(10),
+  weightKg: z.number().positive().optional().default(0),
+});
 
 export const startWorkoutLogSchema = z.object({
   workoutPlanId: z.string().optional(),
   dayLabel: z.string().trim().optional(),
   attendanceId: z.string().optional(),
+  loggedAt: z.string().optional(),
+  exercises: z.array(batchExerciseSchema).optional(),
 });
 
 export const updateSetSchema = z.object({
@@ -11,3 +23,4 @@ export const updateSetSchema = z.object({
   weightKg: z.number().positive().optional(),
   completed: z.boolean().optional().default(true),
 });
+

@@ -14,6 +14,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  updateProfileSchema,
 } from './auth.validation';
 
 const router = Router();
@@ -29,7 +30,9 @@ router.post('/reset-password', validate(resetPasswordSchema, 'body'), AuthContro
 // Authenticated Endpoints
 router.use(authenticate);
 router.get('/me', AuthController.getMe);
+router.patch('/profile', validate(updateProfileSchema, 'body'), AuthController.updateProfile);
 router.post('/logout-all', AuthController.logoutAll);
+
 router.patch('/change-password', validate(changePasswordSchema, 'body'), AuthController.changePassword);
 
 // Hidden Super Admin endpoint to register Gym Owners (not exposed on public UI)

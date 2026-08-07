@@ -16,7 +16,9 @@ import {
   AlertTriangle,
   Award,
   PieChart,
+  Building2,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import clsx from "clsx";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -171,9 +173,21 @@ export default function Reports() {
     download(filename, csvContent, "text/csv");
   };
 
-  const handleViewReportData = (r: any) => {
+  const handleViewReportData = async (r: any) => {
     setViewingReport(r);
     setModalViewTab("graph");
+    const activeGymId = user?.gymId || "";
+    const reportId = r._id || r.id;
+    if (activeGymId && reportId) {
+      try {
+        const detailRes = await reportApi.getReportById(activeGymId, reportId);
+        if (detailRes?.reportRequest) {
+          setViewingReport(detailRes.reportRequest);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch report detail:", err);
+      }
+    }
   };
 
   const fetchData = async () => {
@@ -425,7 +439,19 @@ export default function Reports() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto w-full">
-      <PageHeader title="Reports & Visual Analytics" subtitle="Interactive graphical performance metrics and backend export suite" backTo="/owner" />
+      <PageHeader
+        title="Reports & Visual Analytics"
+        subtitle="Interactive graphical performance metrics and backend export suite"
+        backTo="/owner"
+        action={
+          <Link
+            to="/owner/branch-comparison"
+            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) text-(--color-text) text-xs font-semibold px-4 py-2 hover:bg-(--color-surface-3) transition-colors border border-(--color-border)"
+          >
+            <Building2 size={14} /> Multi-Branch Analytics
+          </Link>
+        }
+      />
 
       {loading ? (
         <div className="flex flex-col items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">

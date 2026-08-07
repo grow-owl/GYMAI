@@ -18,6 +18,19 @@ export const ownerNavSecondary = [
   { label: "Settings", path: "/owner/settings", icon: "Settings" },
 ];
 
+export const ownerQuickAccess = [
+  { label: "Members", path: "/owner/members", icon: "Users" },
+  { label: "Trainers", path: "/owner/trainers", icon: "Dumbbell" },
+  { label: "Attendance", path: "/owner/attendance", icon: "QrCode" },
+  { label: "Payments", path: "/owner/payments", icon: "CreditCard" },
+  { label: "Leads", path: "/owner/leads", icon: "Target" },
+  { label: "Inventory", path: "/owner/inventory", icon: "Package" },
+  { label: "Expenses", path: "/owner/expenses", icon: "Wallet" },
+  { label: "Reports", path: "/owner/reports", icon: "BarChart3" },
+  { label: "AI Insights", path: "/owner/ai-insights", icon: "Sparkles" },
+];
+
+
 export const trainerNav = [
   { label: "Dashboard", path: "/trainer", icon: "LayoutGrid" },
   { label: "My Clients", path: "/trainer/clients", icon: "Users" },

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, Wrench, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Wrench, Loader2, RefreshCw, Trash2 } from "lucide-react";
+
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -29,12 +30,6 @@ export default function Equipment() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
-  // Clear old cached mock localStorage items on mount
-  useEffect(() => {
-    try {
-      localStorage.removeItem("gymai.equipment_list");
-    } catch {}
-  }, []);
 
   const [newEquipment, setNewEquipment] = useState({
     name: "",
@@ -42,17 +37,25 @@ export default function Equipment() {
     status: "WORKING",
   });
 
+  const [showMaintenanceDueOnly, setShowMaintenanceDueOnly] = useState(false);
+
   const fetchEquipment = async () => {
-    if (!gymId || !branchId) {
+    if (!gymId) {
       setEquipmentList([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const res = await equipmentApi.list(gymId, branchId);
-      const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
-      setEquipmentList(list);
+      if (showMaintenanceDueOnly) {
+        const res = await equipmentApi.getMaintenanceDue(gymId);
+        const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
+        setEquipmentList(list);
+      } else if (branchId) {
+        const res = await equipmentApi.list(gymId, branchId);
+        const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
+        setEquipmentList(list);
+      }
     } catch {
       setEquipmentList([]);
     } finally {
@@ -62,7 +65,7 @@ export default function Equipment() {
 
   useEffect(() => {
     fetchEquipment();
-  }, [gymId, branchId]);
+  }, [gymId, branchId, showMaintenanceDueOnly]);
 
   const handleAddEquipment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,15 +86,27 @@ export default function Equipment() {
     }
   };
 
-  const handleSetExactStatus = async (id: string, targetStatus: string) => {
+  const handleDeleteEquipment = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete equipment "${name}"?`)) return;
     try {
-      await equipmentApi.updateStatus(id, targetStatus);
-      toast.success(`Equipment status updated to ${targetStatus}`);
+      await equipmentApi.delete(id);
+      toast.success(`Equipment "${name}" deleted.`);
+      fetchEquipment();
+    } catch {
+      toast.error("Failed to delete equipment item.");
+    }
+  };
+
+  const handleSetExactStatus = async (id: string, status: string) => {
+    try {
+      await equipmentApi.updateStatus(id, status);
+      toast.success(`Equipment status updated to ${status}.`);
       fetchEquipment();
     } catch {
       toast.error("Failed to update equipment status.");
     }
   };
+
 
   return (
     <div className="space-y-4">
@@ -102,15 +117,26 @@ export default function Equipment() {
         action={
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowMaintenanceDueOnly(!showMaintenanceDueOnly)}
+              className={`inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer ${
+                showMaintenanceDueOnly
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                  : "bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+              }`}
+              title="Toggle Maintenance Due Equipment"
+            >
+              <Wrench size={14} /> {showMaintenanceDueOnly ? "Maintenance Due Only" : "All Equipment"}
+            </button>
+            <button
               onClick={fetchEquipment}
-              className="inline-flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) p-2 rounded-lg bg-(--color-surface-2)"
+              className="inline-flex items-center gap-1 text-xs text-(--color-text-muted) hover:text-(--color-text) p-2 rounded-lg bg-(--color-surface-2) cursor-pointer"
               title="Refresh Equipment"
             >
               <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 cursor-pointer"
             >
               <Plus size={15} /> Add equipment
             </button>
@@ -160,6 +186,14 @@ export default function Equipment() {
                         Maintenance
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDeleteEquipment(eqId, item.name)}
+                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all"
+                      title="Delete Equipment"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+
                   </div>
                 </div>
               );

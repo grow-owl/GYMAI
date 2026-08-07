@@ -21,21 +21,24 @@ const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
   FROZEN: "accent",
 };
 
-export default function Members() {
+interface MembersProps {
+  overrideGymId?: string;
+  overrideBranchId?: string;
+  backTo?: string;
+}
+
+export default function Members({ overrideGymId, overrideBranchId, backTo: _backTo = "/owner" }: MembersProps = {}) {
   const currentUserRole = useAuthStore((s) => s.user?.role);
   const isOwnerOrAdmin = currentUserRole === "GYM_OWNER" || currentUserRole === "SUPER_ADMIN" || currentUserRole === "BRANCH_MANAGER";
-  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
+  const { gymId: resolvedGymId, branchId: resolvedBranchId, loading: resolvingBranch } = useGymBranch();
+  const gymId = overrideGymId || resolvedGymId;
+  const branchId = overrideBranchId || resolvedBranchId;
+
   const [memberList, setMemberList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
 
-  // Clear old cached mock localStorage items on mount
-  useEffect(() => {
-    try {
-      localStorage.removeItem("gymai.members_list");
-    } catch {}
-  }, []);
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);

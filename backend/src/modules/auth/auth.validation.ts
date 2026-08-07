@@ -106,3 +106,10 @@ export const registerStaffSchema = z.object({
     .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number'),
   role: z.enum([Role.BRANCH_MANAGER, Role.KIOSK]).optional(),
 });
+
+export const updateProfileSchema = z.object({
+  fullName: z.string().min(2, 'Full name must be at least 2 characters').max(100).trim().optional(),
+  phone: z.string().trim().regex(/^\+?[0-9\s-]{7,15}$/, 'Enter a valid phone number').optional(),
+  avatarUrl: z.string().url('Must be a valid URL').or(z.string().length(0)).optional(),
+});
+

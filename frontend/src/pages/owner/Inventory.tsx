@@ -32,12 +32,6 @@ export default function Inventory() {
   const [membersList, setMembersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Clear old cached mock localStorage items on mount
-  useEffect(() => {
-    try {
-      localStorage.removeItem("gymai.inventory_products");
-    } catch {}
-  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
