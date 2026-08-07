@@ -5,7 +5,7 @@ import { Attendance } from '../attendance/attendance.model';
 import { MemberPayment } from '../payment/memberPayment.model';
 import { MembershipStatus } from '../member/member.types';
 import { PaymentStatus } from '../payment/platformSubscription.types';
-import { IDashboardOverview } from './report.types';
+import { IDashboardOverview, IExpiringMembershipItem } from './report.types';
 import { logger } from '../../config/logger';
 import { getDayKeyForBranch } from '../../common/utils/timezone';
 
@@ -136,10 +136,6 @@ export class DashboardService {
 
     logger.info(`📊 Dashboard Overview computed: [Gym: ${gymId}] [ActiveMembers: ${finalActiveMembers}]`);
     return data;
-  }
-
-  public static clearCache(): void {
-    dashboardCache.clear();
   }
 
   /**
