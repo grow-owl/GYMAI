@@ -128,7 +128,7 @@ export default function OwnerDashboard() {
       <Card sweep className="border-(--color-accent)/20 bg-gradient-to-r from-(--color-accent)/5 to-transparent">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--color-accent) text-white shadow-md">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md">
               <Sparkles size={20} strokeWidth={2} />
             </span>
             <div>
@@ -147,7 +147,7 @@ export default function OwnerDashboard() {
           </div>
           <Link
             to="/owner/ai-insights"
-            className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-4 py-2 hover:opacity-90 transition-opacity shrink-0"
+            className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90 transition-opacity shrink-0"
           >
             AI Insights <ArrowRight size={14} />
           </Link>

@@ -48,7 +48,7 @@ export default function RoleSelect() {
     <div className="h-screen overflow-y-auto flex flex-col items-center justify-center px-6 py-8 relative z-10">
       <div className="max-w-3xl w-full">
         <div className="flex items-center gap-2.5 mb-6 justify-center animate-fade-in">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-(--color-accent) text-white shadow-md">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md">
             <Dumbbell size={20} strokeWidth={2.5} />
           </span>
           <span className="font-display text-xl font-semibold text-(--color-text)">GYMAI</span>

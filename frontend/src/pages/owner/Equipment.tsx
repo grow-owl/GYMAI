@@ -179,7 +179,7 @@ export default function Equipment() {
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 cursor-pointer"
             >
               <Plus size={15} /> Add equipment
             </button>
@@ -290,7 +290,7 @@ export default function Equipment() {
               <button
                 type="submit"
                 disabled={submittingAdd}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register Machine"}
               </button>
@@ -346,7 +346,7 @@ export default function Equipment() {
               <button
                 type="submit"
                 disabled={submittingEdit}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>

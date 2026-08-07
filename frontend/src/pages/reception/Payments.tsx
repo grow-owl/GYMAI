@@ -99,7 +99,7 @@ export default function ReceptionPayments() {
         action={
           <button
             onClick={() => setShowRecordModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 transition-opacity"
           >
             <Plus size={15} /> Collect Payment
           </button>
@@ -248,7 +248,7 @@ export default function ReceptionPayments() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
+                className="px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar) disabled:opacity-50"
               >
                 {submitting ? "Saving..." : "Record Payment"}
               </button>

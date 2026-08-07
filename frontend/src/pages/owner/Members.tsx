@@ -197,7 +197,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
             >
               <Plus size={15} /> Add member
             </button>
@@ -431,7 +431,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
               <button
                 type="submit"
                 disabled={submittingAdd}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register Member"}
               </button>
@@ -527,7 +527,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                 <button
                   type="button"
                   onClick={() => handleAction(activeModalType)}
-                  className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md capitalize"
+                  className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold shadow-md capitalize"
                 >
                   Confirm {activeModalType}
                 </button>
@@ -566,7 +566,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
               <button
                 type="submit"
                 disabled={resettingPass}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-bold shadow-md flex items-center justify-center gap-1"
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-(--color-navbar) font-bold shadow-md flex items-center justify-center gap-1"
               >
                 {resettingPass ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reset Password"}
               </button>

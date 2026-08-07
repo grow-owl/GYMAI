@@ -498,7 +498,7 @@ export default function Reports() {
                       className={clsx(
                         "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 shrink-0",
                         activeTab
-                          ? "bg-(--color-accent) text-white shadow-xs font-semibold"
+                          ? "bg-(--color-accent) text-(--color-navbar) shadow-xs font-bold"
                           : "bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-3)"
                       )}
                     >
@@ -767,7 +767,7 @@ export default function Reports() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => download(`${active.key}.csv`, toCsv(active.columns, active.rows()), "text/csv")}
-                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-medium px-3 py-1.5 hover:bg-(--color-accent-hover) transition-colors"
+                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3 py-1.5 hover:bg-(--color-accent-hover) transition-colors"
                 >
                   <FileSpreadsheet size={13} /> Export CSV
                 </button>
@@ -844,7 +844,7 @@ export default function Reports() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleDownloadReportData(viewingReport)}
-                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-medium px-3 py-1.5 hover:bg-(--color-accent-hover) transition-colors"
+                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3 py-1.5 hover:bg-(--color-accent-hover) transition-colors"
                 >
                   <FileSpreadsheet size={13} /> Download
                 </button>
@@ -860,7 +860,7 @@ export default function Reports() {
                 className={clsx(
                   "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200",
                   modalViewTab === "graph"
-                    ? "bg-(--color-accent) text-white font-semibold"
+                    ? "bg-(--color-accent) text-(--color-navbar) font-bold"
                     : "text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-3)"
                 )}
               >
@@ -871,7 +871,7 @@ export default function Reports() {
                 className={clsx(
                   "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200",
                   modalViewTab === "data"
-                    ? "bg-(--color-accent) text-white font-semibold"
+                    ? "bg-(--color-accent) text-(--color-navbar) font-bold"
                     : "text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-3)"
                 )}
               >

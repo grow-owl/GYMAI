@@ -137,7 +137,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-lg hover:shadow-(--color-accent-soft) text-white font-semibold text-sm py-3 transition-all disabled:opacity-70"
+          className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-lg hover:shadow-(--color-accent-soft) text-(--color-navbar) font-bold text-sm py-3 transition-all disabled:opacity-70"
         >
           {loading ? (
             <>

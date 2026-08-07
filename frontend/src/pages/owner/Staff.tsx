@@ -133,7 +133,7 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-sm font-medium px-4 py-2 hover:opacity-90 shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
             >
               <Plus size={15} /> Add Staff Member
             </button>
@@ -292,7 +292,7 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
               <button
                 type="submit"
                 disabled={submittingAdd}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register Staff Member"}
               </button>

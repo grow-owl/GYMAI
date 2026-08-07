@@ -23,7 +23,7 @@ export default function Register() {
         <div className="pt-4">
           <Link
             to="/login"
-            className="btn-press inline-flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-white font-semibold text-sm px-6 py-3 hover:bg-(--color-accent-strong)"
+            className="btn-press inline-flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold text-sm px-6 py-3 hover:bg-(--color-accent-strong)"
           >
             Go to Login <ArrowRight size={16} />
           </Link>

@@ -111,7 +111,7 @@ export default function Billing() {
           >
             <div>
               {p.popular && (
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-(--color-accent) text-white inline-block mb-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-(--color-accent) text-(--color-navbar) inline-block mb-2">
                   Most Popular
                 </span>
               )}
@@ -136,7 +136,7 @@ export default function Billing() {
               className={`mt-6 w-full py-2.5 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 currentPlanCardId === p.id
                   ? "bg-(--color-surface-3) text-(--color-text-muted) cursor-default"
-                  : "bg-(--color-accent) text-white hover:opacity-90 shadow-md"
+                  : "bg-(--color-accent) text-(--color-navbar) font-bold hover:opacity-90 shadow-md"
               }`}
             >
               {currentPlanCardId === p.id ? (
@@ -187,7 +187,7 @@ export default function Billing() {
                 type="button"
                 disabled={submitting}
                 onClick={handleConfirmRequest}
-                className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
+                className="px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar) disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit Request"}
               </button>

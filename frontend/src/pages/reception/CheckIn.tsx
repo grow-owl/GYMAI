@@ -128,7 +128,7 @@ export default function CheckIn() {
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 flex items-center gap-1 shrink-0 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold hover:opacity-90 flex items-center gap-1 shrink-0 disabled:opacity-50"
             >
               {loading ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Verify
             </button>

@@ -342,7 +342,7 @@ export default function Settings() {
                 </div>
                 <button
                   onClick={() => setShowAddBranchModal(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-medium px-4 py-2 hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90"
                 >
                   <Plus size={14} /> Add Branch
                 </button>
@@ -421,7 +421,7 @@ export default function Settings() {
                 </div>
                 <Link
                   to="/owner/billing"
-                  className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white"
+                  className="px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar)"
                 >
                   Manage SaaS Subscription
                 </Link>
@@ -516,7 +516,7 @@ export default function Settings() {
                     <button
                       type="submit"
                       disabled={sendingBroadcast}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold hover:opacity-90 disabled:opacity-50 shadow-sm"
                     >
                       {sendingBroadcast ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                       {sendingBroadcast ? "Sending Broadcast..." : "Send Announcement"}
@@ -531,7 +531,7 @@ export default function Settings() {
                   <button
                     type="button"
                     onClick={handleRunReminders}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold hover:opacity-90 cursor-pointer"
                   >
                     <RefreshCw size={13} /> Run Reminders Job Now
                   </button>
@@ -677,7 +677,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={changingPass}
-                    className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:bg-(--color-accent-strong) disabled:opacity-50 cursor-pointer"
+                    className="px-5 py-2.5 text-xs font-bold rounded-xl bg-(--color-accent) text-(--color-navbar) hover:bg-(--color-accent-strong) disabled:opacity-50 cursor-pointer"
                   >
                     {changingPass ? "Updating Password..." : "Update Password"}
                   </button>
@@ -781,7 +781,7 @@ export default function Settings() {
               <button
                 type="submit"
                 disabled={submittingBranch}
-                className="px-4 py-2 text-xs font-medium rounded-full bg-(--color-accent) text-white disabled:opacity-50"
+                className="px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar) disabled:opacity-50"
               >
                 {submittingBranch ? "Creating..." : "Create Branch"}
               </button>

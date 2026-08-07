@@ -261,7 +261,7 @@ function getSmartFallbackAdvice(query: string): string {
               <div
                 className={
                   m.from === "user"
-                    ? "max-w-[80%] rounded-2xl rounded-tr-sm bg-(--color-accent) text-white text-sm px-4 py-2.5 whitespace-pre-wrap"
+                    ? "max-w-[80%] rounded-2xl rounded-tr-sm bg-(--color-accent) text-(--color-navbar) font-bold text-sm px-4 py-2.5 whitespace-pre-wrap"
                     : "max-w-[80%] rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text) text-sm px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
                 }
               >
@@ -310,7 +310,7 @@ function getSmartFallbackAdvice(query: string): string {
           <button
             type="submit"
             disabled={loading}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--color-accent) text-white disabled:opacity-50"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--color-accent) text-(--color-navbar) disabled:opacity-50"
           >
             <Send size={14} />
           </button>

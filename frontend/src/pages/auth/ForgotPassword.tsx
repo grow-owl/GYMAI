@@ -82,7 +82,7 @@ export default function ForgotPassword() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-white font-semibold text-sm py-3 transition-colors disabled:opacity-70"
+              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) font-bold text-sm py-3 transition-colors disabled:opacity-70"
             >
               {loading ? (
                 <>

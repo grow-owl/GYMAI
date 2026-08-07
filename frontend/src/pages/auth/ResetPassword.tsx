@@ -136,7 +136,7 @@ export default function ResetPassword() {
             <button
               type="submit"
               disabled={loading || !token}
-              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-white font-semibold text-sm py-3 transition-colors disabled:opacity-50"
+              className="btn-press w-full flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) font-bold text-sm py-3 transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <>

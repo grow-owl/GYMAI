@@ -63,7 +63,7 @@ export default function BranchComparison() {
               onClick={() => setMetric(key)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-colors shrink-0 ${
                 metric === key
-                  ? "bg-(--color-accent) text-white"
+                  ? "bg-(--color-accent) text-(--color-navbar) font-bold"
                   : "bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
               }`}
             >

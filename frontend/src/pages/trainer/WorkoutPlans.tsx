@@ -290,7 +290,7 @@ export default function WorkoutPlans() {
             <button
               onClick={() => setShowCreateModal(true)}
               disabled={!selectedClientId}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50"
             >
               <Plus size={15} /> Create Plan
             </button>
@@ -570,7 +570,7 @@ export default function WorkoutPlans() {
               <button
                 type="submit"
                 disabled={submittingPlan}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save & Assign Plan"}
               </button>
@@ -670,7 +670,7 @@ export default function WorkoutPlans() {
               <button
                 type="submit"
                 disabled={submittingCustomExercise}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingCustomExercise ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Custom Exercise"}
               </button>
