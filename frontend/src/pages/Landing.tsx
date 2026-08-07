@@ -116,6 +116,7 @@ const roleCards = [
   },
 ];
 
+import { useAuth, roleHome } from "@/store/authStore";
 import { landingPlans as plans } from "@/data/pricing";
 
 const toneBg: Record<string, string> = {
@@ -128,6 +129,8 @@ const toneBg: Record<string, string> = {
 };
 
 export default function Landing() {
+  const { isAuthenticated, user } = useAuth();
+  const dashboardPath = user ? (roleHome[user.role] ?? "/owner") : "/login";
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
 
@@ -164,16 +167,27 @@ export default function Landing() {
             <a href="#contact" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
               Contact Us
             </a>
-            <Link to="/login" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
-              Sign in
-            </Link>
+            {isAuthenticated && user ? (
+              <Link
+                to={dashboardPath}
+                className="btn-press btn-sheen text-sm font-semibold text-(--color-navbar) bg-(--color-accent) hover:bg-(--color-accent-strong) rounded-xl px-4 py-2.5 transition-all"
+              >
+                Go to Dashboard →
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  className="btn-press btn-sheen text-sm font-semibold text-(--color-navbar) bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] rounded-xl px-4 py-2.5 transition-all animate-fade-in"
+                >
+                  Start Free Trial
+                </Link>
+              </>
+            )}
           </nav>
-          <Link
-            to="/register"
-            className="btn-press btn-sheen text-sm font-semibold text-(--color-navbar) bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] rounded-xl px-4 py-2.5 transition-all animate-fade-in"
-          >
-            Start Free Trial
-          </Link>
         </div>
       </header>
 
@@ -237,18 +251,29 @@ export default function Landing() {
               className="mt-8 flex flex-wrap items-center gap-3 animate-fade-in-up stagger-item"
               style={{ ["--stagger-i" as string]: 3 }}
             >
-              <Link
-                to="/register"
-                className="btn-press btn-sheen flex items-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] text-(--color-navbar) font-semibold text-sm px-6 py-3.5 transition-all"
-              >
-                Start 1-week free trial <ArrowRight size={16} className="icon-hover-pop" />
-              </Link>
-              <Link
-                to="/login"
-                className="btn-press flex items-center gap-2 rounded-xl border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 text-white font-semibold text-sm px-6 py-3.5 transition-all"
-              >
-                Sign in
-              </Link>
+              {isAuthenticated && user ? (
+                <Link
+                  to={dashboardPath}
+                  className="btn-press btn-sheen flex items-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) font-semibold text-sm px-6 py-3.5 transition-all"
+                >
+                  Go to Dashboard <ArrowRight size={16} className="icon-hover-pop" />
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/register"
+                    className="btn-press btn-sheen flex items-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) hover:shadow-[0_10px_30px_-8px_var(--color-accent-soft)] text-(--color-navbar) font-semibold text-sm px-6 py-3.5 transition-all"
+                  >
+                    Start 1-week free trial <ArrowRight size={16} className="icon-hover-pop" />
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="btn-press flex items-center gap-2 rounded-xl border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 text-white font-semibold text-sm px-6 py-3.5 transition-all"
+                  >
+                    Sign in
+                  </Link>
+                </>
+              )}
             </div>
             <p
               className="mt-3 text-xs text-white/50 animate-fade-in-up stagger-item"

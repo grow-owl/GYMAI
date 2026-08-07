@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound } from "lucide-react";
+import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -161,6 +161,18 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     }
   };
 
+  const handleDeleteMember = async (mId: string, name: string) => {
+    if (!gymId) return;
+    if (!confirm(`Are you sure you want to delete member profile for "${name}"?`)) return;
+    try {
+      await memberApi.deleteMember(gymId, mId);
+      toast.success(`Member "${name}" deleted successfully.`);
+      fetchMembers();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to delete member.");
+    }
+  };
+
   const filteredMembers = memberList.filter((m) => {
     const name = m.fullName || m.name || m.userId?.fullName || "";
     const phone = m.phone || m.userId?.phone || "";
@@ -316,6 +328,16 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                         title="Reset Member Password"
                       >
                         <KeyRound size={15} />
+                      </button>
+                    )}
+
+                    {isOwnerOrAdmin && (
+                      <button
+                        onClick={() => handleDeleteMember(mId, name)}
+                        className="p-1.5 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors cursor-pointer"
+                        title="Delete Member Profile"
+                      >
+                        <Trash2 size={15} />
                       </button>
                     )}
 

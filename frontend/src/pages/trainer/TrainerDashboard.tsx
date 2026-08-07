@@ -62,8 +62,8 @@ export default function TrainerDashboard() {
   const clientUserIds = new Set(clients.map((c) => c.userId?._id || c.userId));
   const myClientAttendance = todayAttendance.filter((a) => clientUserIds.has(a.memberId?.userId?._id || a.memberId?.userId));
 
-  const doneCount = myClientAttendance.filter((a) => Boolean(a.checkOutTime)).length;
-  const inGymCount = myClientAttendance.filter((a) => !a.checkOutTime).length;
+  const doneCount = myClientAttendance.filter((a) => a.status === "CHECKED_OUT" || a.status === "AUTO_CLOSED" || Boolean(a.checkOutAt) || Boolean(a.checkOutTime)).length;
+  const inGymCount = myClientAttendance.filter((a) => a.status === "CHECKED_IN" || (!a.checkOutAt && !a.checkOutTime)).length;
 
   const sessionSegments = [
     { label: "Completed", value: doneCount, color: "var(--tone-green)" },
@@ -118,8 +118,9 @@ export default function TrainerDashboard() {
                 <div className="divide-y divide-(--color-border-soft)">
                   {myClientAttendance.map((s, idx) => {
                     const clientName = s.memberId?.userId?.fullName || "Client";
-                    const timeStr = s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
-                    const status = s.checkOutTime ? "done" : "in-gym";
+                    const rawTime = s.checkInAt || s.checkInTime;
+                    const timeStr = rawTime ? new Date(rawTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+                    const status = (s.status === "CHECKED_OUT" || s.status === "AUTO_CLOSED" || s.checkOutAt || s.checkOutTime) ? "done" : "in-gym";
 
                     return (
                       <div key={s._id || idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2) transition-colors">

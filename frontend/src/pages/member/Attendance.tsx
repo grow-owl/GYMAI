@@ -92,7 +92,7 @@ export default function Attendance() {
           <div>
             <p className="font-display text-xl font-semibold text-(--color-text)">Currently Checked In</p>
             <p className="text-xs text-(--color-text-faint) mt-1">
-              Checked in at {new Date(currentSession.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              Checked in at {new Date(currentSession.checkInAt || currentSession.checkInTime || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
           <button

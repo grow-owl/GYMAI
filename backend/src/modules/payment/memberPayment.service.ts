@@ -285,6 +285,7 @@ export class MemberPaymentService {
     }
     if (filters.status) filter.status = filters.status;
     if (filters.purpose) filter.purpose = filters.purpose;
+    filter.isDeleted = { $ne: true };
 
     let [payments, totalItems] = await Promise.all([
       MemberPayment.find(filter)
@@ -313,6 +314,7 @@ export class MemberPaymentService {
 
     const matchFilter: any = {
       status: PaymentStatus.SUCCESS,
+      isDeleted: { $ne: true },
     };
 
     if (mongoose.Types.ObjectId.isValid(_gymId)) {
@@ -424,5 +426,32 @@ export class MemberPaymentService {
 
     logger.info(`💸 Payment refunded: [ID: ${payment._id}] [Amount: ₹${payment.amount}] [Reason: ${reason}]`);
     return payment;
+  }
+
+  public static async updatePayment(paymentId: string, data: Record<string, any>): Promise<IMemberPayment> {
+    const payment = await MemberPayment.findOne({ _id: paymentId, isDeleted: { $ne: true } });
+    if (!payment) {
+      throw AppError.notFound('Payment record not found');
+    }
+
+    if (data.amount !== undefined) payment.amount = Number(data.amount);
+    if (data.method !== undefined) payment.method = data.method;
+    if (data.paymentMethod !== undefined) payment.method = data.paymentMethod;
+    if (data.purpose !== undefined) payment.purpose = data.purpose;
+    if (data.notes !== undefined) payment.notes = data.notes;
+    if (data.customerName !== undefined) payment.customerName = data.customerName;
+    if (data.status !== undefined) payment.status = data.status;
+
+    await payment.save();
+    return payment;
+  }
+
+  public static async softDeletePayment(paymentId: string): Promise<void> {
+    const payment = await MemberPayment.findById(paymentId);
+    if (!payment) {
+      throw AppError.notFound('Payment record not found');
+    }
+    payment.isDeleted = true;
+    await payment.save();
   }
 }

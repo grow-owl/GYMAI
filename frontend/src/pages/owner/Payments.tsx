@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Loader2, RefreshCw, CreditCard } from "lucide-react";
+import { Plus, Loader2, RefreshCw, CreditCard, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
@@ -38,7 +38,6 @@ export default function Payments() {
   const [summary, setSummary] = useState<{ total: number; transactions: number }>({ total: 0, transactions: 0 });
   const [membersList, setMembersList] = useState<any[]>([]);
 
-
   // Modal state
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +48,16 @@ export default function Payments() {
     method: "cash",
     notes: "",
     triggerRenewal: false,
+  });
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+  const [editData, setEditData] = useState({
+    paymentId: "",
+    amount: 1500,
+    purpose: "membership_fee",
+    method: "cash",
+    notes: "",
   });
 
   const fetchData = async () => {
@@ -135,6 +144,51 @@ export default function Payments() {
       toast.error(err.response?.data?.message || err.message || "Failed to record payment");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleEditPayment = (p: any) => {
+    setEditData({
+      paymentId: p._id || p.id,
+      amount: p.amount || 0,
+      purpose: p.purpose || "membership_fee",
+      method: p.method || p.paymentMethod || "cash",
+      notes: p.notes || "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdatePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const activeGymId = gymId || "";
+    if (!editData.paymentId) return;
+    setSubmittingEdit(true);
+    try {
+      await paymentApi.update(activeGymId, editData.paymentId, {
+        amount: Number(editData.amount),
+        purpose: editData.purpose,
+        method: editData.method,
+        notes: editData.notes,
+      });
+      toast.success("Payment transaction updated!");
+      setShowEditModal(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to update payment");
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
+
+  const handleDeletePayment = async (pId: string, name: string) => {
+    const activeGymId = gymId || "";
+    if (!confirm(`Are you sure you want to delete payment record for "${name}"?`)) return;
+    try {
+      await paymentApi.delete(activeGymId, pId);
+      toast.success("Payment record deleted.");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to delete payment");
     }
   };
 
@@ -247,9 +301,27 @@ export default function Payments() {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-(--color-border)/30">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-(--color-border)/30">
                     <Badge tone="good">{p.status || "SUCCESS"}</Badge>
-                    <span className="font-mono text-sm font-bold text-emerald-400">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
+                    <span className="font-mono text-sm font-bold text-emerald-400 mr-1">₹{(p.amount || 0).toLocaleString("en-IN")}</span>
+                    {isOwnerOrAdmin && (
+                      <>
+                        <button
+                          onClick={() => handleEditPayment(p)}
+                          className="p-1.5 rounded-lg hover:bg-white/10 text-amber-400 transition-colors cursor-pointer"
+                          title="Edit Payment"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePayment(pId, memberName)}
+                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors cursor-pointer"
+                          title="Delete Payment"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -322,6 +394,71 @@ export default function Payments() {
                 className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Record Payment"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Payment Modal */}
+      {showEditModal && (
+        <Modal onClose={() => setShowEditModal(false)} maxWidth="md" title="Edit Member Payment Transaction">
+          <form onSubmit={handleUpdatePaymentSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-(--color-text-muted) mb-1 font-medium font-sans">Payment Amount (₹)</label>
+              <input
+                type="number"
+                required
+                min={0}
+                value={editData.amount}
+                onChange={(e) => setEditData({ ...editData, amount: Number(e.target.value) })}
+                className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+              />
+            </div>
+
+            <div>
+              <CustomSelect
+                label="Payment Method"
+                options={paymentMethodOptions}
+                value={editData.method}
+                onChange={(val) => setEditData({ ...editData, method: val })}
+              />
+            </div>
+
+            <div>
+              <CustomSelect
+                label="Purpose"
+                options={purposeOptions}
+                value={editData.purpose}
+                onChange={(val) => setEditData({ ...editData, purpose: val })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-(--color-text-muted) mb-1 font-medium font-sans">Notes / Internal Reference</label>
+              <input
+                type="text"
+                placeholder="Notes or reference..."
+                value={editData.notes}
+                onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingEdit}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>
             </div>
           </form>

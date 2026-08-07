@@ -7,6 +7,7 @@ import MobileShell from "@/components/layout/MobileShell";
 import { ownerNav, ownerNavSecondary, trainerNav, receptionNav } from "@/data/nav";
 import { useAuth, useAuthStore } from "@/store/authStore";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import PublicOnlyRoute from "@/components/auth/PublicOnlyRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 
@@ -153,11 +154,15 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/roles" element={<RoleSelect />} />
+
+              {/* Guest / Public Only Auth Routes */}
+              <Route element={<PublicOnlyRoute />}>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/roles" element={<RoleSelect />} />
+              </Route>
 
               <Route element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}>
                 <Route path="/admin" element={<AdminShell />}>

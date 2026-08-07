@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { AttendanceService } from './attendance.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
-import { getDayKeyForBranch } from '../../common/utils/timezone';
+import { AppError } from '../../common/utils/AppError';
 
 export class AttendanceController {
   public static checkIn = asyncHandler(async (req: Request, res: Response) => {
@@ -55,10 +55,20 @@ export class AttendanceController {
 
   public static getBranchDailyAttendance = asyncHandler(async (req: Request, res: Response) => {
     const { branchId } = req.params;
-    const dayKey = (req.query.date as string) || getDayKeyForBranch(new Date(), 'UTC');
+    const dayKey = req.query.date as string | undefined;
 
     const attendanceList = await AttendanceService.getBranchDailyAttendance(branchId, dayKey);
     return sendSuccess(res, { attendanceList, dayKey }, 'Daily branch attendance log retrieved successfully');
+  });
+
+  public static getAttendanceHeatmap = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    if (!gymId) {
+      throw AppError.badRequest('Gym ID is required to fetch attendance heatmap');
+    }
+    const branchId = (req.query.branchId as string) || req.user?.branchId;
+    const data = await AttendanceService.getAttendanceHeatmap(gymId, branchId);
+    return sendSuccess(res, data, 'Attendance heatmap retrieved successfully');
   });
 
   public static generateDynamicQR = asyncHandler(async (req: Request, res: Response) => {

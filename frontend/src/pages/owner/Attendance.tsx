@@ -71,8 +71,12 @@ export default function Attendance() {
   }, [fetchKioskQr]);
 
   const checkedInCount = todayLog.length;
-  const currentlyInCount = todayLog.filter((a) => !a.checkOutTime).length;
-  const checkedOutCount = todayLog.filter((a) => Boolean(a.checkOutTime)).length;
+  const currentlyInCount = todayLog.filter(
+    (a) => a.status === "CHECKED_IN" || (!a.checkOutAt && !a.checkOutTime && a.status !== "CHECKED_OUT" && a.status !== "AUTO_CLOSED")
+  ).length;
+  const checkedOutCount = todayLog.filter(
+    (a) => a.status === "CHECKED_OUT" || a.status === "AUTO_CLOSED" || Boolean(a.checkOutAt) || Boolean(a.checkOutTime)
+  ).length;
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto w-full">

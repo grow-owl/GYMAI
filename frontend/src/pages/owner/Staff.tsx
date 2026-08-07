@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, KeyRound, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Users, KeyRound, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -104,6 +104,18 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
     }
   };
 
+  const handleDeleteStaff = async (staffId: string, name: string) => {
+    if (!gymId) return;
+    if (!confirm(`Are you sure you want to delete staff account for "${name}"?`)) return;
+    try {
+      await staffApi.delete(gymId, branchId || undefined, staffId);
+      toast.success(`Staff member "${name}" deleted successfully.`);
+      fetchStaff();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to delete staff member.");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -181,16 +193,23 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
                   </Badge>
                 </div>
 
-                <div className="flex items-center justify-end pt-2 border-t border-(--color-border)">
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border)">
                   <button
                     onClick={() => {
                       setResetTargetUser(s);
                       setShowResetModal(true);
                     }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 cursor-pointer"
                     title="Reset Staff Password"
                   >
                     <KeyRound size={13} /> Reset Password
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStaff(s._id || s.id, name)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-semibold hover:bg-rose-500/20 cursor-pointer"
+                    title="Delete Staff Account"
+                  >
+                    <Trash2 size={13} /> Delete
                   </button>
                 </div>
               </Card>

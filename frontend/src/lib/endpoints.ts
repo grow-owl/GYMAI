@@ -168,6 +168,12 @@ export const staffApi = {
 
   create: (gymId: string, branchId?: string, data?: any) =>
     api.post<{ staff: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`, data),
+
+  delete: (gymId: string, branchId?: string, staffId?: string) => {
+    const sId = staffId || branchId || "";
+    const bId = staffId ? branchId : undefined;
+    return api.delete<any>(bId ? `/gyms/${gymId}/branches/${bId}/staff/${sId}` : `/gyms/${gymId}/staff/${sId}`);
+  },
 };
 
 export const memberApi = {
@@ -254,6 +260,13 @@ export const attendanceApi = {
   getMyHistory: () => api.get<any[]>("/attendance/me/history"),
 
   getMyStats: () => api.get<any>("/attendance/me/stats"),
+
+  getHeatmap: (gymId: string, branchId?: string) =>
+    api.get<{ weeks: any[][]; avgAttendanceRate30d: number }>(
+      branchId
+        ? `/gyms/${gymId}/branches/${branchId}/attendance/heatmap`
+        : `/gyms/${gymId}/attendance-heatmap`
+    ),
 };
 
 export const workoutApi = {
@@ -352,6 +365,12 @@ export const paymentApi = {
 
   refundPayment: (gymId: string, paymentId: string, reason?: string) =>
     api.patch<any>(`/gyms/${gymId}/payments/${paymentId}/refund`, { reason }),
+
+  update: (gymId: string, paymentId: string, data: any) =>
+    api.patch<any>(`/gyms/${gymId}/payments/${paymentId}`, data),
+
+  delete: (gymId: string, paymentId: string) =>
+    api.delete<any>(`/gyms/${gymId}/payments/${paymentId}`),
 
   getRevenueSummary: (gymId: string) => api.get<any>(`/gyms/${gymId}/payments/revenue-summary`),
 
@@ -452,6 +471,10 @@ export const leadApi = {
   addNote: (leadId: string, note: string) => api.post<any>(`/leads/${leadId}/notes`, { note }),
 
   convert: (leadId: string, data?: any) => api.post<any>(`/leads/${leadId}/convert`, data || {}),
+
+  update: (leadId: string, data: any) => api.patch<any>(`/leads/${leadId}`, data),
+
+  delete: (leadId: string) => api.delete<any>(`/leads/${leadId}`),
 };
 
 export const equipmentApi = {
@@ -464,6 +487,8 @@ export const equipmentApi = {
     api.post<any>(`/gyms/${gymId}/branches/${branchId}/equipment`, data),
 
   updateStatus: (id: string, status: string) => api.patch<any>(`/equipment/${id}`, { status }),
+
+  update: (id: string, data: any) => api.patch<any>(`/equipment/${id}`, data),
 
   delete: (id: string) => api.delete<any>(`/equipment/${id}`),
 };

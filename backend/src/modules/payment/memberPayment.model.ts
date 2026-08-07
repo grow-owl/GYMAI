@@ -90,6 +90,11 @@ const memberPaymentSchema = new Schema<IMemberPayment>(
     refundedAt: {
       type: Date,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,

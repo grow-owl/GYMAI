@@ -25,6 +25,7 @@ export interface IMemberPayment {
   refundedAmount?: number;
   refundReason?: string;
   refundedAt?: Date;
+  isDeleted?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -74,6 +74,7 @@ export class LeadService {
 
     const filter: Record<string, unknown> = {
       gymId: gymObjectId,
+      isDeleted: false,
     };
 
     if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
@@ -211,5 +212,30 @@ export class LeadService {
     await lead.save();
 
     return { lead, member };
+  }
+
+  public static async updateLead(leadId: string, data: Record<string, any>): Promise<ILead> {
+    const lead = await Lead.findOne({ _id: leadId, isDeleted: false });
+    if (!lead) {
+      throw AppError.notFound('Lead not found');
+    }
+
+    if (data.fullName) lead.fullName = data.fullName;
+    if (data.phone) lead.phone = data.phone;
+    if (data.email !== undefined) lead.email = data.email;
+    if (data.source !== undefined) lead.source = data.source;
+    if (data.status) lead.status = data.status;
+
+    await lead.save();
+    return lead;
+  }
+
+  public static async softDeleteLead(leadId: string): Promise<void> {
+    const lead = await Lead.findById(leadId);
+    if (!lead) {
+      throw AppError.notFound('Lead not found');
+    }
+    lead.isDeleted = true;
+    await lead.save();
   }
 }

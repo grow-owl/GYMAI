@@ -123,9 +123,15 @@ router.post(
 );
 
 router.get(
-  '/:gymId/branches/:branchId/staff',
+  ['/:gymId/branches/:branchId/staff', '/:gymId/staff'],
   authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER),
   AuthController.listStaff
+);
+
+router.delete(
+  ['/:gymId/branches/:branchId/staff/:staffId', '/:gymId/staff/:staffId'],
+  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
+  AuthController.deleteStaff
 );
 
 export default router;

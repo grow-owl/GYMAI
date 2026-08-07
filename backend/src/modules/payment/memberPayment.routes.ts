@@ -58,4 +58,16 @@ gymMemberPaymentRouter.patch(
   MemberPaymentController.refundPayment
 );
 
+gymMemberPaymentRouter.patch(
+  '/:paymentId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  MemberPaymentController.updatePayment
+);
+
+gymMemberPaymentRouter.delete(
+  '/:paymentId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  MemberPaymentController.deletePayment
+);
+
 export { gymMemberPaymentRouter, memberWebhookRouter };

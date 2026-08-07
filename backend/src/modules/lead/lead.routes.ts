@@ -53,4 +53,16 @@ router.post(
   LeadController.convertLeadToMember
 );
 
+router.patch(
+  '/leads/:leadId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  LeadController.updateLead
+);
+
+router.delete(
+  '/leads/:leadId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  LeadController.deleteLead
+);
+
 export default router;

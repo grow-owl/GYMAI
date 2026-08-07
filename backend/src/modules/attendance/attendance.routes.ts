@@ -56,4 +56,10 @@ branchAttendanceRouter.get(
   AttendanceController.generateDynamicQR
 );
 
+branchAttendanceRouter.get(
+  ['/:gymId/branches/:branchId/attendance/heatmap', '/:gymId/attendance-heatmap'],
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  AttendanceController.getAttendanceHeatmap
+);
+
 export { router as attendanceRouter, branchAttendanceRouter };

@@ -36,7 +36,12 @@ export default function ReceptionDashboard() {
       .then(([ovRes, attRes, leadRes]) => {
         const attList = Array.isArray(attRes) ? attRes : attRes?.attendance || [];
         setTodayCheckIns(ovRes?.todayCheckIns ?? attList.length);
-        setCurrentlyIn(attList.filter((a: any) => !a.checkOutTime).length);
+        setCurrentlyIn(
+          attList.filter(
+            (a: any) =>
+              a.status === "CHECKED_IN" || (!a.checkOutAt && !a.checkOutTime && a.status !== "CHECKED_OUT" && a.status !== "AUTO_CLOSED")
+          ).length
+        );
         setLeadsList(Array.isArray(leadRes) ? leadRes : []);
       })
       .finally(() => setLoading(false));

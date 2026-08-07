@@ -345,17 +345,92 @@ export class AttendanceService {
    */
   public static async getBranchDailyAttendance(
     branchId: string,
-    dayKey: string
+    dayKey?: string
   ): Promise<IAttendance[]> {
+    const branch = await Branch.findById(branchId);
+    const timezone = branch?.timezone || 'UTC';
+    const todayBranchKey = getDayKeyForBranch(new Date(), timezone);
+    const todayUtcKey = getDayKeyForBranch(new Date(), 'UTC');
+    const targetDayKey = dayKey || todayBranchKey;
+
     return Attendance.find({
       branchId: new mongoose.Types.ObjectId(branchId),
-      dayKey,
+      $or: [
+        { dayKey: targetDayKey },
+        { dayKey: todayBranchKey },
+        { dayKey: todayUtcKey },
+      ],
     })
       .populate({
         path: 'memberId',
         populate: { path: 'userId', select: 'fullName email phone avatarUrl' },
       })
       .sort({ checkInAt: -1 });
+  }
+
+  /**
+   * 14-Week Attendance Heatmap Aggregation for Owner Dashboard
+   */
+  public static async getAttendanceHeatmap(
+    gymId: string,
+    branchId?: string
+  ): Promise<{ weeks: { label: string; value: number; date: string }[][]; avgAttendanceRate30d: number }> {
+    const filter: Record<string, any> = {
+      gymId: new mongoose.Types.ObjectId(gymId),
+    };
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+      filter.branchId = new mongoose.Types.ObjectId(branchId);
+    }
+
+    const ninetyEightDaysAgo = new Date(Date.now() - 98 * 24 * 60 * 60 * 1000);
+    filter.checkInAt = { $gte: ninetyEightDaysAgo };
+
+    const rawAgg = await Attendance.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$dayKey',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const countsByDayKey: Record<string, number> = {};
+    for (const item of rawAgg) {
+      if (item._id) {
+        countsByDayKey[item._id] = item.count;
+      }
+    }
+
+    const now = new Date();
+    const weeks: { label: string; value: number; date: string }[][] = [];
+
+    for (let w = 13; w >= 0; w--) {
+      const week: { label: string; value: number; date: string }[] = [];
+      for (let d = 0; d < 7; d++) {
+        const cellDate = new Date(now.getTime() - (w * 7 + (6 - d)) * 24 * 60 * 60 * 1000);
+        const year = cellDate.getFullYear();
+        const month = String(cellDate.getMonth() + 1).padStart(2, '0');
+        const day = String(cellDate.getDate()).padStart(2, '0');
+        const dayKey = `${year}-${month}-${day}`;
+
+        const value = countsByDayKey[dayKey] || 0;
+        const dateStr = cellDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+        const dayName = cellDate.toLocaleDateString('en-IN', { weekday: 'short' });
+
+        week.push({
+          label: `${dayName}, ${dateStr}`,
+          value,
+          date: dateStr,
+        });
+      }
+      weeks.push(week);
+    }
+
+    const totalLast30DaysCount = Object.values(countsByDayKey).reduce((a, b) => a + b, 0);
+    const avgAttendanceRate30d = Math.min(100, Math.round((totalLast30DaysCount / 30) * 10));
+
+    return { weeks, avgAttendanceRate30d };
   }
 
   /**

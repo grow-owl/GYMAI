@@ -8,7 +8,7 @@ import DonutChart from "@/components/ui/DonutChart";
 import Heatmap, { type HeatmapCell } from "@/components/ui/Heatmap";
 import { ownerQuickAccess } from "@/data/nav";
 import { useGymBranch } from "@/hooks/useGymBranch";
-import { reportApi, memberApi, aiApi, type DashboardOverview } from "@/lib/endpoints";
+import { reportApi, memberApi, aiApi, attendanceApi, type DashboardOverview } from "@/lib/endpoints";
 
 const kpiTones = ["blue", "orange", "purple", "amber"] as const;
 
@@ -26,29 +26,6 @@ const miniStatClasses: Record<string, { bg: string; text: string }> = {
   pink: { bg: "bg-(--tone-pink)", text: "text-white" },
 };
 
-function buildAttendanceWeeks(liveCheckIns: number = 0): HeatmapCell[][] {
-  const weeks: HeatmapCell[][] = [];
-  let seed = 7;
-  const now = new Date();
-  const scale = liveCheckIns > 0 ? liveCheckIns * 5 : 10;
-  for (let w = 13; w >= 0; w--) {
-    const week: HeatmapCell[] = [];
-    for (let d = 0; d < 7; d++) {
-      seed = (seed * 9301 + 49297) % 233280;
-      const rand = seed / 233280;
-      const weekday = d > 0 && d < 6;
-      const value = liveCheckIns > 0 ? Math.round(rand * (weekday ? scale : scale * 0.4)) : 0;
-
-      const cellDate = new Date(now.getTime() - (w * 7 + (6 - d)) * 24 * 60 * 60 * 1000);
-      const dateStr = cellDate.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
-      const dayName = cellDate.toLocaleDateString("en-IN", { weekday: "short" });
-      week.push({ label: `${dayName}, ${dateStr}`, value, date: dateStr });
-    }
-    weeks.push(week);
-  }
-  return weeks;
-}
-
 export default function OwnerDashboard() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
@@ -57,6 +34,8 @@ export default function OwnerDashboard() {
   const [weeklyDigest, setWeeklyDigest] = useState<string | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [digestLoading, setDigestLoading] = useState(true);
+  const [heatmapWeeks, setHeatmapWeeks] = useState<HeatmapCell[][]>([]);
+  const [avgActive30d, setAvgActive30d] = useState(0);
 
   useEffect(() => {
     if (!gymId) return;
@@ -69,8 +48,9 @@ export default function OwnerDashboard() {
       branchId ? memberApi.list(gymId, branchId).catch(() => []) : Promise.resolve([]),
       aiApi.getWeeklyDigest(gymId).catch(() => null),
       reportApi.getExpiringMemberships(gymId).catch(() => []),
+      attendanceApi.getHeatmap(gymId, branchId ?? undefined).catch(() => null),
     ])
-      .then(([ovRes, memRes, digestRes, expRes]) => {
+      .then(([ovRes, memRes, digestRes, expRes, heatRes]) => {
         const zeroOverview: DashboardOverview = {
           totalActiveMembers: 0,
           totalTrainers: 0,
@@ -91,6 +71,14 @@ export default function OwnerDashboard() {
           setWeeklyDigest(digestRes.weeklyDigest);
         } else {
           setWeeklyDigest("No AI weekly digest available yet. Add members and check-ins to generate insights.");
+        }
+
+        if (heatRes?.weeks) {
+          setHeatmapWeeks(heatRes.weeks);
+          setAvgActive30d(heatRes.avgAttendanceRate30d || 0);
+        } else {
+          setHeatmapWeeks([]);
+          setAvgActive30d(0);
         }
       })
       .finally(() => {
@@ -121,8 +109,6 @@ export default function OwnerDashboard() {
     { label: "Frozen", value: frozenCount, color: "var(--tone-blue)" },
     { label: "Cancelled", value: cancelledCount, color: "var(--tone-pink)" },
   ];
-
-  const attendanceWeeks = buildAttendanceWeeks(overview?.todayCheckIns ?? 0);
 
   return (
     <div className="space-y-6">
@@ -199,10 +185,10 @@ export default function OwnerDashboard() {
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Check-in frequency (14 Weeks)</p>
             <span className="font-mono text-xs text-(--color-text-muted)">
-              Avg {overview?.avgAttendanceRate30d || 0}% active
+              Avg {avgActive30d || overview?.avgAttendanceRate30d || 0}% active
             </span>
           </div>
-          <Heatmap weeks={attendanceWeeks} />
+          <Heatmap weeks={heatmapWeeks} />
         </Card>
       </div>
 

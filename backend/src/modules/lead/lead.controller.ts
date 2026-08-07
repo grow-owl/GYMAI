@@ -70,7 +70,7 @@ export class LeadController {
     }
   }
 
-  public static async convertLeadToMember(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public static async convertLeadToMember(req: Request, res: Response, NextFunction: NextFunction): Promise<void> {
     try {
       const { leadId } = req.params;
       const gymId = req.tenant!.gymId;
@@ -78,6 +78,26 @@ export class LeadController {
 
       const result = await LeadService.convertLeadToMember(leadId, gymId!, req.body, userId);
       sendSuccess(res, result, 'Lead converted to member successfully', 201);
+    } catch (error) {
+      NextFunction(error);
+    }
+  }
+
+  public static async updateLead(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { leadId } = req.params;
+      const lead = await LeadService.updateLead(leadId, req.body);
+      sendSuccess(res, lead, 'Lead details updated successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async deleteLead(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { leadId } = req.params;
+      await LeadService.softDeleteLead(leadId);
+      sendSuccess(res, null, 'Lead deleted successfully', 200);
     } catch (error) {
       next(error);
     }

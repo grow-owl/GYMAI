@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, ShoppingCart, Package, AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { Plus, ShoppingCart, Package, AlertCircle, Loader2, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -32,14 +32,23 @@ export default function Inventory() {
   const [membersList, setMembersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [submittingSale, setSubmittingSale] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
 
   const [newProduct, setNewProduct] = useState({
+    name: "",
+    category: "supplement",
+    price: 1999,
+    stockQuantity: 20,
+  });
+
+  const [editProduct, setEditProduct] = useState({
+    id: "",
     name: "",
     category: "supplement",
     price: 1999,
@@ -103,6 +112,48 @@ export default function Inventory() {
       toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to add product.");
     } finally {
       setSubmittingAdd(false);
+    }
+  };
+
+  const handleEditProduct = (p: any) => {
+    setEditProduct({
+      id: p._id || p.id,
+      name: p.name || "",
+      category: p.category || "supplement",
+      price: p.price || 0,
+      stockQuantity: p.stockQuantity || 0,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingEdit(true);
+    try {
+      await productApi.update(editProduct.id, {
+        name: editProduct.name,
+        category: editProduct.category,
+        price: Number(editProduct.price),
+        stockQuantity: Number(editProduct.stockQuantity),
+      });
+      toast.success(`Product ${editProduct.name} updated successfully!`);
+      setShowEditModal(false);
+      fetchProducts();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to update product.");
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete product "${name}"?`)) return;
+    try {
+      await productApi.delete(id);
+      toast.success(`Product "${name}" deleted.`);
+      fetchProducts();
+    } catch {
+      toast.error("Failed to delete product.");
     }
   };
 
@@ -234,7 +285,7 @@ export default function Inventory() {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-(--color-border)/30">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-(--color-border)/30">
                     <Badge tone={isLow ? "warn" : "good"}>
                       {isLow ? `Low Stock (${stock})` : `${stock} in stock`}
                     </Badge>
@@ -246,10 +297,28 @@ export default function Inventory() {
                         setSalePaymentMethod("cash");
                         setShowSaleModal(true);
                       }}
-                      className="px-3.5 py-2 min-h-[38px] rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center"
+                      className="px-3 py-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center cursor-pointer"
                     >
                       Sell (POS)
                     </button>
+                    {isOwnerOrAdmin && (
+                      <>
+                        <button
+                          onClick={() => handleEditProduct(p)}
+                          className="p-2 rounded-lg hover:bg-white/10 text-amber-400 transition-colors cursor-pointer"
+                          title="Edit Product"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(p._id || p.id, p.name)}
+                          className="p-2 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors cursor-pointer"
+                          title="Delete Product"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -425,6 +494,78 @@ export default function Inventory() {
                 className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingSale ? <Loader2 className="w-4 h-4 animate-spin" /> : "Complete Sale"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Product Modal */}
+      {showEditModal && (
+        <Modal onClose={() => setShowEditModal(false)} maxWidth="md" title="Edit Store Product">
+          <form onSubmit={handleUpdateProduct} className="space-y-4">
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Product Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editProduct.name}
+                  onChange={(e) => setEditProduct({ ...editProduct, name: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Category</label>
+                <CustomSelect
+                  value={editProduct.category}
+                  onChange={(val) => setEditProduct({ ...editProduct, category: val })}
+                  options={categoryOptions}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Price (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={editProduct.price}
+                    onChange={(e) => setEditProduct({ ...editProduct, price: Number(e.target.value) })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Stock Quantity</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={editProduct.stockQuantity}
+                    onChange={(e) => setEditProduct({ ...editProduct, stockQuantity: Number(e.target.value) })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingEdit}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>
             </div>
           </form>

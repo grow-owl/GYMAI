@@ -156,4 +156,16 @@ export class MemberPaymentController {
 
     return sendSuccess(res, { payment }, 'Payment refunded successfully');
   });
+
+  public static updatePayment = asyncHandler(async (req: Request, res: Response) => {
+    const { paymentId } = req.params;
+    const payment = await MemberPaymentService.updatePayment(paymentId, req.body);
+    return sendSuccess(res, { payment }, 'Payment updated successfully');
+  });
+
+  public static deletePayment = asyncHandler(async (req: Request, res: Response) => {
+    const { paymentId } = req.params;
+    await MemberPaymentService.softDeletePayment(paymentId);
+    return sendSuccess(res, null, 'Payment deleted successfully');
+  });
 }

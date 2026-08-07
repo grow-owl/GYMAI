@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Target, Loader2, RefreshCw, UserCheck, MessageSquarePlus } from "lucide-react";
+import { Plus, Target, Loader2, RefreshCw, UserCheck, MessageSquarePlus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
@@ -38,6 +38,17 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+  const [editLead, setEditLead] = useState({
+    id: "",
+    fullName: "",
+    phone: "",
+    email: "",
+    source: "Website Inquiry",
+    status: "NEW",
+  });
 
   // Note Modal State
   const [noteLeadId, setNoteLeadId] = useState<string | null>(null);
@@ -88,6 +99,51 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
       toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to add lead.");
     } finally {
       setSubmittingAdd(false);
+    }
+  };
+
+  const handleEditLead = (lead: any) => {
+    setEditLead({
+      id: lead._id || lead.id,
+      fullName: lead.fullName || "",
+      phone: lead.phone || "",
+      email: lead.email || "",
+      source: lead.source || "Website Inquiry",
+      status: lead.status || "NEW",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editLead.id) return;
+    setSubmittingEdit(true);
+    try {
+      await leadApi.update(editLead.id, {
+        fullName: editLead.fullName,
+        phone: editLead.phone,
+        email: editLead.email,
+        source: editLead.source,
+        status: editLead.status,
+      });
+      toast.success(`Lead ${editLead.fullName} updated successfully!`);
+      setShowEditModal(false);
+      fetchLeads();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to update lead.");
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete sales lead "${name}"?`)) return;
+    try {
+      await leadApi.delete(leadId);
+      toast.success(`Lead "${name}" deleted.`);
+      fetchLeads();
+    } catch {
+      toast.error("Failed to delete sales lead.");
     }
   };
 
@@ -191,10 +247,10 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                     <button
                       onClick={() => setNoteLeadId(leadId)}
-                      className="p-2 rounded-lg border border-(--color-border) text-xs font-medium text-(--color-text-muted) hover:text-(--color-text) flex items-center gap-1"
+                      className="p-2 rounded-lg border border-(--color-border) text-xs font-medium text-(--color-text-muted) hover:text-(--color-text) flex items-center gap-1 cursor-pointer"
                       title="Add Note"
                     >
                       <MessageSquarePlus size={14} /> Note
@@ -202,7 +258,7 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
                     {status !== "CONVERTED" && (
                       <button
                         onClick={() => handleConvertLead(leadId, lead.fullName)}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/30 flex items-center gap-1"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold hover:bg-emerald-500/30 flex items-center gap-1 cursor-pointer"
                       >
                         <UserCheck size={14} /> Convert
                       </button>
@@ -213,6 +269,20 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
                       onChange={(newStatus) => handleUpdateStatus(leadId, newStatus)}
                       options={leadStatusOptions}
                     />
+                    <button
+                      onClick={() => handleEditLead(lead)}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-amber-400 transition-colors cursor-pointer"
+                      title="Edit Lead"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteLead(leadId, lead.fullName)}
+                      className="p-1.5 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors cursor-pointer"
+                      title="Delete Lead"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
               );
@@ -325,6 +395,88 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
                 className="flex-1 py-2 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Note"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Lead Modal */}
+      {showEditModal && (
+        <Modal onClose={() => setShowEditModal(false)} maxWidth="md" title="Edit Sales Lead">
+          <form onSubmit={handleUpdateLeadSubmit} className="space-y-4">
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Vikram Singh"
+                  value={editLead.fullName}
+                  onChange={(e) => setEditLead({ ...editLead, fullName: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Phone Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editLead.phone}
+                    onChange={(e) => setEditLead({ ...editLead, phone: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Email Address</label>
+                  <input
+                    type="email"
+                    value={editLead.email}
+                    onChange={(e) => setEditLead({ ...editLead, email: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Lead Source</label>
+                  <input
+                    type="text"
+                    value={editLead.source}
+                    onChange={(e) => setEditLead({ ...editLead, source: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Pipeline Status</label>
+                  <CustomSelect
+                    value={editLead.status}
+                    onChange={(val) => setEditLead({ ...editLead, status: val })}
+                    options={leadStatusOptions}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingEdit}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>
             </div>
           </form>

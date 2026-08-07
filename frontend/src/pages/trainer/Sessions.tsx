@@ -72,8 +72,9 @@ export default function Sessions() {
         <div className="space-y-3">
           {sessions.map((s, idx) => {
             const clientName = s.memberId?.userId?.fullName || "Client";
-            const timeStr = s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
-            const status = s.checkOutTime ? "done" : "active";
+            const rawTime = s.checkInAt || s.checkInTime;
+            const timeStr = rawTime ? new Date(rawTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+            const status = (s.status === "CHECKED_OUT" || s.status === "AUTO_CLOSED" || s.checkOutAt || s.checkOutTime) ? "done" : "active";
 
             return (
               <Card key={s._id || idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">

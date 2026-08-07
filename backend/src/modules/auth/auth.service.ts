@@ -470,5 +470,24 @@ export class AuthService {
     await user.save();
     return user;
   }
+
+  /**
+   * Soft-delete non-trainer staff account
+   */
+  public static async deleteStaff(gymId: string, staffId: string): Promise<void> {
+    const user = await User.findOne({
+      _id: staffId,
+      gymId: new mongoose.Types.ObjectId(gymId),
+      isDeleted: false,
+    });
+    if (!user) {
+      throw AppError.notFound('Staff member account not found');
+    }
+    user.isDeleted = true;
+    user.isActive = false;
+    await user.save();
+    await RefreshToken.updateMany({ userId: user._id, revoked: false }, { revoked: true });
+    logger.info(`🗑️ Staff member soft deleted: [ID: ${user._id}]`);
+  }
 }
 

@@ -27,6 +27,7 @@ export interface ILead {
   trialDate?: Date;
   followUpNotes: ILeadNote[];
   convertedMemberId?: Types.ObjectId;
+  isDeleted?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

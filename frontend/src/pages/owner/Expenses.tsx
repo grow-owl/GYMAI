@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, DollarSign, Receipt, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, DollarSign, Receipt, Loader2, RefreshCw, Pencil, Trash2 } from "lucide-react";
 
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -25,8 +25,18 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
 
   const [newExpense, setNewExpense] = useState({
+    title: "",
+    category: "UTILITIES",
+    amount: 5000,
+    notes: "",
+  });
+
+  const [editExpense, setEditExpense] = useState({
+    id: "",
     title: "",
     category: "UTILITIES",
     amount: 5000,
@@ -77,6 +87,37 @@ export default function Expenses() {
       toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to add expense.");
     } finally {
       setSubmittingAdd(false);
+    }
+  };
+
+  const handleEditExpense = (e: any) => {
+    setEditExpense({
+      id: e._id || e.id,
+      title: e.description || e.title || e.name || "",
+      category: e.category || "UTILITIES",
+      amount: e.amount || 0,
+      notes: e.notes || "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateExpense = async (evt: React.FormEvent) => {
+    evt.preventDefault();
+    setSubmittingEdit(true);
+    try {
+      await expenseApi.update(editExpense.id, {
+        description: editExpense.title,
+        category: editExpense.category,
+        amount: Number(editExpense.amount),
+        notes: editExpense.notes,
+      });
+      toast.success("Expense updated successfully!");
+      setShowEditModal(false);
+      fetchExpenses();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to update expense.");
+    } finally {
+      setSubmittingEdit(false);
     }
   };
 
@@ -152,11 +193,18 @@ export default function Expenses() {
                     <p className="text-xs text-(--color-text-faint) capitalize">{e.category || "General"}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <p className="font-mono text-sm font-bold text-rose-400">₹{(e.amount || 0).toLocaleString("en-IN")}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono text-sm font-bold text-rose-400 mr-1">₹{(e.amount || 0).toLocaleString("en-IN")}</p>
+                  <button
+                    onClick={() => handleEditExpense(e)}
+                    className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"
+                    title="Edit Expense"
+                  >
+                    <Pencil size={15} />
+                  </button>
                   <button
                     onClick={() => handleDeleteExpense(e._id || e.id, e.description || e.title || e.name || "Expense")}
-                    className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all"
+                    className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
                     title="Delete Expense"
                   >
                     <Trash2 size={15} />
@@ -221,6 +269,65 @@ export default function Expenses() {
                 className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
               >
                 {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Record Expense"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Expense Modal */}
+      {showEditModal && (
+        <Modal onClose={() => setShowEditModal(false)} maxWidth="md" title="Edit Gym Expense">
+          <form onSubmit={handleUpdateExpense} className="space-y-4">
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium font-sans">Expense Description</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Electricity Bill & AC Servicing"
+                  value={editExpense.title}
+                  onChange={(e) => setEditExpense({ ...editExpense, title: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium font-sans">Category</label>
+                <CustomSelect
+                  value={editExpense.category}
+                  onChange={(val) => setEditExpense({ ...editExpense, category: val })}
+                  options={expenseCategoryOptions}
+                />
+              </div>
+
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium font-sans">Amount (₹)</label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={editExpense.amount}
+                  onChange={(e) => setEditExpense({ ...editExpense, amount: Number(e.target.value) })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingEdit}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                {submittingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>
             </div>
           </form>

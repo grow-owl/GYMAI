@@ -165,5 +165,15 @@ export class AuthController {
     const safeUser = user.toSafeJSON ? user.toSafeJSON() : user;
     return sendSuccess(res, { user: safeUser }, 'Profile updated successfully', 200);
   });
+
+  public static deleteStaff = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    const { staffId } = req.params;
+    if (!gymId || !staffId) {
+      throw AppError.badRequest('Gym ID and Staff ID are required');
+    }
+    await AuthService.deleteStaff(gymId, staffId);
+    return sendSuccess(res, null, 'Staff member deleted successfully', 200);
+  });
 }
 
