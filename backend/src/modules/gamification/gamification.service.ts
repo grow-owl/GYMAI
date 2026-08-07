@@ -3,6 +3,7 @@ import { Member } from '../member/member.model';
 import { MemberGameStats } from './memberGameStats.model';
 import { XpLedger } from './xpLedger.model';
 import { Challenge } from './challenge.model';
+import { Attendance } from '../attendance/attendance.model';
 import { BadgeCode, BADGE_DEFINITIONS, calculateLevel, IMemberGameStats } from './gamification.types';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
@@ -156,12 +157,92 @@ export class GamificationService {
   }
 
   /**
+   * Sync & recalculate streak directly from member's actual Attendance records.
+   * Ensures history is preserved accurately even if time-of-day edge cases occurred.
+   */
+  public static async syncStreakFromAttendance(memberId: string, referenceDateArg?: Date | string): Promise<number> {
+    const member = await Member.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberId) ? memberId : null },
+        { userId: mongoose.Types.ObjectId.isValid(memberId) ? memberId : null },
+      ],
+    });
+    if (!member) return 0;
+
+    const stats = await this.getOrCreateMemberGameStats(member._id.toString());
+
+    // Fetch distinct checked-in dayKeys for this member
+    const dayKeysRaw: string[] = await Attendance.distinct('dayKey', {
+      memberId: member._id,
+      status: { $ne: 'CANCELLED' },
+    });
+
+    if (!dayKeysRaw || dayKeysRaw.length === 0) {
+      return stats.currentStreak;
+    }
+
+    const sortedDays = dayKeysRaw.filter(Boolean).sort();
+    const latestDayKey = sortedDays[sortedDays.length - 1];
+
+    let calculatedStreak = 1;
+    for (let i = sortedDays.length - 1; i > 0; i--) {
+      const currentUtc = new Date(`${sortedDays[i]}T00:00:00.000Z`).getTime();
+      const prevUtc = new Date(`${sortedDays[i - 1]}T00:00:00.000Z`).getTime();
+      const diffDays = Math.round((currentUtc - prevUtc) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        calculatedStreak++;
+      } else if (diffDays === 2) {
+        const skippedDate = new Date(prevUtc + 24 * 60 * 60 * 1000);
+        const skippedWeekday = skippedDate.getUTCDay();
+        if ((stats.restDays || []).includes(skippedWeekday)) {
+          calculatedStreak++;
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    const refDate = referenceDateArg
+      ? (typeof referenceDateArg === 'string' ? new Date(referenceDateArg) : referenceDateArg)
+      : new Date();
+    const refDateStr = refDate.toISOString().split('T')[0];
+    const refUtc = new Date(`${refDateStr}T00:00:00.000Z`).getTime();
+    const latestUtc = new Date(`${latestDayKey}T00:00:00.000Z`).getTime();
+    const daysSinceLatest = Math.round((refUtc - latestUtc) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceLatest > 1) {
+      // More than 1 day since reference date check-in -> streak broken
+      calculatedStreak = 0;
+    }
+
+    const updatedStreak = Math.max(stats.currentStreak, calculatedStreak);
+    const updatedBest = Math.max(updatedStreak, stats.longestStreak);
+
+    if (updatedStreak !== stats.currentStreak || latestDayKey !== stats.lastActivityDayKey) {
+      stats.currentStreak = updatedStreak;
+      stats.longestStreak = updatedBest;
+      stats.lastActivityDayKey = latestDayKey;
+      await stats.save();
+
+      await Member.findByIdAndUpdate(member._id, {
+        currentStreakDays: updatedStreak,
+        longestStreakDays: updatedBest,
+      });
+    }
+
+    return updatedStreak;
+  }
+
+  /**
    * Record check-in for streak
    */
   public static async recordCheckInForStreak(
     memberId: string,
-    _gymId?: string,
-    checkInDateArg?: Date
+    gymIdOrDate?: string | Date,
+    checkInDateArg?: Date | string
   ): Promise<{ currentStreak: number; bestStreak: number }> {
     const member = await Member.findOne({
       $or: [
@@ -171,48 +252,51 @@ export class GamificationService {
     });
     if (!member) throw AppError.notFound('Member not found');
 
-    const checkInDate = checkInDateArg || new Date();
-    const todayStr = checkInDate.toISOString().split('T')[0];
+    let checkInDate = new Date();
+    if (checkInDateArg) {
+      checkInDate = typeof checkInDateArg === 'string' ? new Date(checkInDateArg) : checkInDateArg;
+    } else if (gymIdOrDate) {
+      if (gymIdOrDate instanceof Date) {
+        checkInDate = gymIdOrDate;
+      } else if (typeof gymIdOrDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(gymIdOrDate)) {
+        checkInDate = new Date(gymIdOrDate);
+      }
+    }
 
+    const todayStr = checkInDate.toISOString().split('T')[0];
 
     const stats = await this.getOrCreateMemberGameStats(member._id.toString());
 
     // Idempotency check
     if (stats.lastActivityDayKey === todayStr) {
-      return { currentStreak: stats.currentStreak, bestStreak: stats.longestStreak };
+      await this.syncStreakFromAttendance(member._id.toString());
+      const refreshedStats = await this.getOrCreateMemberGameStats(member._id.toString());
+      return { currentStreak: refreshedStats.currentStreak, bestStreak: refreshedStats.longestStreak };
     }
 
-    // Streak continuation logic:
-    //  - diffDays === 1 → consecutive day, always continues streak
-    //  - diffDays === 2 → skipped exactly one day; continue IF that skipped day
-    //    was a designated rest day (restDays) OR if the one-time weekly grace has
-    //    not yet been used (streakGracePending === false). Mark grace as used.
-    //  - diffDays > 2 → streak broken regardless
+    // Streak continuation logic based on calendar days:
     let newStreak = 1;
     if (stats.lastActivityDayKey) {
-      const lastDate = new Date(`${stats.lastActivityDayKey}T12:00:00Z`);
-      const diffMs = checkInDate.getTime() - lastDate.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const lastDateUtc = new Date(`${stats.lastActivityDayKey}T00:00:00.000Z`).getTime();
+      const checkInUtc = new Date(`${todayStr}T00:00:00.000Z`).getTime();
+      const diffDays = Math.round((checkInUtc - lastDateUtc) / (1000 * 60 * 60 * 24));
 
       if (diffDays === 1) {
-        // Consecutive — always continues
+        // Consecutive calendar day — always continues
         newStreak = stats.currentStreak + 1;
         stats.streakGracePending = false; // reset grace availability
       } else if (diffDays === 2) {
         // Skipped exactly one day — check if that skipped day was a rest day
-        const skippedDate = new Date(lastDate.getTime() + 24 * 60 * 60 * 1000);
+        const skippedDate = new Date(lastDateUtc + 24 * 60 * 60 * 1000);
         const skippedWeekday = skippedDate.getUTCDay();
         const isRestDay = (stats.restDays || []).includes(skippedWeekday);
 
         if (isRestDay) {
-          // Planned rest day — streak continues, no grace consumed
           newStreak = stats.currentStreak + 1;
         } else if (!stats.streakGracePending) {
-          // Use one-time grace (unplanned skip once per streak cycle)
           newStreak = stats.currentStreak + 1;
-          stats.streakGracePending = true; // grace used; must check in next day to keep streak
+          stats.streakGracePending = true;
         } else {
-          // Grace already consumed and this is not a rest day — reset
           newStreak = 1;
           stats.streakGracePending = false;
         }
@@ -236,6 +320,9 @@ export class GamificationService {
       amount: 50,
       reason: 'CHECK_IN',
     });
+
+    // Also sync from Attendance records to ensure full consistency
+    await this.syncStreakFromAttendance(member._id.toString());
 
     // Badge thresholds
     if (newStreak >= 7) {
@@ -392,6 +479,7 @@ export class GamificationService {
     });
     if (!member) throw AppError.notFound('Member not found');
 
+    await this.syncStreakFromAttendance(member._id.toString());
     const stats = await this.getOrCreateMemberGameStats(member._id.toString());
 
     return {
@@ -424,6 +512,12 @@ export class GamificationService {
     if (branchId) memberFilter.branchId = new mongoose.Types.ObjectId(branchId);
 
     const members = await Member.find(memberFilter).populate('userId', 'fullName avatarUrl').limit(50);
+    
+    // Sync streak from attendance for all members
+    for (const m of members) {
+      await this.syncStreakFromAttendance(m._id.toString());
+    }
+
     const memberIds = members.map((m) => m._id);
 
     const statsMap = new Map<string, any>();

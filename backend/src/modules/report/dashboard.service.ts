@@ -5,8 +5,9 @@ import { Attendance } from '../attendance/attendance.model';
 import { MemberPayment } from '../payment/memberPayment.model';
 import { MembershipStatus } from '../member/member.types';
 import { PaymentStatus } from '../payment/platformSubscription.types';
-import { IDashboardOverview, IExpiringMembershipItem } from './report.types';
+import { IDashboardOverview } from './report.types';
 import { logger } from '../../config/logger';
+import { getDayKeyForBranch } from '../../common/utils/timezone';
 
 interface CacheEntry {
   data: IDashboardOverview;
@@ -17,6 +18,10 @@ const dashboardCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 60 * 1000; // 60s TTL
 
 export class DashboardService {
+  public static clearCache(): void {
+    dashboardCache.clear();
+  }
+
   /**
    * Aggregate owner dashboard metrics with short TTL in-memory caching
    */
@@ -48,8 +53,18 @@ export class DashboardService {
     }
 
     const now = new Date();
-    const todayKey = now.toISOString().split('T')[0];
-    attendanceFilter.dayKey = todayKey;
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const todayBranchKey = getDayKeyForBranch(now, 'Asia/Kolkata');
+    const todayUtcKey = getDayKeyForBranch(now, 'UTC');
+    const isoKey = now.toISOString().split('T')[0];
+
+    attendanceFilter.$or = [
+      { dayKey: todayBranchKey },
+      { dayKey: todayUtcKey },
+      { dayKey: isoKey },
+      { checkInAt: { $gte: startOfToday, $lte: endOfToday } },
+    ];
 
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

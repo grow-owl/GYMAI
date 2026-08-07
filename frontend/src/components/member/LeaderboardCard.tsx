@@ -125,15 +125,19 @@ export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCar
                 <div className="flex items-center gap-3">
                   <div className="w-6 text-center">{rankBadge}</div>
 
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 font-bold text-xs text-white">
-                    {name.charAt(0)}
-                  </div>
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={name} className="h-9 w-9 rounded-full object-cover border border-white/10" />
+                  ) : (
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 font-extrabold text-xs border border-indigo-500/30 shrink-0">
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
 
                   <div>
                     <p className="font-display text-xs font-bold text-(--color-text) flex items-center gap-1.5">
                       {name}
                       {user.isCurrentUser && (
-                        <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-accent text-white uppercase">
+                        <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-indigo-600 dark:bg-indigo-500 text-white uppercase shadow-xs">
                           YOU
                         </span>
                       )}

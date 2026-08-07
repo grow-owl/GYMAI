@@ -120,7 +120,7 @@ export default function QuickActionDrawer({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-(--color-text-muted) hover:text-white p-1 rounded-lg hover:bg-white/10"
+          className="absolute top-4 right-4 text-(--color-text-muted) hover:text-(--color-text) p-1.5 rounded-lg hover:bg-(--color-surface-2) transition-colors"
         >
           <X className="h-5 w-5" />
         </button>
@@ -133,7 +133,7 @@ export default function QuickActionDrawer({
                 <Scale className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-bold text-white">Log Today's Weight</h3>
+                <h3 className="font-display text-lg font-bold text-(--color-text)">Log Today's Weight</h3>
                 <p className="text-xs text-(--color-text-muted)">Record body weight to track overall progress graph</p>
               </div>
             </div>
@@ -147,7 +147,7 @@ export default function QuickActionDrawer({
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
                 required
-                className="w-full rounded-xl bg-(--color-surface-2) px-4 py-3 text-base font-bold text-white placeholder-(--color-text-muted) border border-white/10 focus:outline-none focus:border-indigo-500"
+                className="w-full rounded-xl bg-(--color-surface-2) px-4 py-3 text-base font-bold text-(--color-text) placeholder-(--color-text-muted) border border-(--color-border) focus:outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -158,7 +158,7 @@ export default function QuickActionDrawer({
                 placeholder="e.g. Fasted morning weight, feeling strong"
                 value={weightNotes}
                 onChange={(e) => setWeightNotes(e.target.value)}
-                className="w-full rounded-xl bg-(--color-surface-2) px-4 py-2.5 text-xs text-white placeholder-(--color-text-muted) border border-white/10 focus:outline-none focus:border-indigo-500"
+                className="w-full rounded-xl bg-(--color-surface-2) px-4 py-2.5 text-xs text-(--color-text) placeholder-(--color-text-muted) border border-(--color-border) focus:outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -166,14 +166,14 @@ export default function QuickActionDrawer({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white text-xs font-semibold hover:bg-white/15"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:bg-(--color-surface-3) border border-(--color-border) transition-all"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submittingWeight}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 flex items-center justify-center gap-1.5 shadow-md"
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 flex items-center justify-center gap-1.5 shadow-md transition-all"
               >
                 {submittingWeight ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Weight Log"}
               </button>
@@ -189,7 +189,7 @@ export default function QuickActionDrawer({
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-bold text-white">Give Feedback & Rating</h3>
+                <h3 className="font-display text-lg font-bold text-(--color-text)">Give Feedback & Rating</h3>
                 <p className="text-xs text-(--color-text-muted)">Help your gym and trainer improve your experience</p>
               </div>
             </div>
@@ -205,7 +205,7 @@ export default function QuickActionDrawer({
                 >
                   <Star
                     className={`h-7 w-7 ${
-                      star <= rating ? "fill-amber-400 text-amber-400" : "text-white/20"
+                      star <= rating ? "fill-amber-400 text-amber-400" : "text-(--color-border)"
                     }`}
                   />
                 </button>
@@ -220,7 +220,7 @@ export default function QuickActionDrawer({
                 value={feedbackNote}
                 onChange={(e) => setFeedbackNote(e.target.value)}
                 required
-                className="w-full rounded-xl bg-(--color-surface-2) p-3 text-xs text-white placeholder-(--color-text-muted) border border-white/10 focus:outline-none focus:border-amber-500"
+                className="w-full rounded-xl bg-(--color-surface-2) p-3 text-xs text-(--color-text) placeholder-(--color-text-muted) border border-(--color-border) focus:outline-none focus:border-amber-500"
               />
             </div>
 
@@ -228,14 +228,14 @@ export default function QuickActionDrawer({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white text-xs font-semibold hover:bg-white/15"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:bg-(--color-surface-3) border border-(--color-border) transition-all"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submittingFeedback}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-400 flex items-center justify-center gap-1.5 shadow-md"
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-400 flex items-center justify-center gap-1.5 shadow-md transition-all"
               >
                 {submittingFeedback ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Feedback"}
               </button>
@@ -251,19 +251,19 @@ export default function QuickActionDrawer({
                 <Shield className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-bold text-white">Privacy & Data Export</h3>
+                <h3 className="font-display text-lg font-bold text-(--color-text)">Privacy & Data Export</h3>
                 <p className="text-xs text-(--color-text-muted)">Download all your member logs, stats, and profile</p>
               </div>
             </div>
 
-            <p className="text-xs text-(--color-text-muted) leading-relaxed bg-(--color-surface-2)/60 p-3 rounded-xl border border-white/5">
+            <p className="text-xs text-(--color-text-muted) leading-relaxed bg-(--color-surface-2)/60 p-3 rounded-xl border border-(--color-border)">
               Under GDPR & Data Privacy standards, you have full ownership of your fitness logs, attendance data, and payment receipts.
             </p>
 
             <button
               onClick={handleExportData}
               disabled={exporting}
-              className="w-full py-3 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 flex items-center justify-center gap-2 shadow-lg"
+              className="w-full py-3 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 flex items-center justify-center gap-2 shadow-lg transition-all"
             >
               {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               Download Data Package (.JSON)
@@ -271,7 +271,7 @@ export default function QuickActionDrawer({
 
             <button
               onClick={onClose}
-              className="w-full py-2.5 rounded-xl bg-white/10 text-white text-xs font-semibold hover:bg-white/15"
+              className="w-full py-2.5 rounded-xl bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:bg-(--color-surface-3) border border-(--color-border) transition-all"
             >
               Close
             </button>
@@ -286,19 +286,19 @@ export default function QuickActionDrawer({
                 <Share2 className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-bold text-white">Refer & Earn 500 XP</h3>
+                <h3 className="font-display text-lg font-bold text-(--color-text)">Refer & Earn 500 XP</h3>
                 <p className="text-xs text-(--color-text-muted)">Invite friends to join gym with your referral code</p>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-(--color-surface-2) border border-white/10 text-center space-y-2">
+            <div className="p-4 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-center space-y-2">
               <span className="text-[10px] text-(--color-text-muted) uppercase font-bold tracking-wider">Your Referral Code</span>
-              <p className="font-mono text-2xl font-extrabold text-white tracking-wider">{referralCode || "Code unavailable"}</p>
+              <p className="font-mono text-2xl font-extrabold text-(--color-text) tracking-wider">{referralCode || "Code unavailable"}</p>
             </div>
 
             <button
               onClick={handleCopyReferral}
-              className="w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 flex items-center justify-center gap-2 shadow-lg"
+              className="w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 flex items-center justify-center gap-2 shadow-lg transition-all"
             >
               {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
               {copied ? "Referral Code Copied!" : "Copy Referral Code"}
@@ -306,7 +306,7 @@ export default function QuickActionDrawer({
 
             <button
               onClick={onClose}
-              className="w-full py-2.5 rounded-xl bg-white/10 text-white text-xs font-semibold hover:bg-white/15"
+              className="w-full py-2.5 rounded-xl bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:bg-(--color-surface-3) border border-(--color-border) transition-all"
             >
               Close
             </button>

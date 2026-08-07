@@ -35,7 +35,7 @@ export default function ReceptionDashboard() {
     ])
       .then(([ovRes, attRes, leadRes]) => {
         const attList = Array.isArray(attRes) ? attRes : attRes?.attendance || [];
-        setTodayCheckIns(ovRes?.todayCheckIns ?? attList.length);
+        setTodayCheckIns(Math.max(ovRes?.todayCheckIns ?? 0, attList.length));
         setCurrentlyIn(
           attList.filter(
             (a: any) =>

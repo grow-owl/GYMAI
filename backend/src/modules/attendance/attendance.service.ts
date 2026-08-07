@@ -13,6 +13,7 @@ import { calculateDistanceMeters } from '../../common/utils/geo';
 import { getDayKeyForBranch } from '../../common/utils/timezone';
 import { verifyQRPayload } from '../../common/utils/qrCode';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
+import { DashboardService } from '../report/dashboard.service';
 import { logger } from '../../config/logger';
 
 export interface CheckInInput {
@@ -187,6 +188,7 @@ export class AttendanceService {
       });
 
       await attendance.save();
+      DashboardService.clearCache();
 
       // Hook: Gamification streak & XP trigger
       await GamificationService.recordCheckInForStreak(member._id.toString(), member.gymId.toString());
@@ -260,6 +262,7 @@ export class AttendanceService {
 
     session.checkOutAt = checkOutAt;
     await session.save();
+    DashboardService.clearCache();
 
     logger.info(`🏁 Member Checked-Out: [Member: ${session.memberId}] [Duration: ${session.durationMinutes}m]`);
     return session;
@@ -302,6 +305,7 @@ export class AttendanceService {
     });
 
     await attendance.save();
+    DashboardService.clearCache();
     return attendance;
   }
 
@@ -366,10 +370,11 @@ export class AttendanceService {
   ): Promise<IAttendance[]> {
     const filter: Record<string, any> = {};
 
+    if (gymId && mongoose.Types.ObjectId.isValid(gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(gymId);
+    }
     if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(branchId);
-    } else if (gymId && mongoose.Types.ObjectId.isValid(gymId)) {
-      filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
 
     const now = new Date();
@@ -378,6 +383,7 @@ export class AttendanceService {
 
     const todayBranchKey = getDayKeyForBranch(now, 'Asia/Kolkata');
     const todayUtcKey = getDayKeyForBranch(now, 'UTC');
+    const isoKey = now.toISOString().split('T')[0];
     const targetDayKey = dayKey || todayBranchKey;
 
     return Attendance.find({
@@ -386,6 +392,7 @@ export class AttendanceService {
         { dayKey: targetDayKey },
         { dayKey: todayBranchKey },
         { dayKey: todayUtcKey },
+        { dayKey: isoKey },
         { checkInAt: { $gte: startOfToday, $lte: endOfToday } },
       ],
     })
@@ -478,7 +485,7 @@ export class AttendanceService {
 
     const records = await Attendance.find({
       memberId: member._id,
-      status: { $in: [AttendanceStatus.CHECKED_OUT, AttendanceStatus.AUTO_CLOSED] },
+      status: { $in: [AttendanceStatus.CHECKED_IN, AttendanceStatus.CHECKED_OUT, AttendanceStatus.AUTO_CLOSED] },
     });
 
     const totalVisits = records.length;

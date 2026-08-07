@@ -58,6 +58,27 @@ export class MemberService {
 
     const generatedPassword = memberData.password || `Mem@${crypto.randomBytes(4).toString('hex')}1`;
 
+    let referredByMemberId: mongoose.Types.ObjectId | undefined = memberData.referredByMemberId
+      ? new mongoose.Types.ObjectId(memberData.referredByMemberId)
+      : undefined;
+
+    let isReferrerFound = false;
+
+    if (memberData.referralCode) {
+      const cleanCode = memberData.referralCode.trim();
+      const referrerMember = await Member.findOne({
+        $or: [{ referralCode: cleanCode }, { referralCode: cleanCode.toUpperCase() }],
+        isDeleted: false,
+      });
+
+      if (referrerMember) {
+        isReferrerFound = true;
+        if (!referredByMemberId) {
+          referredByMemberId = referrerMember._id;
+        }
+      }
+    }
+
     const user = new User({
       fullName: memberData.fullName,
       email: memberData.email.toLowerCase(),
@@ -66,21 +87,18 @@ export class MemberService {
       role: Role.MEMBER,
       gymId: resolvedGymId,
       branchId: resolvedBranchId,
-      referredByMemberId: memberData.referredByMemberId
-        ? new mongoose.Types.ObjectId(memberData.referredByMemberId)
-        : undefined,
+      referredByMemberId,
       isActive: true,
     });
     await user.save();
 
+    const generatedReferralCode =
+      memberData.referralCode && !isReferrerFound
+        ? memberData.referralCode
+        : `REF-${user._id.toString().slice(-6).toUpperCase()}`;
+
     const qrTokenResult = await generateQRPayload({ memberId: user._id.toString(), gymId: resolvedGymId.toString(), branchId: resolvedBranchId.toString(), type: 'CHECK_IN' });
     const qrCode = qrTokenResult.token;
-
-    // Auto-generate unique referral code for member if absent
-    const generatedReferralCode =
-      memberData.referralCode || `REF-${user._id.toString().slice(-6).toUpperCase()}`;
-
-    let referredByMemberId: mongoose.Types.ObjectId | undefined = user.referredByMemberId;
 
     // Auto-assign trainer if not specified (least loaded, with available capacity)
     let assignedTrainerId = memberData.assignedTrainerId

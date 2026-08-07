@@ -59,6 +59,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     phone: "",
     password: "Member@123",
     planName: "Monthly Fitness",
+    referralCode: "",
   });
   const [reason, setReason] = useState("");
   const [extendDays, setExtendDays] = useState(30);
@@ -102,6 +103,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
 
       const payload = {
         ...formData,
+        referralCode: formData.referralCode?.trim() || undefined,
         branchId: activeBranchId,
         membershipStartDate: now.toISOString(),
         membershipEndDate: endDate.toISOString(),
@@ -110,7 +112,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
       await memberApi.create(activeGymId, activeBranchId, payload);
       toast.success(`Member ${formData.fullName} registered successfully!`);
       setShowAddModal(false);
-      setFormData({ fullName: "", email: "", phone: "", password: "Member@123", planName: "Monthly Fitness" });
+      setFormData({ fullName: "", email: "", phone: "", password: "Member@123", planName: "Monthly Fitness", referralCode: "" });
       fetchMembers();
     } catch (err: any) {
       toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to register member");
@@ -415,6 +417,16 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                   required
                   value={formData.planName}
                   onChange={(e) => setFormData({ ...formData, planName: e.target.value })}
+                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <div>
+                <label className="block text-(--color-text-muted) mb-1 font-medium">Referral Code (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. REF-123456"
+                  value={formData.referralCode}
+                  onChange={(e) => setFormData({ ...formData, referralCode: e.target.value })}
                   className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
                 />
               </div>
