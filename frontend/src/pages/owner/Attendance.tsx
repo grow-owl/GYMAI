@@ -9,10 +9,8 @@ import QRCode from "qrcode";
 export default function Attendance() {
   const user = useAuthStore((s) => s.user);
   const [secondsLeft, setSecondsLeft] = useState(21);
-  const [loading, setLoading] = useState(true);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(true);
-  const [todayLog, setTodayLog] = useState<any[]>([]);
 
   const fetchKioskQr = useCallback(async () => {
     if (!user?.gymId || !user?.branchId) {
@@ -36,23 +34,7 @@ export default function Attendance() {
     }
   }, [user]);
 
-  const fetchAttendance = async () => {
-    const activeGymId = user?.gymId || "";
-    const activeBranchId = user?.branchId || "";
-    setLoading(true);
-    try {
-      const res = await attendanceApi.getToday(activeGymId, activeBranchId);
-      const list = Array.isArray(res) ? res : res?.attendance || [];
-      setTodayLog(list);
-    } catch {
-      setTodayLog([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchAttendance();
     fetchKioskQr();
   }, [user, fetchKioskQr]);
 
@@ -69,14 +51,6 @@ export default function Attendance() {
 
     return () => clearInterval(timer);
   }, [fetchKioskQr]);
-
-  const checkedInCount = todayLog.length;
-  const currentlyInCount = todayLog.filter(
-    (a) => a.status === "CHECKED_IN" || (!a.checkOutAt && !a.checkOutTime && a.status !== "CHECKED_OUT" && a.status !== "AUTO_CLOSED")
-  ).length;
-  const checkedOutCount = todayLog.filter(
-    (a) => a.status === "CHECKED_OUT" || a.status === "AUTO_CLOSED" || Boolean(a.checkOutAt) || Boolean(a.checkOutTime)
-  ).length;
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto w-full">
@@ -119,30 +93,6 @@ export default function Attendance() {
           </div>
         </Card>
       </div>
-
-      <Card className="max-w-md mx-auto border-(--color-border)">
-        <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase mb-3">Attendance today</p>
-        {loading ? (
-          <div className="flex items-center justify-center py-6 text-sm text-(--color-text-muted) gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-(--color-accent)" /> Loading today's attendance...
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-2xl bg-(--color-surface-2) p-3">
-              <p className="text-xs text-(--color-text-faint)">In</p>
-              <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{checkedInCount}</p>
-            </div>
-            <div className="rounded-2xl bg-(--color-surface-2) p-3">
-              <p className="text-xs text-(--color-text-faint)">Inside</p>
-              <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{currentlyInCount}</p>
-            </div>
-            <div className="rounded-2xl bg-(--color-surface-2) p-3">
-              <p className="text-xs text-(--color-text-faint)">Out</p>
-              <p className="mt-1 font-display text-xl font-semibold text-(--color-text)">{checkedOutCount}</p>
-            </div>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
