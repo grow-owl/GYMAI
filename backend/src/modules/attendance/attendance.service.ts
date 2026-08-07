@@ -44,28 +44,22 @@ export class AttendanceService {
    */
   public static async checkIn(input: CheckInInput): Promise<IAttendance> {
     let resolvedMemberId: string | undefined = input.memberId;
+    let activeQrSession: any = null;
 
     // 1. Validate Dynamic QR Token if provided (Single-use consumption)
     const tokenToValidate = input.qrToken || input.dynamicQrToken;
     if (tokenToValidate) {
-      const qrSession = await QRSession.findOne({
+      activeQrSession = await QRSession.findOne({
         qrToken: tokenToValidate,
         isConsumed: false,
         expiresAt: { $gt: new Date() },
       });
 
-      if (!qrSession) {
+      if (!activeQrSession) {
         throw AppError.badRequest(
           'Invalid or expired dynamic QR code token. Please scan the newly displayed QR code on the kiosk.'
         );
       }
-
-      // Mark single-use token as consumed immediately
-      qrSession.isConsumed = true;
-      if (resolvedMemberId && mongoose.Types.ObjectId.isValid(resolvedMemberId)) {
-        qrSession.consumedByMemberId = new mongoose.Types.ObjectId(resolvedMemberId);
-      }
-      await qrSession.save();
     }
 
     // 2. Decode Static Member QR Payload if provided
@@ -106,9 +100,31 @@ export class AttendanceService {
       throw AppError.forbidden('Check-in rejected: Membership is CANCELLED.');
     }
 
-    // 5. Fetch Branch & GPS Verification Check
-    const branchId = input.branchId || member.branchId.toString();
-    const branch = await Branch.findOne({ _id: branchId, isDeleted: false });
+    // 5. Enforce Strict Branch & Gym Security Verification
+    if (activeQrSession) {
+      if (!member.gymId.equals(activeQrSession.gymId)) {
+        throw AppError.forbidden('Access Denied: You do not belong to this gym organization.');
+      }
+      if (!member.branchId.equals(activeQrSession.branchId)) {
+        throw AppError.forbidden('Access Denied: You belong to another branch. Check-in is restricted to your registered home branch.');
+      }
+      // Consume token after successful verification
+      activeQrSession.isConsumed = true;
+      activeQrSession.consumedByMemberId = member._id;
+      await activeQrSession.save();
+    }
+
+    const targetBranchId = activeQrSession
+      ? activeQrSession.branchId.toString()
+      : input.branchId && mongoose.Types.ObjectId.isValid(input.branchId)
+      ? input.branchId
+      : member.branchId.toString();
+
+    if (member.branchId.toString() !== targetBranchId) {
+      throw AppError.forbidden('Access Denied: You belong to another branch. Check-in is restricted to your registered home branch.');
+    }
+
+    const branch = await Branch.findOne({ _id: targetBranchId, isDeleted: false });
     if (!branch) {
       throw AppError.notFound('Branch not found for check-in');
     }
@@ -137,7 +153,7 @@ export class AttendanceService {
     const now = new Date();
     const currentDayKey = getDayKeyForBranch(now, timezone);
 
-    // 5. Check for active open session
+    // 6. Check for active open session
     const existingSession = await Attendance.findOne({
       memberId: member._id,
       status: AttendanceStatus.CHECKED_IN,
@@ -158,7 +174,7 @@ export class AttendanceService {
       }
     }
 
-    // 6. Create Attendance Record
+    // 7. Create Attendance Record
     try {
       const attendance = new Attendance({
         gymId: member.gymId,
@@ -175,7 +191,7 @@ export class AttendanceService {
       // Hook: Gamification streak & XP trigger
       await GamificationService.recordCheckInForStreak(member._id.toString(), member.gymId.toString());
 
-      logger.info(`✅ Member Checked-In: [Member: ${member._id}] [Branch: ${branchId}] [DayKey: ${currentDayKey}]`);
+      logger.info(`✅ Member Checked-In: [Member: ${member._id}] [Branch: ${targetBranchId}] [DayKey: ${currentDayKey}]`);
       return attendance;
     } catch (error: unknown) {
       if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000) {
@@ -344,21 +360,33 @@ export class AttendanceService {
    * Daily Branch Attendance Log (for Staff / Dashboard)
    */
   public static async getBranchDailyAttendance(
-    branchId: string,
-    dayKey?: string
+    branchId?: string,
+    dayKey?: string,
+    gymId?: string
   ): Promise<IAttendance[]> {
-    const branch = await Branch.findById(branchId);
-    const timezone = branch?.timezone || 'UTC';
-    const todayBranchKey = getDayKeyForBranch(new Date(), timezone);
-    const todayUtcKey = getDayKeyForBranch(new Date(), 'UTC');
+    const filter: Record<string, any> = {};
+
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+      filter.branchId = new mongoose.Types.ObjectId(branchId);
+    } else if (gymId && mongoose.Types.ObjectId.isValid(gymId)) {
+      filter.gymId = new mongoose.Types.ObjectId(gymId);
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const todayBranchKey = getDayKeyForBranch(now, 'Asia/Kolkata');
+    const todayUtcKey = getDayKeyForBranch(now, 'UTC');
     const targetDayKey = dayKey || todayBranchKey;
 
     return Attendance.find({
-      branchId: new mongoose.Types.ObjectId(branchId),
+      ...filter,
       $or: [
         { dayKey: targetDayKey },
         { dayKey: todayBranchKey },
         { dayKey: todayUtcKey },
+        { checkInAt: { $gte: startOfToday, $lte: endOfToday } },
       ],
     })
       .populate({

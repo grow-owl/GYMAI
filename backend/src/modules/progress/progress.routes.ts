@@ -10,14 +10,14 @@ const router = Router();
 
 router.use(authenticate);
 
-// Member Self-Logging
+// Weight Logging (Member self-log or Trainer/Staff log for a client)
 router.post(
   '/weight',
-  authorize(Role.MEMBER),
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(logWeightSchema, 'body'),
   ProgressController.logWeight
 );
-router.get('/weight/history', ProgressController.getWeightHistory);
+router.get(['/weight/history', '/weight/history/:memberId'], ProgressController.getWeightHistory);
 
 router.post(
   '/photos',

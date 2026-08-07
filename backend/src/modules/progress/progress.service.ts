@@ -17,7 +17,9 @@ export class ProgressService {
   public static async logWeight(
     memberId: string,
     weightKg: number,
-    date: Date = new Date()
+    date: Date = new Date(),
+    heightCm?: number,
+    targetWeightKg?: number
   ): Promise<IWeightEntry> {
     const member = await Member.findOne({
       $or: [
@@ -45,14 +47,20 @@ export class ProgressService {
       { upsert: true, new: true, runValidators: true }
     );
 
-    // Update current weight in Member healthInfo
+    // Update current weight, height, and target weight in Member healthInfo
     if (!member.healthInfo) {
       member.healthInfo = {};
     }
     member.healthInfo.currentWeight_kg = weightKg;
+    if (heightCm != null && heightCm > 0) {
+      member.healthInfo.height_cm = heightCm;
+    }
+    if (targetWeightKg != null && targetWeightKg > 0) {
+      member.healthInfo.targetWeight_kg = targetWeightKg;
+    }
     await member.save();
 
-    logger.info(`⚖️ Weight logged: [Member: ${member._id}] [Weight: ${weightKg}kg] [DayKey: ${dayKey}]`);
+    logger.info(`⚖️ Body metrics & Weight logged: [Member: ${member._id}] [Weight: ${weightKg}kg] [DayKey: ${dayKey}]`);
     return weightEntry;
   }
 

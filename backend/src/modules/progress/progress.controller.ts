@@ -5,10 +5,16 @@ import { asyncHandler } from '../../common/utils/asyncHandler';
 
 export class ProgressController {
   public static logWeight = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.user!.id;
+    const memberId = req.body.memberId || req.user!.id;
     const date = req.body.date ? new Date(req.body.date) : new Date();
-    const entry = await ProgressService.logWeight(memberId, req.body.weightKg, date);
-    return sendSuccess(res, { entry }, 'Weight logged successfully', 201);
+    const entry = await ProgressService.logWeight(
+      memberId,
+      req.body.weightKg,
+      date,
+      req.body.heightCm,
+      req.body.targetWeightKg
+    );
+    return sendSuccess(res, { entry }, 'Body metrics and weight logged successfully', 201);
   });
 
   public static getWeightHistory = asyncHandler(async (req: Request, res: Response) => {

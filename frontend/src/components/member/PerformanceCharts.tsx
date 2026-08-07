@@ -6,7 +6,8 @@ interface WeightLogItem {
   _id?: string;
   weightKg: number;
   notes?: string;
-  createdAt: string;
+  createdAt?: string;
+  recordedAt?: string;
 }
 
 interface PerformanceChartsProps {
@@ -29,9 +30,14 @@ export default function PerformanceCharts({
 
   const displayLogs = useMemo(() => {
     if (weightLogs && weightLogs.length > 0) {
-      return [...weightLogs].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
+      return [...weightLogs]
+        .map((item) => ({
+          ...item,
+          weightKg: Number(item.weightKg || (item as any).value || 0),
+          createdAt: item.createdAt || item.recordedAt || (item as any).date || new Date().toISOString(),
+        }))
+        .filter((item) => item.weightKg > 0)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     }
     return [];
   }, [weightLogs]);
@@ -78,10 +84,10 @@ export default function PerformanceCharts({
   }, [displayLogs, targetWeightKg]);
 
   // Derived real attendance analytics
-  const totalVisits = attendanceStats?.totalVisits ?? attendanceStats?.totalDays ?? null;
-  const avgSessionMins = attendanceStats?.averageSessionMinutes ?? null;
+  const totalVisits = attendanceStats?.totalVisits ?? attendanceStats?.totalDays ?? 0;
+  const avgSessionMins = attendanceStats?.averageSessionMinutes ?? 0;
   const dayDistribution = attendanceStats?.dayOfWeekDistribution;
-  let topTrainingDay = "--";
+  let topTrainingDay = "N/A";
   if (dayDistribution && typeof dayDistribution === "object") {
     let maxCount = 0;
     for (const [day, count] of Object.entries(dayDistribution)) {
@@ -111,7 +117,7 @@ export default function PerformanceCharts({
   return (
     <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
       {/* Top Controls Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-white/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-(--color-border-soft)">
         <div>
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-(--color-accent)" />
@@ -126,12 +132,12 @@ export default function PerformanceCharts({
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between sm:justify-start">
           {/* Tab Buttons - Grid on mobile for equal width */}
-          <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-white/5 w-full sm:w-auto">
+          <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border) w-full sm:w-auto">
             <button
               onClick={() => setActiveTab("weight")}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "weight"
-                  ? "bg-(--color-accent) text-white shadow-md"
+                  ? "bg-(--color-accent) text-(--color-navbar) shadow-md"
                   : "text-(--color-text-muted) hover:text-(--color-text)"
               }`}
             >
@@ -141,9 +147,9 @@ export default function PerformanceCharts({
 
             <button
               onClick={() => setActiveTab("volume")}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "volume"
-                  ? "bg-(--color-accent) text-white shadow-md"
+                  ? "bg-(--color-accent) text-(--color-navbar) shadow-md"
                   : "text-(--color-text-muted) hover:text-(--color-text)"
               }`}
             >
@@ -153,9 +159,9 @@ export default function PerformanceCharts({
 
             <button
               onClick={() => setActiveTab("attendance")}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "attendance"
-                  ? "bg-(--color-accent) text-white shadow-md"
+                  ? "bg-(--color-accent) text-(--color-navbar) shadow-md"
                   : "text-(--color-text-muted) hover:text-(--color-text)"
               }`}
             >
@@ -167,7 +173,7 @@ export default function PerformanceCharts({
           {activeTab === "weight" && (
             <button
               onClick={onLogWeightClick}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-(--color-accent) text-white text-xs font-bold shadow-md hover:brightness-110 transition-all cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md hover:brightness-110 transition-all cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" /> Log Weight
             </button>
@@ -180,7 +186,7 @@ export default function PerformanceCharts({
         <div className="space-y-4">
           {/* Key Weight Stat Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft)">
               <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Current Weight</span>
               <p className="text-lg sm:text-xl font-extrabold text-(--color-text) mt-1">
                 {latestWeight !== null ? `${latestWeight} ` : "— "}
@@ -188,25 +194,25 @@ export default function PerformanceCharts({
               </p>
             </div>
 
-            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft)">
               <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Target Goal</span>
-              <p className="text-lg sm:text-xl font-extrabold text-emerald-400 mt-1">
+              <p className="text-lg sm:text-xl font-extrabold text-emerald-500 mt-1">
                 {targetWeightKg ? `${targetWeightKg} ` : "— "}
                 <span className="text-xs font-normal text-(--color-text-muted)">{targetWeightKg ? "kg" : "Not set"}</span>
               </p>
             </div>
 
-            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft)">
               <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Total Progress</span>
-              <p className={`text-lg sm:text-xl font-extrabold mt-1 flex items-center gap-1 ${totalChange <= 0 ? "text-emerald-400" : "text-amber-400"}`}>
+              <p className={`text-lg sm:text-xl font-extrabold mt-1 flex items-center gap-1 ${totalChange <= 0 ? "text-emerald-500" : "text-amber-500"}`}>
                 <TrendingDown className="h-4 w-4 shrink-0" />
                 {totalChange > 0 ? `+${totalChange}` : totalChange} <span className="text-xs font-normal text-(--color-text-muted)">kg</span>
               </p>
             </div>
 
-            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2)/60 border border-white/5">
+            <div className="p-3 sm:p-3.5 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft)">
               <span className="text-[10px] sm:text-[11px] text-(--color-text-muted) font-extrabold uppercase tracking-wider">Remaining</span>
-              <p className="text-lg sm:text-xl font-extrabold text-(--color-accent) mt-1">
+              <p className="text-lg sm:text-xl font-extrabold text-(--color-accent-text) mt-1">
                 {diffToTarget !== null ? `${Math.abs(diffToTarget)} ` : "— "}
                 <span className="text-xs font-normal text-(--color-text-muted)">{diffToTarget !== null ? "kg" : "N/A"}</span>
               </p>
@@ -214,16 +220,16 @@ export default function PerformanceCharts({
           </div>
 
           {/* SVG Interactive Line Chart */}
-          <div className="relative w-full rounded-2xl bg-(--color-surface-2)/30 p-4 border border-white/5">
+          <div className="relative w-full rounded-2xl bg-(--color-surface-2) p-4 border border-(--color-border)">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-semibold text-(--color-text-muted)">Weight Curve (kg)</span>
               <div className="flex items-center gap-2">
                 {targetWeightKg ? (
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-400">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" /> Target Line ({targetWeightKg}kg)
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" /> Target Line ({targetWeightKg}kg)
                   </span>
                 ) : null}
-                <span className="flex items-center gap-1 text-[11px] text-(--color-accent)">
+                <span className="flex items-center gap-1 text-[11px] text-(--color-accent-text) font-medium">
                   <span className="h-2 w-2 rounded-full bg-(--color-accent)" /> Logged History
                 </span>
               </div>
@@ -232,15 +238,15 @@ export default function PerformanceCharts({
             <svg viewBox="0 0 600 200" className="w-full h-48 overflow-visible">
               <defs>
                 <linearGradient id="weightAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-accent, #6366f1)" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="var(--color-accent, #6366f1)" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="var(--color-accent, #FCA311)" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="var(--color-accent, #FCA311)" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
               {/* Horizontal Grid lines */}
-              <line x1="35" y1="40" x2="565" y2="40" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
-              <line x1="35" y1="100" x2="565" y2="100" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
-              <line x1="35" y1="160" x2="565" y2="160" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+              <line x1="35" y1="40" x2="565" y2="40" stroke="var(--color-border)" strokeDasharray="4 4" />
+              <line x1="35" y1="100" x2="565" y2="100" stroke="var(--color-border)" strokeDasharray="4 4" />
+              <line x1="35" y1="160" x2="565" y2="160" stroke="var(--color-border)" strokeDasharray="4 4" />
 
               {/* Target Weight Reference Line */}
               {svgChartData.targetY && (
@@ -250,7 +256,7 @@ export default function PerformanceCharts({
                   x2="565"
                   y2={svgChartData.targetY}
                   stroke="#10b981"
-                  strokeWidth="1.5"
+                  strokeWidth="2"
                   strokeDasharray="6 4"
                 />
               )}
@@ -265,7 +271,7 @@ export default function PerformanceCharts({
                 <path
                   d={svgChartData.pathString}
                   fill="none"
-                  stroke="var(--color-accent, #6366f1)"
+                  stroke="var(--color-accent, #FCA311)"
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
@@ -275,20 +281,20 @@ export default function PerformanceCharts({
                   <path
                     d="M 35 140 C 150 90, 300 130, 450 70 L 565 100"
                     fill="none"
-                    stroke="var(--color-accent, #6366f1)"
+                    stroke="var(--color-accent, #FCA311)"
                     strokeWidth="2.5"
                     strokeDasharray="6 6"
-                    opacity="0.35"
+                    opacity="0.4"
                   />
                   <foreignObject x="100" y="45" width="400" height="110">
-                    <div className="flex flex-col items-center justify-center h-full text-center bg-(--color-surface)/90 backdrop-blur-md p-3.5 rounded-2xl border border-(--color-border) shadow-xl">
-                      <p className="text-xs font-extrabold text-(--color-text)">📈 Weight Progression Curve Preview</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center bg-(--color-surface) p-3.5 rounded-2xl border border-(--color-border) shadow-xl">
+                      <p className="text-xs font-extrabold text-(--color-text)">📈 Weight Progression Curve</p>
                       <p className="text-[11px] text-(--color-text-muted) mt-0.5">
                         Log your weight to start mapping your personal weight trend graph!
                       </p>
                       <button
                         onClick={onLogWeightClick}
-                        className="mt-2 text-[11px] font-bold text-white bg-(--color-accent) px-3.5 py-1.5 rounded-full shadow-md hover:brightness-110 transition-all flex items-center gap-1"
+                        className="mt-2 text-[11px] font-bold text-(--color-navbar) bg-(--color-accent) px-3.5 py-1.5 rounded-full shadow-md hover:brightness-110 transition-all flex items-center gap-1 cursor-pointer"
                       >
                         <Plus className="h-3 w-3" /> Log Weight Now
                       </button>
@@ -304,20 +310,20 @@ export default function PerformanceCharts({
                     cx={pt.x}
                     cy={pt.y}
                     r="5"
-                    fill="var(--color-accent, #6366f1)"
-                    stroke="#ffffff"
+                    fill="var(--color-accent, #FCA311)"
+                    stroke="var(--color-surface)"
                     strokeWidth="2"
                     className="transition-all duration-200 group-hover:r-7"
                   />
-                  {/* Point Label */}
+                  {/* Point Label - High Contrast Dark Navy */}
                   <text
                     x={pt.x}
                     y={pt.y - 12}
                     textAnchor="middle"
-                    fill="#ffffff"
-                    fontSize="10"
+                    fill="var(--color-text)"
+                    fontSize="11"
                     fontWeight="bold"
-                    className="opacity-80 group-hover:opacity-100"
+                    className="opacity-90 group-hover:opacity-100 font-sans"
                   >
                     {pt.weight}kg
                   </text>
@@ -325,8 +331,9 @@ export default function PerformanceCharts({
                     x={pt.x}
                     y="190"
                     textAnchor="middle"
-                    fill="rgba(255,255,255,0.4)"
-                    fontSize="9"
+                    fill="var(--color-text-muted)"
+                    fontSize="10"
+                    fontWeight="500"
                   >
                     {pt.label}
                   </text>
@@ -341,26 +348,26 @@ export default function PerformanceCharts({
       {activeTab === "volume" && (
         <div className="space-y-4">
           <p className="text-xs text-(--color-text-muted)">Daily estimated weight lifted (kg) over current week</p>
-          <div className="grid grid-cols-7 gap-2 h-44 items-end pt-6 pb-2 px-2 bg-(--color-surface-2)/30 rounded-2xl border border-white/5">
+          <div className="grid grid-cols-7 gap-2 h-44 items-end pt-6 pb-2 px-3 bg-(--color-surface-2) rounded-2xl border border-(--color-border)">
             {volumeData.map((item, idx) => {
               const maxVol = 7000;
               const heightPct = Math.round((item.volume / maxVol) * 100);
               return (
                 <div key={idx} className="flex flex-col items-center h-full justify-end group">
-                  <span className="text-[10px] text-white/70 font-mono mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-[10px] text-(--color-text-muted) font-mono mb-1 opacity-80 group-hover:opacity-100 transition-opacity font-bold">
                     {item.volume > 0 ? `${(item.volume/1000).toFixed(1)}k` : "Rest"}
                   </span>
-                  <div className="w-full max-w-[32px] bg-white/10 rounded-t-lg overflow-hidden flex flex-col justify-end h-full">
+                  <div className="w-full max-w-[36px] bg-(--color-surface-3) rounded-t-lg overflow-hidden flex flex-col justify-end h-full border border-(--color-border)/40">
                     <div
                       className={`w-full rounded-t-lg transition-all duration-500 ${
                         item.volume > 0
-                          ? "bg-gradient-to-t from-indigo-600 to-accent shadow-lg"
-                          : "bg-white/5"
+                          ? "bg-(--color-accent) shadow-md"
+                          : "bg-(--color-surface-3)"
                       }`}
-                      style={{ height: `${Math.max(8, heightPct)}%` }}
+                      style={{ height: `${Math.max(12, heightPct)}%` }}
                     />
                   </div>
-                  <span className="text-xs font-semibold text-(--color-text) mt-2">{item.day}</span>
+                  <span className="text-xs font-bold text-(--color-text) mt-2">{item.day}</span>
                 </div>
               );
             })}
@@ -373,20 +380,20 @@ export default function PerformanceCharts({
         <div className="space-y-4">
           <p className="text-xs text-(--color-text-muted)">Your monthly check-in frequency and attendance statistics</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-4 rounded-xl bg-(--color-surface-2)/60 border border-white/5 text-center">
-              <span className="text-xs text-(--color-text-muted)">Total Gym Visits</span>
-              <p className="text-3xl font-extrabold text-(--color-text) mt-1">{totalVisits !== null ? `${totalVisits} Days` : "--"}</p>
-              <span className="text-[11px] text-emerald-400 font-semibold">{totalVisits ? "Active Gym Member" : "No visits logged yet"}</span>
+            <div className="p-4 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-center">
+              <span className="text-xs font-semibold text-(--color-text-muted)">Total Gym Visits</span>
+              <p className="text-3xl font-extrabold text-(--color-text) mt-1">{totalVisits} Days</p>
+              <span className="text-[11px] text-emerald-500 font-semibold">{totalVisits > 0 ? "Active Gym Member" : "Start visiting to log visits"}</span>
             </div>
-            <div className="p-4 rounded-xl bg-(--color-surface-2)/60 border border-white/5 text-center">
-              <span className="text-xs text-(--color-text-muted)">Avg Session Length</span>
-              <p className="text-3xl font-extrabold text-(--color-text) mt-1">{avgSessionMins !== null ? `${avgSessionMins} Mins` : "--"}</p>
-              <span className="text-[11px] text-indigo-400 font-semibold">{avgSessionMins ? "Live session average" : "Log sessions to track"}</span>
+            <div className="p-4 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-center">
+              <span className="text-xs font-semibold text-(--color-text-muted)">Avg Session Length</span>
+              <p className="text-3xl font-extrabold text-(--color-text) mt-1">{avgSessionMins > 0 ? `${avgSessionMins} Mins` : "--"}</p>
+              <span className="text-[11px] text-indigo-500 font-semibold">{avgSessionMins > 0 ? "Live session average" : "Log workout sessions to track"}</span>
             </div>
-            <div className="p-4 rounded-xl bg-(--color-surface-2)/60 border border-white/5 text-center">
-              <span className="text-xs text-(--color-text-muted)">Peak Workout Day</span>
+            <div className="p-4 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-center">
+              <span className="text-xs font-semibold text-(--color-text-muted)">Peak Workout Day</span>
               <p className="text-3xl font-extrabold text-(--color-text) mt-1">{topTrainingDay}</p>
-              <span className="text-[11px] text-amber-400 font-semibold">{topTrainingDay !== "--" ? "Most frequent visit day" : "No day frequency"}</span>
+              <span className="text-[11px] text-amber-500 font-semibold">{topTrainingDay !== "N/A" ? "Most frequent visit day" : "No day frequency yet"}</span>
             </div>
           </div>
         </div>

@@ -319,9 +319,15 @@ export const dietApi = {
 };
 
 export const progressApi = {
-  getHistory: (memberId?: string) => api.get<any>(`/progress/weight/history${memberId ? `?memberId=${memberId}` : ""}`),
+  getHistory: (memberId?: string) => api.get<any>(`/progress/weight/history${memberId ? `/${memberId}` : ""}`),
 
-  logWeight: (weightKg: number, notes?: string) => api.post<any>("/progress/weight", { weightKg, notes }),
+  logWeight: (
+    payload: number | { memberId?: string; weightKg: number; heightCm?: number; targetWeightKg?: number; notes?: string },
+    notes?: string
+  ) => {
+    const body = typeof payload === "number" ? { weightKg: payload, notes } : payload;
+    return api.post<any>("/progress/weight", body);
+  },
 
   uploadPhoto: (data: { photoUrl: string; notes?: string; bodyFatPercentage?: number }) =>
     api.post<any>("/progress/photos", data),

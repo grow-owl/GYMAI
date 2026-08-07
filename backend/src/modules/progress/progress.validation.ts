@@ -1,10 +1,13 @@
 import { z } from 'zod';
 
 export const logWeightSchema = z.object({
+  memberId: z.string().optional(),
   weightKg: z
     .number()
     .min(20, 'Weight must be at least 20 kg')
     .max(300, 'Weight must be at most 300 kg'),
+  heightCm: z.number().min(50).max(250).optional(),
+  targetWeightKg: z.number().min(20).max(300).optional(),
   date: z
     .string()
     .or(z.date())

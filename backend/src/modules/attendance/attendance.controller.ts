@@ -55,9 +55,10 @@ export class AttendanceController {
 
   public static getBranchDailyAttendance = asyncHandler(async (req: Request, res: Response) => {
     const { branchId } = req.params;
+    const gymId = (req.params.gymId || req.query.gymId || req.user?.gymId) as string | undefined;
     const dayKey = req.query.date as string | undefined;
 
-    const attendanceList = await AttendanceService.getBranchDailyAttendance(branchId, dayKey);
+    const attendanceList = await AttendanceService.getBranchDailyAttendance(branchId, dayKey, gymId);
     return sendSuccess(res, { attendanceList, dayKey }, 'Daily branch attendance log retrieved successfully');
   });
 
