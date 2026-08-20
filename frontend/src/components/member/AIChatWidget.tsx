@@ -8,6 +8,7 @@ interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt?: string;
+  isFallback?: boolean;
 }
 
 export default function AIChatWidget() {
@@ -100,6 +101,7 @@ export default function AIChatWidget() {
           role: "assistant",
           content: fallbackReply,
           createdAt: new Date().toISOString(),
+          isFallback: true,
         },
       ]);
     } finally {
@@ -190,14 +192,21 @@ export default function AIChatWidget() {
               </div>
             )}
 
-            <div
-              className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
-                msg.role === "user"
-                  ? "bg-(--color-accent) text-white rounded-tr-none shadow-md font-medium"
-                  : "bg-(--color-surface-2) text-(--color-text) rounded-tl-none border border-white/5"
-              }`}
-            >
-              {msg.content}
+            <div className="max-w-[82%]">
+              <div
+                className={`rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-(--color-accent) text-white rounded-tr-none shadow-md font-medium"
+                    : "bg-(--color-surface-2) text-(--color-text) rounded-tl-none border border-white/5"
+                }`}
+              >
+                {msg.content}
+              </div>
+              {msg.isFallback && (
+                <p className="text-[10px] text-(--color-text-muted) mt-1 ml-1 font-medium">
+                  Offline reply — reconnecting...
+                </p>
+              )}
             </div>
 
             {msg.role === "user" && (

@@ -235,8 +235,13 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
       const oldest = context.weightTrend[context.weightTrend.length - 1].weightKg;
       const totalDeltaKg = oldest - latest;
 
-      if (totalDeltaKg > 0) {
-        const weeklyLossRate = totalDeltaKg / (context.weightTrend.length / 2);
+      const newestDate = new Date(context.weightTrend[0].date);
+      const oldestDate = new Date(context.weightTrend[context.weightTrend.length - 1].date);
+      const timeDiffMs = newestDate.getTime() - oldestDate.getTime();
+      const actualWeeksElapsed = timeDiffMs / (1000 * 60 * 60 * 24 * 7);
+
+      if (actualWeeksElapsed > 0 && totalDeltaKg > 0) {
+        const weeklyLossRate = totalDeltaKg / actualWeeksElapsed;
         const remainingKg = Math.abs(latest - targetWeight);
         const weeksNeeded = remainingKg / Math.max(0.1, weeklyLossRate);
         predictedDate = new Date(Date.now() + weeksNeeded * 7 * 24 * 60 * 60 * 1000);
@@ -244,7 +249,7 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
         explanation = `Based on a steady weight loss rate of ~${weeklyLossRate.toFixed(1)}kg/week over ${
           context.weightTrend.length
         } data points.`;
-      } else {
+      } else if (totalDeltaKg <= 0) {
         explanation = 'Weight is currently steady or gaining; maintain caloric deficit to trigger target date calculation.';
       }
     }

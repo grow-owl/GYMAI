@@ -106,7 +106,7 @@ export default function AICoach() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100dvh-56px-6rem)] md:h-[calc(100dvh-56px)]">
       <PageHeader title="AI Fitness Coach" backTo="/member" />
 
       <Card sweep className="mb-4 border-(--color-accent)/25">

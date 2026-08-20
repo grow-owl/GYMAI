@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2 } from "lucide-react";
+import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2, MoreVertical } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -45,6 +45,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
   const [submittingAdd, setSubmittingAdd] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [activeModalType, setActiveModalType] = useState<"freeze" | "extend" | "cancel" | "renew" | "view" | null>(null);
+  const [activeMobileMenuId, setActiveMobileMenuId] = useState<string | null>(null);
 
   // Reset Password Modal
   const [showResetModal, setShowResetModal] = useState(false);
@@ -272,7 +273,8 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                 <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                   <Badge tone={statusTone[status] || "good"}>{status}</Badge>
 
-                  <div className="flex items-center gap-1">
+                  {/* Desktop / Tablet action buttons */}
+                  <div className="hidden sm:flex items-center gap-1">
                     <button
                       onClick={() => {
                         setSelectedMember(m);
@@ -353,6 +355,101 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                     >
                       <User size={15} />
                     </button>
+                  </div>
+
+                  {/* Mobile action buttons & overflow menu */}
+                  <div className="flex sm:hidden items-center gap-1 relative">
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setRenewPlanName(m.planName || m.plan || "Monthly Fitness");
+                        const defaultEnd = new Date();
+                        defaultEnd.setMonth(defaultEnd.getMonth() + 1);
+                        setRenewEndDate(defaultEnd.toISOString().split("T")[0]);
+                        setActiveModalType("renew");
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-emerald-400"
+                      title="Renew Membership"
+                    >
+                      <RefreshCw size={15} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setActiveModalType("view");
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+                      title="View Details"
+                    >
+                      <User size={15} />
+                    </button>
+                    <button
+                      onClick={() => setActiveMobileMenuId(activeMobileMenuId === mId ? null : mId)}
+                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+                      title="More Actions"
+                    >
+                      <MoreVertical size={15} />
+                    </button>
+
+                    {activeMobileMenuId === mId && (
+                      <div className="absolute right-0 top-full mt-1 w-44 z-30 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-xl p-1">
+                        <button
+                          onClick={() => {
+                            setActiveMobileMenuId(null);
+                            setSelectedMember(m);
+                            setActiveModalType("freeze");
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-medium text-(--color-text) hover:bg-(--color-surface-2) rounded-lg flex items-center gap-2"
+                        >
+                          <Snowflake size={14} /> Freeze
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveMobileMenuId(null);
+                            setSelectedMember(m);
+                            setActiveModalType("extend");
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-medium text-(--color-text) hover:bg-(--color-surface-2) rounded-lg flex items-center gap-2"
+                        >
+                          <CalendarPlus size={14} /> Extend
+                        </button>
+                        {isOwnerOrAdmin && (
+                          <button
+                            onClick={() => {
+                              setActiveMobileMenuId(null);
+                              setSelectedMember(m);
+                              setActiveModalType("cancel");
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-(--color-surface-2) rounded-lg flex items-center gap-2"
+                          >
+                            <XCircle size={14} /> Cancel
+                          </button>
+                        )}
+                        {isOwnerOrAdmin && (
+                          <button
+                            onClick={() => {
+                              setActiveMobileMenuId(null);
+                              setResetTargetUser(m.userId?._id ? m.userId : { _id: m.userId || mId, fullName: name });
+                              setShowResetModal(true);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs font-medium text-amber-400 hover:bg-(--color-surface-2) rounded-lg flex items-center gap-2"
+                          >
+                            <KeyRound size={14} /> Reset Password
+                          </button>
+                        )}
+                        {isOwnerOrAdmin && (
+                          <button
+                            onClick={() => {
+                              setActiveMobileMenuId(null);
+                              handleDeleteMember(mId, name);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-500/10 rounded-lg flex items-center gap-2"
+                          >
+                            <Trash2 size={14} /> Delete Profile
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

@@ -511,8 +511,8 @@ export default function WorkoutPlans() {
                         </div>
 
                         <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="block text-(--color-text-muted) text-[10px] mb-0.5">Sets</label>
+                          <div className="min-w-0">
+                            <label className="block text-(--color-text-muted) text-[10px] mb-0.5 truncate">Sets</label>
                             <input
                               type="number"
                               required
@@ -522,8 +522,8 @@ export default function WorkoutPlans() {
                               className="w-full rounded-lg bg-(--color-surface-2) p-1.5 text-xs text-(--color-text) border border-(--color-border)"
                             />
                           </div>
-                          <div>
-                            <label className="block text-(--color-text-muted) text-[10px] mb-0.5">Reps</label>
+                          <div className="min-w-0">
+                            <label className="block text-(--color-text-muted) text-[10px] mb-0.5 truncate">Reps</label>
                             <input
                               type="number"
                               required
@@ -533,8 +533,8 @@ export default function WorkoutPlans() {
                               className="w-full rounded-lg bg-(--color-surface-2) p-1.5 text-xs text-(--color-text) border border-(--color-border)"
                             />
                           </div>
-                          <div>
-                            <label className="block text-(--color-text-muted) text-[10px] mb-0.5">Weight (KG)</label>
+                          <div className="min-w-0">
+                            <label className="block text-(--color-text-muted) text-[10px] mb-0.5 truncate">Weight (KG)</label>
                             <input
                               type="number"
                               placeholder="Opt"

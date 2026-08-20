@@ -4,6 +4,9 @@ import { IChurnRiskAssessment } from './aiCoach.types';
 import { Member } from '../member/member.model';
 import { Attendance } from '../attendance/attendance.model';
 import { WorkoutLog } from '../workout/workoutLog.model';
+import { MemberGameStats } from '../gamification/memberGameStats.model';
+import { MemberPayment } from '../payment/memberPayment.model';
+import { PaymentStatus } from '../payment/platformSubscription.types';
 import { AIDataAggregatorService } from './aiDataAggregator.service';
 import { AppError } from '../../common/utils/AppError';
 import { logger } from '../../config/logger';
@@ -26,9 +29,17 @@ export class ChurnPredictionService {
     }
 
     const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-    // 1. Fetch latest attendance visit
-    const lastAttendance = await Attendance.findOne({ memberId: member._id }).sort({ checkInAt: -1 });
+    // 1. Fetch attendance, workout logs, gamification stats, and payment info in parallel
+    const [lastAttendance, recentLogs, previousLogs, gameStats, latestPayment] = await Promise.all([
+      Attendance.findOne({ memberId: member._id }).sort({ checkInAt: -1 }),
+      WorkoutLog.find({ memberId: member._id, date: { $gte: thirtyDaysAgo } }),
+      WorkoutLog.find({ memberId: member._id, date: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+      MemberGameStats.findOne({ memberId: member._id }),
+      MemberPayment.findOne({ memberId: member._id, isDeleted: false }).sort({ paidAt: -1, createdAt: -1 }),
+    ]);
 
     let daysSinceLastVisit = 0;
     if (lastAttendance) {
@@ -40,18 +51,17 @@ export class ChurnPredictionService {
       daysSinceLastVisit = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     }
 
-    // 2. Fetch workout completion stats for last 30d vs previous 30d
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const isExerciseCompleted = (ex: any) =>
+      Boolean(ex.completedAt) || (Array.isArray(ex.sets) && ex.sets.some((s: any) => s.completed === true));
 
-    const [recentLogs, previousLogs] = await Promise.all([
-      WorkoutLog.find({ memberId: member._id, date: { $gte: thirtyDaysAgo } }),
-      WorkoutLog.find({ memberId: member._id, date: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
-    ]);
+    const isLogCompleted = (log: any) =>
+      Array.isArray(log.exercises) &&
+      log.exercises.length > 0 &&
+      log.exercises.every(isExerciseCompleted);
 
     const calcCompletionRate = (logs: any[]) => {
       if (logs.length === 0) return 100;
-      const completed = logs.filter((l) => l.isCompleted).length;
+      const completed = logs.filter(isLogCompleted).length;
       return (completed / logs.length) * 100;
     };
 
@@ -61,14 +71,31 @@ export class ChurnPredictionService {
 
     // 3. Compute streak information
     const streakBrokenDaysAgo = daysSinceLastVisit > 1 ? daysSinceLastVisit : undefined;
-    const previousStreakDays = 14; // Default baseline for streak evaluation
+    const previousStreakDays = gameStats?.longestStreak ?? 0;
 
-    // 4. Deterministic Risk Evaluation
+    // 4. Compute membership expiry and payment status
+    let daysUntilMembershipExpiry: number | undefined = undefined;
+    if (member.membershipEndDate) {
+      const diffMs = new Date(member.membershipEndDate).getTime() - now.getTime();
+      daysUntilMembershipExpiry = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    }
+
+    const hasOverduePayment = Boolean(
+      latestPayment &&
+        (latestPayment.status === PaymentStatus.FAILED ||
+          latestPayment.status === PaymentStatus.PENDING ||
+          (latestPayment.status as string) === 'failed' ||
+          (latestPayment.status as string) === 'overdue')
+    );
+
+    // 5. Deterministic Risk Evaluation
     const { riskLevel, riskFactors } = AIDataAggregatorService.calculateChurnRisk(
       daysSinceLastVisit,
       completionRateDropPercent,
       streakBrokenDaysAgo,
-      previousStreakDays
+      previousStreakDays,
+      daysUntilMembershipExpiry,
+      hasOverduePayment
     );
 
     // 5. Persist Assessment Result

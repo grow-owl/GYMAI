@@ -346,7 +346,7 @@ export default function DietPlans() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Daily Calories (kcal)</label>
                 <input

@@ -1,6 +1,9 @@
 import cron from 'node-cron';
 import { MembershipReminderJob } from './membershipReminder.job';
 import { BirthdayReminderJob } from './birthdayReminder.job';
+import { ChurnPredictionService } from '../modules/aiCoach/churnPrediction.service';
+import { Gym } from '../modules/gym/gym.model';
+import { GymStatus } from '../modules/gym/gym.types';
 import { logger } from '../config/logger';
 
 export function initCronJobs(): void {
@@ -23,6 +26,24 @@ export function initCronJobs(): void {
       await BirthdayReminderJob.runBirthdayWishes();
     } catch (error) {
       logger.error(`❌ Birthday wishes cron job failed: ${error}`);
+    }
+  });
+
+  // 3. Member Churn Risk Assessment — Runs daily at 9:30 AM
+  cron.schedule('30 9 * * *', async () => {
+    logger.info('📊 Executing daily member churn risk assessment cron job...');
+    try {
+      const activeGyms = await Gym.find({ status: GymStatus.ACTIVE, isDeleted: false }).select('_id');
+      for (const gym of activeGyms) {
+        try {
+          await ChurnPredictionService.assessAllActiveMembersChurnRisk(gym._id.toString());
+        } catch (err) {
+          logger.error(`❌ Churn risk assessment failed for gym [${gym._id}]: ${err}`);
+        }
+      }
+      logger.info('✅ Member churn risk assessment cron job completed');
+    } catch (error) {
+      logger.error(`❌ Member churn risk assessment cron job failed: ${error}`);
     }
   });
 

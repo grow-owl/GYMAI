@@ -257,7 +257,9 @@ export class AIDataAggregatorService {
     daysSinceLastVisit: number,
     completionRateDropPercent: number = 0,
     streakBrokenDaysAgo?: number,
-    previousStreakDays: number = 0
+    previousStreakDays: number = 0,
+    daysUntilMembershipExpiry?: number,
+    hasOverduePayment: boolean = false
   ): { riskLevel: 'low' | 'medium' | 'high'; riskFactors: string[] } {
     const riskFactors: string[] = [];
     let isHighRisk = false;
@@ -285,6 +287,23 @@ export class AIDataAggregatorService {
     ) {
       isMediumRisk = true;
       riskFactors.push(`${previousStreakDays}-day streak broken ${streakBrokenDaysAgo} days ago`);
+    }
+
+    // Rule 4: Membership Expiry (High Risk if expired, Medium Risk if expiring within 7 days)
+    if (daysUntilMembershipExpiry !== undefined) {
+      if (daysUntilMembershipExpiry < 0) {
+        isHighRisk = true;
+        riskFactors.push(`Membership expired ${Math.abs(daysUntilMembershipExpiry)} days ago`);
+      } else if (daysUntilMembershipExpiry <= 7) {
+        isMediumRisk = true;
+        riskFactors.push(`Membership expires in ${daysUntilMembershipExpiry} days`);
+      }
+    }
+
+    // Rule 5: Overdue/Failed Payment -> Medium Risk
+    if (hasOverduePayment) {
+      isMediumRisk = true;
+      riskFactors.push('Last payment is overdue/failed');
     }
 
     let riskLevel: 'low' | 'medium' | 'high' = 'low';

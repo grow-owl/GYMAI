@@ -80,10 +80,46 @@ export class OwnerInsightsService {
         const workoutAgg = await WorkoutLog.aggregate([
           { $match: { memberId: { $in: memberIds } } },
           {
+            $addFields: {
+              isLogCompleted: {
+                $and: [
+                  { $gt: [{ $size: { $ifNull: ['$exercises', []] } }, 0] },
+                  {
+                    $allElementsTrue: {
+                      $map: {
+                        input: '$exercises',
+                        as: 'ex',
+                        in: {
+                          $or: [
+                            { $ne: [{ $ifNull: ['$$ex.completedAt', null] }, null] },
+                            {
+                              $gt: [
+                                {
+                                  $size: {
+                                    $filter: {
+                                      input: { $ifNull: ['$$ex.sets', []] },
+                                      as: 's',
+                                      cond: { $eq: ['$$s.completed', true] },
+                                    },
+                                  },
+                                },
+                                0,
+                              ],
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
             $group: {
               _id: null,
               total: { $sum: 1 },
-              completed: { $sum: { $cond: ['$isCompleted', 1, 0] } },
+              completed: { $sum: { $cond: ['$isLogCompleted', 1, 0] } },
             },
           },
         ]);

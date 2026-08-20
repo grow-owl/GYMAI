@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink, Building2 } from "lucide-react";
 import { notificationApi, gymApi } from "@/lib/endpoints";
 import type { INotificationItem } from "@/lib/endpoints";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore, roleHome } from "@/store/authStore";
 import { useSearchStore } from "../../store/searchStore";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { toast } from "sonner";
@@ -520,7 +520,17 @@ export default function TopBar({
                 <button
                   onClick={() => {
                     setProfileOpen(false);
-                    navigate("/member/profile");
+                    if (user?.role === "MEMBER") {
+                      navigate("/member/profile");
+                    } else if (user?.role === "TRAINER") {
+                      navigate("/trainer/profile");
+                    } else if (user?.role === "BRANCH_MANAGER" || user?.role === "KIOSK") {
+                      navigate("/reception/profile");
+                    } else if (user?.role && roleHome[user.role]) {
+                      navigate(roleHome[user.role]);
+                    } else {
+                      navigate("/");
+                    }
                   }}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-(--color-text) hover:bg-(--color-surface-2)"
                 >

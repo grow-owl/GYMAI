@@ -348,29 +348,31 @@ export default function PerformanceCharts({
       {activeTab === "volume" && (
         <div className="space-y-4">
           <p className="text-xs text-(--color-text-muted)">Daily estimated weight lifted (kg) over current week</p>
-          <div className="grid grid-cols-7 gap-2 h-44 items-end pt-6 pb-2 px-3 bg-(--color-surface-2) rounded-2xl border border-(--color-border)">
-            {volumeData.map((item, idx) => {
-              const maxVol = 7000;
-              const heightPct = Math.round((item.volume / maxVol) * 100);
-              return (
-                <div key={idx} className="flex flex-col items-center h-full justify-end group">
-                  <span className="text-[10px] text-(--color-text-muted) font-mono mb-1 opacity-80 group-hover:opacity-100 transition-opacity font-bold">
-                    {item.volume > 0 ? `${(item.volume/1000).toFixed(1)}k` : "Rest"}
-                  </span>
-                  <div className="w-full max-w-[36px] bg-(--color-surface-3) rounded-t-lg overflow-hidden flex flex-col justify-end h-full border border-(--color-border)/40">
-                    <div
-                      className={`w-full rounded-t-lg transition-all duration-500 ${
-                        item.volume > 0
-                          ? "bg-(--color-accent) shadow-md"
-                          : "bg-(--color-surface-3)"
-                      }`}
-                      style={{ height: `${Math.max(12, heightPct)}%` }}
-                    />
+          <div className="overflow-x-auto pb-1">
+            <div className="grid grid-cols-7 gap-2 h-44 items-end pt-6 pb-2 px-3 bg-(--color-surface-2) rounded-2xl border border-(--color-border) min-w-[380px] sm:min-w-0">
+              {volumeData.map((item, idx) => {
+                const maxVol = 7000;
+                const heightPct = Math.round((item.volume / maxVol) * 100);
+                return (
+                  <div key={idx} className="flex flex-col items-center h-full justify-end group">
+                    <span className="text-[10px] text-(--color-text-muted) font-mono mb-1 opacity-80 group-hover:opacity-100 transition-opacity font-bold">
+                      {item.volume > 0 ? `${(item.volume/1000).toFixed(1)}k` : "Rest"}
+                    </span>
+                    <div className="w-full max-w-[36px] bg-(--color-surface-3) rounded-t-lg overflow-hidden flex flex-col justify-end h-full border border-(--color-border)/40">
+                      <div
+                        className={`w-full rounded-t-lg transition-all duration-500 ${
+                          item.volume > 0
+                            ? "bg-(--color-accent) shadow-md"
+                            : "bg-(--color-surface-3)"
+                        }`}
+                        style={{ height: `${Math.max(12, heightPct)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-(--color-text) mt-2">{item.day}</span>
                   </div>
-                  <span className="text-xs font-bold text-(--color-text) mt-2">{item.day}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

@@ -42,6 +42,7 @@ const WorkoutPlans = lazy(() => import("@/pages/trainer/WorkoutPlans"));
 const DietPlans = lazy(() => import("@/pages/trainer/DietPlans"));
 const TrainerProgress = lazy(() => import("@/pages/trainer/Progress"));
 const RecoveryAlerts = lazy(() => import("@/pages/trainer/RecoveryAlerts"));
+const TrainerProfile = lazy(() => import("@/pages/trainer/Profile"));
 
 // Lazy-loaded Member pages
 const MemberHome = lazy(() => import("@/pages/member/MemberHome"));
@@ -62,6 +63,7 @@ const MemberSearch = lazy(() => import("@/pages/reception/MemberSearch"));
 const CheckIn = lazy(() => import("@/pages/reception/CheckIn"));
 const ReceptionLeads = lazy(() => import("@/pages/reception/Leads"));
 const ReceptionPayments = lazy(() => import("@/pages/reception/Payments"));
+const ReceptionProfile = lazy(() => import("@/pages/reception/Profile"));
 const AdminPanel = lazy(() => import("@/pages/admin/AdminPanel"));
 const AdminShell = lazy(() => import("@/components/layout/AdminShell"));
 const Gyms = lazy(() => import("@/pages/admin/Gyms"));
@@ -209,6 +211,7 @@ export default function App() {
                   <Route path="diet-plans" element={<DietPlans />} />
                   <Route path="progress" element={<TrainerProgress />} />
                   <Route path="recovery-alerts" element={<RecoveryAlerts />} />
+                  <Route path="profile" element={<TrainerProfile />} />
                   <Route path="notifications" element={<Notifications />} />
                 </Route>
               </Route>
@@ -222,6 +225,7 @@ export default function App() {
                   <Route path="check-in" element={<CheckIn />} />
                   <Route path="leads" element={<ReceptionLeads />} />
                   <Route path="payments" element={<ReceptionPayments />} />
+                  <Route path="profile" element={<ReceptionProfile />} />
                   <Route path="notifications" element={<Notifications />} />
                 </Route>
               </Route>

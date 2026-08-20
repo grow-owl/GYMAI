@@ -218,17 +218,17 @@ export default function WorkoutTracking() {
 
           {/* Session Performance Summary Card */}
           <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-(--color-surface-3) border border-(--color-border-soft) text-center">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint)">Exercises</p>
-              <p className="text-base font-extrabold text-(--color-text) mt-0.5">{lastSummary?.exerciseCount}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint) truncate">Exercises</p>
+              <p className="text-base font-extrabold text-(--color-text) mt-0.5 truncate">{lastSummary?.exerciseCount}</p>
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint)">Total Sets</p>
-              <p className="text-base font-extrabold text-(--color-text) mt-0.5">{lastSummary?.totalSets}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint) truncate">Total Sets</p>
+              <p className="text-base font-extrabold text-(--color-text) mt-0.5 truncate">{lastSummary?.totalSets}</p>
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint)">Total Volume</p>
-              <p className="text-base font-extrabold text-amber-400 mt-0.5">{lastSummary?.totalVolume?.toLocaleString()} kg</p>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-(--color-text-faint) truncate">Total Volume</p>
+              <p className="text-base font-extrabold text-amber-400 mt-0.5 truncate">{lastSummary?.totalVolume?.toLocaleString()} kg</p>
             </div>
           </div>
 
@@ -318,8 +318,8 @@ export default function WorkoutTracking() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div>
-                    <label className="text-(--color-text-faint)">Sets</label>
+                  <div className="min-w-0">
+                    <label className="text-(--color-text-faint) block truncate">Sets</label>
                     <input
                       type="number"
                       min={1}
@@ -332,8 +332,8 @@ export default function WorkoutTracking() {
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
                     />
                   </div>
-                  <div>
-                    <label className="text-(--color-text-faint)">Reps</label>
+                  <div className="min-w-0">
+                    <label className="text-(--color-text-faint) block truncate">Reps</label>
                     <input
                       type="number"
                       min={1}
@@ -346,8 +346,8 @@ export default function WorkoutTracking() {
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
                     />
                   </div>
-                  <div>
-                    <label className="text-(--color-text-faint)">Weight (kg)</label>
+                  <div className="min-w-0">
+                    <label className="text-(--color-text-faint) block truncate">Weight (kg)</label>
                     <input
                       type="number"
                       min={0}

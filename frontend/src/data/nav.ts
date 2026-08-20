@@ -39,6 +39,7 @@ export const trainerNav = [
   { label: "Diet Plans", path: "/trainer/diet-plans", icon: "Salad" },
   { label: "Progress", path: "/trainer/progress", icon: "LineChart" },
   { label: "Recovery Alerts", path: "/trainer/recovery-alerts", icon: "HeartPulse" },
+  { label: "Profile", path: "/trainer/profile", icon: "User" },
 ];
 
 export const receptionNav = [
@@ -48,6 +49,7 @@ export const receptionNav = [
   { label: "Payments", path: "/reception/payments", icon: "CreditCard" },
   { label: "Leads", path: "/reception/leads", icon: "Target" },
   { label: "Check-in", path: "/reception/check-in", icon: "QrCode" },
+  { label: "Profile", path: "/reception/profile", icon: "User" },
 ];
 
 export const memberNav = [
