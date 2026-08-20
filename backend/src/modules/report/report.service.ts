@@ -171,7 +171,15 @@ export class ReportService {
       recordedAt: { $gte: periodStart, $lte: periodEnd },
     };
 
-    if (scope.memberId) {
+    if (scope.branchId && !scope.memberId) {
+      const branchMembers = await Member.find({
+        gymId: new mongoose.Types.ObjectId(gymId),
+        branchId: new mongoose.Types.ObjectId(scope.branchId),
+        isDeleted: false,
+      }).select('_id');
+      const memberIds = branchMembers.map((m) => m._id);
+      matchFilter.memberId = { $in: memberIds };
+    } else if (scope.memberId) {
       matchFilter.memberId = new mongoose.Types.ObjectId(scope.memberId);
     }
 
@@ -229,10 +237,15 @@ export class ReportService {
       completedAt: { $gte: periodStart, $lte: periodEnd },
     };
 
-    if (scope.branchId) {
-      matchFilter.branchId = new mongoose.Types.ObjectId(scope.branchId);
-    }
-    if (scope.memberId) {
+    if (scope.branchId && !scope.memberId) {
+      const branchMembers = await Member.find({
+        gymId: new mongoose.Types.ObjectId(gymId),
+        branchId: new mongoose.Types.ObjectId(scope.branchId),
+        isDeleted: false,
+      }).select('_id');
+      const memberIds = branchMembers.map((m) => m._id);
+      matchFilter.memberId = { $in: memberIds };
+    } else if (scope.memberId) {
       matchFilter.memberId = new mongoose.Types.ObjectId(scope.memberId);
     }
 
@@ -323,7 +336,15 @@ export class ReportService {
       periodEnd: { $lte: periodEnd },
     };
 
-    if (scope.memberId) {
+    if (scope.branchId && !scope.memberId) {
+      const branchMembers = await Member.find({
+        gymId: new mongoose.Types.ObjectId(gymId),
+        branchId: new mongoose.Types.ObjectId(scope.branchId),
+        isDeleted: false,
+      }).select('_id');
+      const memberIds = branchMembers.map((m) => m._id);
+      matchFilter.memberId = { $in: memberIds };
+    } else if (scope.memberId) {
       matchFilter.memberId = new mongoose.Types.ObjectId(scope.memberId);
     }
 
@@ -359,7 +380,15 @@ export class ReportService {
       createdAt: { $gte: periodStart, $lte: periodEnd },
     };
 
-    if (scope.memberId) {
+    if (scope.branchId && !scope.memberId) {
+      const branchMembers = await Member.find({
+        gymId: new mongoose.Types.ObjectId(gymId),
+        branchId: new mongoose.Types.ObjectId(scope.branchId),
+        isDeleted: false,
+      }).select('_id');
+      const memberIds = branchMembers.map((m) => m._id);
+      matchFilter.memberId = { $in: memberIds };
+    } else if (scope.memberId) {
       matchFilter.memberId = new mongoose.Types.ObjectId(scope.memberId);
     }
 

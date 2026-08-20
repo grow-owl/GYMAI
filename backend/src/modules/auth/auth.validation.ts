@@ -46,7 +46,8 @@ export const registerOwnerSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
-    .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number'),
+    .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number')
+    .optional(),
   gymName: z.string().min(2, 'Gym name must be at least 2 characters').trim(),
   branchName: z.string().trim().optional(),
   plan: z.enum(['TRIAL', 'BASIC', 'PRO', 'ENTERPRISE']).optional(),

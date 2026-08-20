@@ -80,13 +80,13 @@ gymMemberRouter.patch(
 
 gymMemberRouter.delete(
   '/:gymId/members/:memberId',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   MemberController.softDeleteMember
 );
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId/assign-trainer',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(assignTrainerSchema, 'body'),
   MemberController.assignTrainer
 );
@@ -114,7 +114,7 @@ gymMemberRouter.patch(
 
 gymMemberRouter.patch(
   '/:gymId/members/:memberId/cancel',
-  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(cancelMembershipSchema, 'body'),
   MemberController.cancelMembership
 );

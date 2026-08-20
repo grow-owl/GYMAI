@@ -3,6 +3,7 @@ import { MemberPaymentService } from '../payment/memberPayment.service';
 import { ExpenseService } from '../expense/expense.service';
 import { Trainer } from '../trainer/trainer.model';
 import { Member } from '../member/member.model';
+import { MemberPayment } from '../payment/memberPayment.model';
 import { Attendance } from '../attendance/attendance.model';
 import { WorkoutLog } from '../workout/workoutLog.model';
 import { ChurnPredictionService } from './churnPrediction.service';
@@ -255,65 +256,87 @@ export class OwnerInsightsService {
    * Plan Profitability & Average Member Lifetime Analysis
    */
   public static async getPlanProfitabilityAnalysis(gymId: string): Promise<any[]> {
-    const planAgg = await Member.aggregate([
-      {
-        $match: {
-          gymId: new mongoose.Types.ObjectId(gymId),
-          isDeleted: false,
-        },
-      },
-      {
-        $project: {
-          planName: 1,
-          membershipStartDate: 1,
-          membershipEndDate: 1,
-          durationDays: {
-            $divide: [
-              { $subtract: ['$membershipEndDate', '$membershipStartDate'] },
-              1000 * 60 * 60 * 24,
-            ],
+    const [planAgg, revenueAgg] = await Promise.all([
+      Member.aggregate([
+        {
+          $match: {
+            gymId: new mongoose.Types.ObjectId(gymId),
+            isDeleted: false,
           },
         },
-      },
-      {
-        $group: {
-          _id: '$planName',
-          memberCount: { $sum: 1 },
-          avgLifetimeDays: { $avg: '$durationDays' },
+        {
+          $project: {
+            planName: 1,
+            membershipStartDate: 1,
+            membershipEndDate: 1,
+            durationDays: {
+              $divide: [
+                { $subtract: ['$membershipEndDate', '$membershipStartDate'] },
+                1000 * 60 * 60 * 24,
+              ],
+            },
+          },
         },
-      },
+        {
+          $group: {
+            _id: '$planName',
+            memberCount: { $sum: 1 },
+            avgLifetimeDays: { $avg: '$durationDays' },
+          },
+        },
+      ]),
+      MemberPayment.aggregate([
+        {
+          $match: {
+            gymId: new mongoose.Types.ObjectId(gymId),
+            isDeleted: { $ne: true },
+          },
+        },
+        {
+          $lookup: {
+            from: 'members',
+            localField: 'memberId',
+            foreignField: '_id',
+            as: 'member',
+          },
+        },
+        {
+          $unwind: '$member',
+        },
+        {
+          $match: {
+            'member.isDeleted': false,
+          },
+        },
+        {
+          $group: {
+            _id: { $ifNull: ['$member.planName', 'Standard'] },
+            totalRevenue: { $sum: '$amount' },
+          },
+        },
+      ]),
     ]);
 
-    const result = await Promise.all(
-      planAgg.map(async (plan) => {
-        const planName = plan._id || 'Standard';
-        const memberCount = plan.memberCount;
-        const avgLifetimeDays = Math.round(plan.avgLifetimeDays || 30);
+    const revenueMap = new Map<string, number>();
+    for (const rev of revenueAgg) {
+      if (rev._id) {
+        revenueMap.set(rev._id, rev.totalRevenue || 0);
+      }
+    }
 
-        // Fetch total revenue for members on this plan
-        const membersOnPlan = await Member.find({
-          gymId: new mongoose.Types.ObjectId(gymId),
-          planName,
-          isDeleted: false,
-        }).select('_id');
+    const result = planAgg.map((plan) => {
+      const planName = plan._id || 'Standard';
+      const memberCount = plan.memberCount;
+      const avgLifetimeDays = Math.round(plan.avgLifetimeDays || 30);
+      const totalRevenue = revenueMap.get(planName) || 0;
 
-        const memberIds = membersOnPlan.map((m) => m._id);
-
-        const paymentAgg = await MemberPaymentService.listPayments(gymId, {}, { limit: 1000 });
-        const planPayments = paymentAgg.payments.filter((p) =>
-          memberIds.some((id) => id.toString() === p.memberId.toString())
-        );
-
-        const totalRevenue = planPayments.reduce((sum, p) => sum + p.amount, 0);
-
-        return {
-          planName,
-          memberCount,
-          avgLifetimeDays,
-          totalRevenue,
-        };
-      })
-    );
+      return {
+        planName,
+        memberCount,
+        avgLifetimeDays,
+        totalRevenue,
+      };
+    });
 
     return result.sort((a, b) => b.totalRevenue - a.totalRevenue);
   }

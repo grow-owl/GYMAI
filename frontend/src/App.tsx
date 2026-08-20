@@ -48,6 +48,7 @@ const TrainerProfile = lazy(() => import("@/pages/trainer/Profile"));
 const MemberHome = lazy(() => import("@/pages/member/MemberHome"));
 const WorkoutPlan = lazy(() => import("@/pages/member/WorkoutPlan"));
 const WorkoutTracking = lazy(() => import("@/pages/member/WorkoutTracking"));
+const WorkoutHistory = lazy(() => import("@/pages/member/WorkoutHistory"));
 const DietPlan = lazy(() => import("@/pages/member/DietPlan"));
 const AICoach = lazy(() => import("@/pages/member/AICoach"));
 const MemberAttendance = lazy(() => import("@/pages/member/Attendance"));
@@ -59,7 +60,6 @@ const Referral = lazy(() => import("@/pages/member/Referral"));
 
 // Lazy-loaded Reception & Admin pages
 const ReceptionDashboard = lazy(() => import("@/pages/reception/ReceptionDashboard"));
-const MemberSearch = lazy(() => import("@/pages/reception/MemberSearch"));
 const CheckIn = lazy(() => import("@/pages/reception/CheckIn"));
 const ReceptionLeads = lazy(() => import("@/pages/reception/Leads"));
 const ReceptionPayments = lazy(() => import("@/pages/reception/Payments"));
@@ -221,7 +221,6 @@ export default function App() {
                   <Route index element={<ReceptionDashboard />} />
                   <Route path="members" element={<Members />} />
                   <Route path="inventory" element={<Inventory />} />
-                  <Route path="search" element={<MemberSearch />} />
                   <Route path="check-in" element={<CheckIn />} />
                   <Route path="leads" element={<ReceptionLeads />} />
                   <Route path="payments" element={<ReceptionPayments />} />
@@ -235,6 +234,7 @@ export default function App() {
                   <Route index element={<MemberHome />} />
                   <Route path="workout-plan" element={<WorkoutPlan />} />
                   <Route path="workout-tracking" element={<WorkoutTracking />} />
+                  <Route path="workout-history" element={<WorkoutHistory />} />
                   <Route path="diet-plan" element={<DietPlan />} />
                   <Route path="ai-coach" element={<AICoach />} />
                   <Route path="attendance" element={<MemberAttendance />} />

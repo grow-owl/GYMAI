@@ -38,11 +38,11 @@ export const authApi = {
     fullName: string;
     email: string;
     phone: string;
-    password: string;
+    password?: string;
     gymName: string;
     branchName?: string;
     plan?: string;
-  }) => api.post<{ user: AuthUser; gym: any; primaryBranch: any }>("/auth/register-owner", input),
+  }) => api.post<{ user: AuthUser; gym: any; primaryBranch: any; tempPassword?: string }>("/auth/register-owner", input),
 
   adminResetPassword: (userId: string, newPassword: string) =>
     api.patch<{ message: string }>(`/auth/users/${userId}/reset-password`, { newPassword }),
@@ -301,7 +301,8 @@ export const workoutApi = {
   completeWorkoutLog: (logId: string) =>
     api.patch<any>(`/workout-logs/${logId}/complete`),
 
-  getHistory: (memberId: string) => api.get<any[]>(`/members/${memberId}/workout-logs`),
+  getHistory: (memberId: string, page = 1, limit = 10) =>
+    api.get<{ logs: any[]; meta?: any }>(`/members/${memberId}/workout-logs?page=${page}&limit=${limit}`),
 
   getCompletionStats: (memberId: string) => api.get<any>(`/members/${memberId}/workout-stats`),
 };

@@ -63,20 +63,18 @@ export default function Gyms() {
     setSubmitting(true);
     setTempCredentials(null);
 
-    const generatedPass = Math.random().toString(36).slice(-10) + "A1!";
-
     try {
-      await authApi.registerOwner({
+      const res = await authApi.registerOwner({
         fullName: values.ownerName,
         email: values.ownerEmail,
         phone: values.ownerPhone,
-        password: generatedPass,
         gymName: values.name,
         branchName: "Main Branch",
         plan: values.subscriptionPlan,
       });
 
-      setTempCredentials({ email: values.ownerEmail, pass: generatedPass });
+      const serverPass = res?.tempPassword || "";
+      setTempCredentials({ email: values.ownerEmail, pass: serverPass });
       setIsModalOpen(false);
       resetForm();
       fetchGyms();

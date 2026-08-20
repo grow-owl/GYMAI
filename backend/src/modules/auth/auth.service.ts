@@ -346,21 +346,23 @@ export class AuthService {
     fullName: string;
     email: string;
     phone: string;
-    password: string;
+    password?: string;
     gymName: string;
     branchName?: string;
     plan?: any;
-  }): Promise<{ user: IUser; gym: any; primaryBranch: any }> {
+  }): Promise<{ user: IUser; gym: any; primaryBranch: any; tempPassword: string }> {
     const existing = await User.findOne({ email: input.email.toLowerCase(), isDeleted: false });
     if (existing) {
       throw AppError.conflict('An active user account with this email address already exists');
     }
 
+    const tempPassword = `${crypto.randomBytes(6).toString('hex')}A1!`;
+
     const user = new User({
       fullName: input.fullName,
       email: input.email.toLowerCase(),
       phone: input.phone,
-      password: input.password,
+      password: tempPassword,
       role: Role.GYM_OWNER,
       isActive: true,
     });
@@ -375,7 +377,7 @@ export class AuthService {
     });
 
     logger.info(`👑 Gym Owner created by SuperAdmin: [Owner ID: ${user._id}] [Gym: ${gym.name}]`);
-    return { user, gym, primaryBranch };
+    return { user, gym, primaryBranch, tempPassword };
   }
 
   /**

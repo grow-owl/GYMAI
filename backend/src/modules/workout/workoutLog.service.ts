@@ -121,7 +121,6 @@ export class WorkoutLogService {
       exercises: loggedExercises,
       startedAt: input.loggedAt ? new Date(input.loggedAt) : new Date(),
       completedAt: isBatchCompleted ? (input.loggedAt ? new Date(input.loggedAt) : new Date()) : undefined,
-      completed: isBatchCompleted,
       dayKey,
     });
 

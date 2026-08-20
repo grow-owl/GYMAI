@@ -126,7 +126,12 @@ export class AuthController {
   public static registerOwner = asyncHandler(async (req: Request, res: Response) => {
     const result = await AuthService.registerGymOwnerBySuperAdmin(req.body);
     const safeUser = result.user.toSafeJSON ? result.user.toSafeJSON() : result.user;
-    return sendSuccess(res, { user: safeUser, gym: result.gym, primaryBranch: result.primaryBranch }, 'Gym Owner and Gym Organization created successfully by Super Admin', 201);
+    return sendSuccess(
+      res,
+      { user: safeUser, gym: result.gym, primaryBranch: result.primaryBranch, tempPassword: result.tempPassword },
+      'Gym Owner and Gym Organization created successfully by Super Admin',
+      201
+    );
   });
 
   public static adminResetPassword = asyncHandler(async (req: Request, res: Response) => {

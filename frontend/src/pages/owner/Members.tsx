@@ -179,8 +179,9 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
   const filteredMembers = memberList.filter((m) => {
     const name = m.fullName || m.name || m.userId?.fullName || "";
     const phone = m.phone || m.userId?.phone || "";
+    const qr = m.qrCode || m.qrCodeId || "";
     const q = search.toLowerCase();
-    return name.toLowerCase().includes(q) || phone.toLowerCase().includes(q);
+    return name.toLowerCase().includes(q) || phone.toLowerCase().includes(q) || qr.toLowerCase().includes(q);
   });
 
   return (
@@ -215,7 +216,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone number..."
+            placeholder="Search by name, phone number, or QR ID..."
             className="w-full rounded-xl border border-(--color-border) bg-(--color-base) pl-9 pr-4 py-2 text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
           />
         </div>

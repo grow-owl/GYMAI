@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Dumbbell, Plus, CheckCircle, Loader2, RefreshCw, Trophy, Sparkles, ArrowRight, Activity } from "lucide-react";
+import { Dumbbell, Plus, CheckCircle, Loader2, RefreshCw, Trophy, Sparkles, ArrowRight, Activity, History } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import CustomSelect from "@/components/ui/CustomSelect";
@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 interface ExerciseSet {
+  exerciseId?: string;
   exerciseName: string;
   sets: number;
   reps: number;
@@ -59,6 +60,7 @@ export default function WorkoutTracking() {
   const [routines, setRoutines] = useState(PRESET_ROUTINES);
   const [routineIndex, setRoutineIndex] = useState(0);
   const [routineName, setRoutineName] = useState(PRESET_ROUTINES[0].name);
+  const [isPresetRoutine, setIsPresetRoutine] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -92,7 +94,8 @@ export default function WorkoutTracking() {
           const mappedRoutines = plan.days.map((day: any, idx: number) => ({
             name: day.title || day.dayName || `Workout Day ${idx + 1}`,
             exercises: (day.exercises || []).map((ex: any) => ({
-              exerciseName: ex.name || ex.exerciseName || "Exercise",
+              exerciseId: ex.exerciseId?._id || ex.exerciseId || undefined,
+              exerciseName: ex.name || ex.exerciseName || ex.exerciseId?.name || "Exercise",
               sets: Number(ex.sets) || 3,
               reps: Number(ex.reps) || 10,
               weightKg: Number(ex.weightKg) || 20,
@@ -102,6 +105,7 @@ export default function WorkoutTracking() {
             setRoutines(mappedRoutines);
             setRoutineName(mappedRoutines[0].name);
             setLoggedSets(mappedRoutines[0].exercises.length > 0 ? mappedRoutines[0].exercises : PRESET_ROUTINES[0].exercises);
+            setIsPresetRoutine(false);
           }
         }
       }
@@ -117,8 +121,13 @@ export default function WorkoutTracking() {
   }, [user]);
 
   const handleAddSetRow = () => {
-    const defaultEx = exercises[0]?.name || "Bench Press";
-    setLoggedSets([...loggedSets, { exerciseName: defaultEx, sets: 3, reps: 10, weightKg: 40 }]);
+    const defaultObj = exercises[0];
+    const defaultExName = defaultObj?.name || "Bench Press";
+    const defaultExId = defaultObj?._id || defaultObj?.id || undefined;
+    setLoggedSets([
+      ...loggedSets,
+      { exerciseId: defaultExId, exerciseName: defaultExName, sets: 3, reps: 10, weightKg: 40 },
+    ]);
   };
 
   const handleSaveWorkout = async () => {
@@ -129,22 +138,10 @@ export default function WorkoutTracking() {
 
     setSubmitting(true);
     try {
-      const res = await workoutApi.logWorkout({
+      await workoutApi.logWorkout({
         loggedAt: new Date().toISOString(),
         exercises: loggedSets,
       });
-
-      const logId = res?._id || res?.id || res?.log?._id;
-      if (logId) {
-        for (const item of loggedSets) {
-          const exId = item.exerciseName.toLowerCase().replace(/\s+/g, "-");
-          for (let s = 1; s <= item.sets; s++) {
-            await workoutApi.logSetProgress(logId, exId, s, { reps: item.reps, weightKg: item.weightKg, completed: true }).catch(() => null);
-          }
-          await workoutApi.markExerciseComplete(logId, exId).catch(() => null);
-        }
-        await workoutApi.completeWorkoutLog(logId).catch(() => null);
-      }
 
       const totalVolume = loggedSets.reduce((sum, s) => sum + s.sets * s.reps * s.weightKg, 0);
       const totalSets = loggedSets.reduce((sum, s) => sum + s.sets, 0);
@@ -178,7 +175,19 @@ export default function WorkoutTracking() {
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto w-full">
-      <PageHeader title="Workout Tracker" subtitle="Log your sets & weights" backTo="/member" />
+      <PageHeader
+        title="Workout Tracker"
+        subtitle="Log your sets & weights"
+        backTo="/member"
+        action={
+          <Link
+            to="/member/workout-history"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text) hover:bg-(--color-surface-3) border border-(--color-border-soft) transition-all"
+          >
+            <History size={14} className="text-(--color-accent)" /> History
+          </Link>
+        }
+      />
 
       {loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -278,6 +287,13 @@ export default function WorkoutTracking() {
             </button>
           </div>
 
+          {isPresetRoutine && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+              <Sparkles size={16} className="shrink-0 text-amber-400" />
+              <span>Suggested starter routine — ask your trainer for a personalized plan.</span>
+            </div>
+          )}
+
           <div className="space-y-3">
             {loggedSets.map((set, idx) => (
               <div key={idx} className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border-soft) space-y-2">
@@ -286,8 +302,10 @@ export default function WorkoutTracking() {
                     <CustomSelect
                       value={set.exerciseName}
                       onChange={(v) => {
+                        const matchedEx = exercises.find((ex) => ex.name === v);
                         const updated = [...loggedSets];
                         updated[idx].exerciseName = v;
+                        updated[idx].exerciseId = matchedEx?._id || matchedEx?.id || undefined;
                         setLoggedSets(updated);
                       }}
                       compact
