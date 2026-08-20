@@ -17,7 +17,11 @@ router.post(
   validate(logWeightSchema, 'body'),
   ProgressController.logWeight
 );
-router.get(['/weight/history', '/weight/history/:memberId'], ProgressController.getWeightHistory);
+router.get(
+  ['/weight/history', '/weight/history/:memberId'],
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  ProgressController.getWeightHistory
+);
 
 router.post(
   '/photos',
@@ -25,7 +29,11 @@ router.post(
   validate(uploadProgressPhotoSchema, 'body'),
   ProgressController.uploadProgressPhoto
 );
-router.get('/photos', ProgressController.getProgressPhotos);
+router.get(
+  ['/photos', '/photos/:memberId'],
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  ProgressController.getProgressPhotos
+);
 
 router.patch(
   '/wellness',
@@ -33,7 +41,11 @@ router.patch(
   validate(logWellnessSchema, 'body'),
   ProgressController.logWellness
 );
-router.get('/wellness/history', ProgressController.getWellnessHistory);
+router.get(
+  ['/wellness/history', '/wellness/history/:memberId'],
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  ProgressController.getWellnessHistory
+);
 
 router.post(
   '/diet-log',
@@ -41,8 +53,16 @@ router.post(
   validate(logMealSchema, 'body'),
   ProgressController.logDietMeal
 );
-router.get('/diet-log', ProgressController.getDietLogs);
+router.get(
+  ['/diet-log', '/diet-log/:memberId'],
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  ProgressController.getDietLogs
+);
 
-router.get('/summary', ProgressController.getProgressSummary);
+router.get(
+  ['/summary', '/summary/:memberId'],
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  ProgressController.getProgressSummary
+);
 
 export default router;

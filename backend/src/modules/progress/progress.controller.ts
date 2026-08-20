@@ -2,13 +2,16 @@ import { Request, Response } from 'express';
 import { ProgressService } from './progress.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { validateMemberAccess } from '../../common/utils/authorization';
+import { Role } from '../../common/constants/roles.enum';
 
 export class ProgressController {
   public static logWeight = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.body.memberId || req.user!.id;
+    const requestedMemberId = req.body.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
     const date = req.body.date ? new Date(req.body.date) : new Date();
     const entry = await ProgressService.logWeight(
-      memberId,
+      validatedMember._id.toString(),
       req.body.weightKg,
       date,
       req.body.heightCm,
@@ -18,57 +21,65 @@ export class ProgressController {
   });
 
   public static getWeightHistory = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
-    const { history, meta } = await ProgressService.getWeightHistory(memberId, req.query);
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const { history, meta } = await ProgressService.getWeightHistory(validatedMember._id.toString(), req.query);
     return sendSuccess(res, { history }, 'Weight history retrieved successfully', 200, {
       pagination: meta,
     });
   });
 
   public static uploadProgressPhoto = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.user!.id;
-    const photo = await ProgressService.uploadProgressPhoto(memberId, req.body.imageUrl, req.body.angle);
+    const requestedMemberId = req.user!.id;
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const photo = await ProgressService.uploadProgressPhoto(validatedMember._id.toString(), req.body.imageUrl, req.body.angle);
     return sendSuccess(res, { photo }, 'Progress photo recorded successfully', 201);
   });
 
   public static getProgressPhotos = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
     const angle = req.query.angle as 'front' | 'side' | 'back' | undefined;
-    const { photos, meta } = await ProgressService.getProgressPhotos(memberId, angle, req.query);
+    const { photos, meta } = await ProgressService.getProgressPhotos(validatedMember._id.toString(), angle, req.query);
     return sendSuccess(res, { photos }, 'Progress photos retrieved successfully', 200, {
       pagination: meta,
     });
   });
 
   public static logWellness = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.user!.id;
-    const wellness = await ProgressService.logWellness(memberId, req.body);
+    const requestedMemberId = req.user!.id;
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const wellness = await ProgressService.logWellness(validatedMember._id.toString(), req.body);
     return sendSuccess(res, { wellness }, 'Daily wellness logged successfully', 200);
   });
 
   public static getWellnessHistory = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
-    const { history, meta } = await ProgressService.getWellnessHistory(memberId, req.query);
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const { history, meta } = await ProgressService.getWellnessHistory(validatedMember._id.toString(), req.query);
     return sendSuccess(res, { history }, 'Wellness history retrieved successfully', 200, {
       pagination: meta,
     });
   });
 
   public static getProgressSummary = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
-    const summary = await ProgressService.getProgressSummary(memberId);
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const summary = await ProgressService.getProgressSummary(validatedMember._id.toString());
     return sendSuccess(res, { summary }, 'Progress summary snapshot retrieved successfully');
   });
 
   public static logDietMeal = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.user!.id;
-    const wellness = await ProgressService.logDietMeal(memberId, req.body);
+    const requestedMemberId = req.user!.id;
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const wellness = await ProgressService.logDietMeal(validatedMember._id.toString(), req.body);
     return sendSuccess(res, { wellness }, 'Diet meal logged successfully', 201);
   });
 
   public static getDietLogs = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
-    const dietLogs = await ProgressService.getDietLogs(memberId, req.query);
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const dietLogs = await ProgressService.getDietLogs(validatedMember._id.toString(), req.query);
     return sendSuccess(res, { dietLogs }, 'Diet logs retrieved successfully');
   });
 }

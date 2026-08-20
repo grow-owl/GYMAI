@@ -17,8 +17,16 @@ memberPlanRouter.post(
   validate(createWorkoutPlanSchema, 'body'),
   WorkoutPlanController.createWorkoutPlan
 );
-memberPlanRouter.get('/', WorkoutPlanController.listPlans);
-memberPlanRouter.get('/active', WorkoutPlanController.getActivePlan);
+memberPlanRouter.get(
+  '/',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  WorkoutPlanController.listPlans
+);
+memberPlanRouter.get(
+  '/active',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  WorkoutPlanController.getActivePlan
+);
 
 // Direct Plan Routes (/api/v1/workout-plans/...)
 generalPlanRouter.use(authenticate);

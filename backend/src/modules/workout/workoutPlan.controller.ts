@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { WorkoutPlanService } from './workoutPlan.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { validateMemberAccess } from '../../common/utils/authorization';
 import { Role } from '../../common/constants/roles.enum';
 
 export class WorkoutPlanController {
@@ -20,18 +21,20 @@ export class WorkoutPlanController {
   });
 
   public static getActivePlan = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
     const gymId = req.user?.gymId?.toString() || req.params.gymId;
 
-    const plan = await WorkoutPlanService.getActivePlanForMember(memberId, gymId);
+    const plan = await WorkoutPlanService.getActivePlanForMember(validatedMember._id.toString(), gymId);
     return sendSuccess(res, { plan }, 'Active workout plan retrieved successfully');
   });
 
   public static listPlans = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
     const gymId = req.user?.gymId?.toString() || req.params.gymId;
 
-    const { plans, meta } = await WorkoutPlanService.listWorkoutPlans(memberId, req.query, gymId);
+    const { plans, meta } = await WorkoutPlanService.listWorkoutPlans(validatedMember._id.toString(), req.query, gymId);
     return sendSuccess(res, { plans }, 'Workout plans retrieved successfully', 200, {
       pagination: meta,
     });

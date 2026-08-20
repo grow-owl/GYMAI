@@ -6,6 +6,7 @@ import { Branch } from '../gym/branch.model';
 import { GamificationService } from '../gamification/gamification.service';
 import { IWorkoutLog, WorkoutCompletionStats } from './workoutLog.types';
 import { AppError } from '../../common/utils/AppError';
+import { validateMemberAccess, ActingUser } from '../../common/utils/authorization';
 import { getDayKeyForBranch } from '../../common/utils/timezone';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 import { logger } from '../../config/logger';
@@ -145,13 +146,18 @@ export class WorkoutLogService {
   public static async logSetProgress(
     workoutLogId: string,
     setData: LogSetInput,
-    gymId?: string
+    gymId?: string,
+    actingUser?: ActingUser
   ): Promise<IWorkoutLog> {
     const filter: any = { _id: workoutLogId };
     if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
     const log = await WorkoutLog.findOne(filter);
     if (!log) {
       throw AppError.notFound('Workout log not found');
+    }
+
+    if (actingUser) {
+      await validateMemberAccess(actingUser, log.memberId.toString());
     }
 
     const exerciseObjectId = new mongoose.Types.ObjectId(setData.exerciseId);
@@ -197,13 +203,18 @@ export class WorkoutLogService {
   public static async markExerciseComplete(
     workoutLogId: string,
     exerciseId: string,
-    gymId?: string
+    gymId?: string,
+    actingUser?: ActingUser
   ): Promise<IWorkoutLog> {
     const filter: any = { _id: workoutLogId };
     if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
     const log = await WorkoutLog.findOne(filter);
     if (!log) {
       throw AppError.notFound('Workout log not found');
+    }
+
+    if (actingUser) {
+      await validateMemberAccess(actingUser, log.memberId.toString());
     }
 
     const exerciseObjectId = new mongoose.Types.ObjectId(exerciseId);
@@ -221,12 +232,20 @@ export class WorkoutLogService {
   /**
    * Complete entire Workout Log
    */
-  public static async completeWorkoutLog(workoutLogId: string, gymId?: string): Promise<IWorkoutLog> {
+  public static async completeWorkoutLog(
+    workoutLogId: string,
+    gymId?: string,
+    actingUser?: ActingUser
+  ): Promise<IWorkoutLog> {
     const filter: any = { _id: workoutLogId };
     if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
     const log = await WorkoutLog.findOne(filter);
     if (!log) {
       throw AppError.notFound('Workout log not found');
+    }
+
+    if (actingUser) {
+      await validateMemberAccess(actingUser, log.memberId.toString());
     }
 
     const now = new Date();

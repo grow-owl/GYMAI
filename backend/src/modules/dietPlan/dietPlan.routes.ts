@@ -17,8 +17,16 @@ memberDietRouter.post(
   validate(createDietPlanSchema, 'body'),
   DietPlanController.createDietPlan
 );
-memberDietRouter.get('/active', DietPlanController.getActiveDietPlan);
-memberDietRouter.get('/', DietPlanController.listDietPlans);
+memberDietRouter.get(
+  '/active',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  DietPlanController.getActiveDietPlan
+);
+memberDietRouter.get(
+  '/',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
+  DietPlanController.listDietPlans
+);
 
 // Direct Diet Plan Routes (/api/v1/diet-plans/...)
 generalDietRouter.use(authenticate);
