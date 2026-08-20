@@ -12,7 +12,64 @@ interface ClientProgressItem {
   planTitle: string;
   latestWeight: number | null;
   weightChange: string;
-  completionValue: number;
+  completionRatePercent: number;
+  totalWorkoutSessions: number;
+  weightHistory: Array<{ label: string; value: number }>;
+}
+
+function SparklineChart({ data }: { data: Array<{ label: string; value: number }> }) {
+  if (!data || data.length === 0) return null;
+
+  const width = 140;
+  const height = 32;
+  const padX = 6;
+  const padY = 6;
+
+  const values = data.map((d) => d.value);
+  const min = Math.min(...values) - 0.5;
+  const max = Math.max(...values) + 0.5;
+  const range = Math.max(0.1, max - min);
+
+  if (data.length === 1) {
+    const y = padY + ((max - data[0].value) * (height - padY * 2)) / range;
+    return (
+      <div className="hidden sm:flex flex-col items-center shrink-0">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-24 h-7 shrink-0 overflow-visible">
+          <circle cx={width / 2} cy={y} r="3.5" fill="var(--color-accent)" />
+          <text x={width / 2} y={y - 5} fontSize="9" textAnchor="middle" fill="var(--color-text)" fontWeight="bold">
+            {data[0].value} kg
+          </text>
+        </svg>
+      </div>
+    );
+  }
+
+  const points = data.map((d, i) => {
+    const x = padX + (i * (width - padX * 2)) / (data.length - 1);
+    const y = padY + ((max - d.value) * (height - padY * 2)) / range;
+    return { x, y, value: d.value };
+  });
+
+  const pathStr = points.reduce((acc, pt, idx) => {
+    if (idx === 0) return `M ${pt.x} ${pt.y}`;
+    const prev = points[idx - 1];
+    const cx = (prev.x + pt.x) / 2;
+    return `${acc} C ${cx} ${prev.y}, ${cx} ${pt.y}, ${pt.x} ${pt.y}`;
+  }, "");
+
+  const lastPt = points[points.length - 1];
+  const firstPt = points[0];
+
+  return (
+    <div className="hidden sm:flex flex-col items-end shrink-0">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-24 h-7 shrink-0 overflow-visible">
+        <path d={pathStr} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
+        <circle cx={firstPt.x} cy={firstPt.y} r="2" fill="var(--color-text-muted)" />
+        <circle cx={lastPt.x} cy={lastPt.y} r="3" fill="var(--color-accent)" stroke="var(--color-surface)" strokeWidth="1.5" />
+      </svg>
+      <span className="text-[9px] font-semibold text-(--color-text-faint)">Weight Sparkline</span>
+    </div>
+  );
 }
 
 export default function Progress() {
@@ -48,18 +105,21 @@ export default function Progress() {
           let latestWeight: number | null = null;
           let weightChange = "No weight logs yet";
           let planTitle = "No active plan";
-          let completionValue = 0;
+          let completionRatePercent = 0;
+          let totalWorkoutSessions = 0;
+          let weightHistory: Array<{ label: string; value: number }> = [];
 
           if (cId) {
-            const [histRes, planRes] = await Promise.all([
+            const [histRes, planRes, statsRes] = await Promise.all([
               progressApi.getHistory(cId).catch(() => null),
               workoutApi.getActivePlan(cId).catch(() => null),
+              workoutApi.getCompletionStats(cId).catch(() => null),
             ]);
 
             const history = histRes?.history || (Array.isArray(histRes) ? histRes : []);
             if (Array.isArray(history) && history.length > 0) {
               const sorted = [...history].sort(
-                (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                (a, b) => new Date(a.createdAt || a.recordedAt).getTime() - new Date(b.createdAt || b.recordedAt).getTime()
               );
               const first = sorted[0].weightKg;
               const last = sorted[sorted.length - 1].weightKg;
@@ -70,15 +130,21 @@ export default function Progress() {
               } else {
                 weightChange = `${diff >= 0 ? "+" : ""}${diff} kg (${history.length} logs)`;
               }
-              completionValue = Math.min(100, history.length * 20);
+              weightHistory = sorted.map((item) => ({
+                label: new Date(item.createdAt || item.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                value: Number(item.weightKg),
+              }));
             }
 
             if (planRes && (planRes.plan || planRes.title || planRes.name)) {
               const p = planRes.plan || planRes;
               planTitle = p.title || p.name || "Active Workout Plan";
-              if (Array.isArray(p.exercises) && p.exercises.length > 0) {
-                completionValue = Math.max(completionValue, Math.min(100, p.exercises.length * 20));
-              }
+            }
+
+            if (statsRes) {
+              const stats = statsRes?.stats || statsRes;
+              completionRatePercent = stats?.completionRatePercent ?? 0;
+              totalWorkoutSessions = stats?.totalWorkoutSessions ?? 0;
             }
           }
 
@@ -88,7 +154,9 @@ export default function Progress() {
             planTitle,
             latestWeight,
             weightChange,
-            completionValue,
+            completionRatePercent,
+            totalWorkoutSessions,
+            weightHistory,
           };
         })
       );
@@ -162,26 +230,30 @@ export default function Progress() {
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  {p.latestWeight !== null ? (
-                    <p className="text-sm font-extrabold text-(--color-text)">
-                      {p.latestWeight} <span className="text-xs font-normal text-(--color-text-muted)">kg</span>
-                    </p>
-                  ) : (
-                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-(--color-surface-2) text-(--color-text-muted) border border-(--color-border)">
-                      No weigh-in
-                    </span>
-                  )}
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">{p.weightChange}</p>
+
+                <div className="flex items-center gap-3.5 text-right">
+                  <SparklineChart data={p.weightHistory} />
+                  <div>
+                    {p.latestWeight !== null ? (
+                      <p className="text-sm font-extrabold text-(--color-text)">
+                        {p.latestWeight} <span className="text-xs font-normal text-(--color-text-muted)">kg</span>
+                      </p>
+                    ) : (
+                      <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-(--color-surface-2) text-(--color-text-muted) border border-(--color-border)">
+                        No weigh-in
+                      </span>
+                    )}
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">{p.weightChange}</p>
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-1 pt-1">
                 <div className="flex justify-between text-[11px] font-semibold text-(--color-text-muted)">
-                  <span>Activity & Tracking Progress</span>
-                  <span>{p.completionValue}%</span>
+                  <span>Workout Completion Rate ({p.totalWorkoutSessions} sessions logged)</span>
+                  <span className="font-bold text-(--color-text)">{p.completionRatePercent}%</span>
                 </div>
-                <ProgressBar value={p.completionValue} max={100} />
+                <ProgressBar value={p.completionRatePercent} max={100} />
               </div>
             </Card>
           ))}

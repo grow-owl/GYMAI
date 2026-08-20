@@ -22,6 +22,7 @@ export default function MemberHome() {
   const [weightLogs, setWeightLogs] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState<any | null>(null);
   const [completedWorkoutsCount, setCompletedWorkoutsCount] = useState<number>(0);
+  const [workoutVolumeLogs, setWorkoutVolumeLogs] = useState<any[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [, setMyPayment] = useState<any | null>(null);
 
@@ -64,8 +65,12 @@ export default function MemberHome() {
       if (unreadRes) setUnreadNotifications(unreadRes?.unreadCount || 0);
       if (payRes) setMyPayment(payRes);
       if (workoutStatsRes) {
-        const count = workoutStatsRes?.stats?.totalWorkoutSessions ?? workoutStatsRes?.totalWorkoutSessions ?? 0;
+        const stats = workoutStatsRes?.stats || workoutStatsRes;
+        const count = stats?.totalWorkoutSessions ?? 0;
         setCompletedWorkoutsCount(count);
+        if (stats?.weeklyVolumeLogs && Array.isArray(stats.weeklyVolumeLogs)) {
+          setWorkoutVolumeLogs(stats.weeklyVolumeLogs);
+        }
       }
 
     } catch (err) {
@@ -202,8 +207,9 @@ export default function MemberHome() {
       {/* SECTION 2: Performance & Progress Charts */}
       <PerformanceCharts
         weightLogs={weightLogs}
-        targetWeightKg={memberProfile?.targetWeightKg}
+        targetWeightKg={memberProfile?.healthInfo?.targetWeight_kg || memberProfile?.targetWeightKg}
         attendanceStats={attendanceStats}
+        workoutVolumeLogs={workoutVolumeLogs}
         onLogWeightClick={() => setActiveModal("weight")}
         isLoading={loading}
       />

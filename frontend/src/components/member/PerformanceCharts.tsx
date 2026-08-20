@@ -50,7 +50,7 @@ export default function PerformanceCharts({
 
   // Compute SVG coordinates for Weight Chart
   const svgChartData = useMemo(() => {
-    if (displayLogs.length === 0) return { pathString: "", areaString: "", points: [] };
+    if (displayLogs.length === 0) return { pathString: "", areaString: "", points: [], targetY: null, minW: 0, maxW: 0 };
 
     const width = 600;
     const height = 200;
@@ -61,22 +61,25 @@ export default function PerformanceCharts({
     const maxW = Math.max(...weights, ...(targetWeightKg ? [targetWeightKg] : [])) + 1;
 
     const points = displayLogs.map((d, idx) => {
-      const x = padding + (idx / Math.max(1, displayLogs.length - 1)) * (width - 2 * padding);
+      const x = displayLogs.length === 1 ? width / 2 : padding + (idx / (displayLogs.length - 1)) * (width - 2 * padding);
       const y = height - padding - ((d.weightKg - minW) / (maxW - minW || 1)) * (height - 2 * padding);
       const dateLabel = new Date(d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
       return { x, y, weight: d.weightKg, label: dateLabel };
     });
 
-    // Build SVG path
-    let pathString = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cx = (prev.x + curr.x) / 2;
-      pathString += ` C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
-    }
+    let pathString = "";
+    let areaString = "";
 
-    const areaString = `${pathString} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
+    if (points.length > 1) {
+      pathString = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const cx = (prev.x + curr.x) / 2;
+        pathString += ` C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
+      }
+      areaString = `${pathString} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
+    }
 
     const targetY = targetWeightKg ? height - padding - ((targetWeightKg - minW) / (maxW - minW || 1)) * (height - 2 * padding) : null;
 
@@ -113,6 +116,8 @@ export default function PerformanceCharts({
       };
     });
   }, [workoutVolumeLogs]);
+
+  const maxVolume = useMemo(() => Math.max(1000, ...volumeData.map((v) => v.volume)), [volumeData]);
 
   return (
     <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
@@ -275,7 +280,7 @@ export default function PerformanceCharts({
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
-              ) : (
+              ) : svgChartData.points.length === 0 ? (
                 /* Empty State Dotted Preview Line Curve */
                 <>
                   <path
@@ -301,7 +306,7 @@ export default function PerformanceCharts({
                     </div>
                   </foreignObject>
                 </>
-              )}
+              ) : null}
 
               {/* Data Points & Tooltip Dots */}
               {svgChartData.points.map((pt, idx) => (
@@ -351,12 +356,11 @@ export default function PerformanceCharts({
           <div className="overflow-x-auto pb-1">
             <div className="grid grid-cols-7 gap-2 h-44 items-end pt-6 pb-2 px-3 bg-(--color-surface-2) rounded-2xl border border-(--color-border) min-w-[380px] sm:min-w-0">
               {volumeData.map((item, idx) => {
-                const maxVol = 7000;
-                const heightPct = Math.round((item.volume / maxVol) * 100);
+                const heightPct = item.volume > 0 ? Math.round((item.volume / maxVolume) * 100) : 0;
                 return (
                   <div key={idx} className="flex flex-col items-center h-full justify-end group">
                     <span className="text-[10px] text-(--color-text-muted) font-mono mb-1 opacity-80 group-hover:opacity-100 transition-opacity font-bold">
-                      {item.volume > 0 ? `${(item.volume/1000).toFixed(1)}k` : "Rest"}
+                      {item.volume >= 1000 ? `${(item.volume / 1000).toFixed(1)}k` : item.volume > 0 ? item.volume : "Rest"}
                     </span>
                     <div className="w-full max-w-[36px] bg-(--color-surface-3) rounded-t-lg overflow-hidden flex flex-col justify-end h-full border border-(--color-border)/40">
                       <div
@@ -365,7 +369,7 @@ export default function PerformanceCharts({
                             ? "bg-(--color-accent) shadow-md"
                             : "bg-(--color-surface-3)"
                         }`}
-                        style={{ height: `${Math.max(12, heightPct)}%` }}
+                        style={{ height: `${item.volume > 0 ? Math.max(15, heightPct) : 8}%` }}
                       />
                     </div>
                     <span className="text-xs font-bold text-(--color-text) mt-2">{item.day}</span>

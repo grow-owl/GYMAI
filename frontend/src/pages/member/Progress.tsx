@@ -48,7 +48,7 @@ function WeightLineChart({ data }: { data: Array<{ label: string; value: number 
 
   const points = data
     .map((d, i) => {
-      const x = padX + (i * (width - padX * 2)) / Math.max(1, data.length - 1);
+      const x = data.length === 1 ? width / 2 : padX + (i * (width - padX * 2)) / (data.length - 1);
       const y = padY + ((max - d.value) * (height - padY * 2)) / range;
       return `${x},${y}`;
     })
@@ -62,12 +62,12 @@ function WeightLineChart({ data }: { data: Array<{ label: string; value: number 
           <polyline points={points} fill="none" stroke="var(--color-accent)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         )}
         {data.map((d, i) => {
-          const x = padX + (i * (width - padX * 2)) / Math.max(1, data.length - 1);
+          const x = data.length === 1 ? width / 2 : padX + (i * (width - padX * 2)) / (data.length - 1);
           const y = padY + ((max - d.value) * (height - padY * 2)) / range;
           return (
             <g key={i}>
-              <circle cx={x} cy={y} r="4" fill="var(--color-accent)" />
-              <text x={x} y={y - 8} fontSize="9" textAnchor="middle" fill="var(--color-text)" fontWeight="bold">
+              <circle cx={x} cy={y} r="5" fill="var(--color-accent)" stroke="var(--color-surface)" strokeWidth="2" />
+              <text x={x} y={y - 9} fontSize="10" textAnchor="middle" fill="var(--color-text)" fontWeight="bold">
                 {d.value} kg
               </text>
             </g>
@@ -146,8 +146,9 @@ export default function Progress() {
           }
         }
 
-        if (compRes?.exerciseStats && Array.isArray(compRes.exerciseStats)) {
-          const bars: BarDatum[] = compRes.exerciseStats.slice(0, 4).map((ex: any) => ({
+        const statsData = compRes?.stats || compRes;
+        if (statsData?.exerciseStats && Array.isArray(statsData.exerciseStats)) {
+          const bars: BarDatum[] = statsData.exerciseStats.slice(0, 4).map((ex: any) => ({
             label: ex.name || "Exercise",
             value: ex.maxWeightKg || ex.volume || 0,
             color: "var(--color-accent)",

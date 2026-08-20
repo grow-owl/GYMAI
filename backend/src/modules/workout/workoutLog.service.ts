@@ -295,25 +295,103 @@ export class WorkoutLogService {
       throw AppError.notFound('Member profile not found');
     }
 
+    const branch = member.branchId ? await Branch.findOne({ _id: member.branchId, isDeleted: false }) : null;
+    const timezone = branch?.timezone || 'UTC';
+
     const logs = await WorkoutLog.find({ memberId: member._id }).populate('exercises.exerciseId', 'name');
 
     const totalWorkoutSessions = logs.length;
     let totalPlannedExercises = 0;
     let totalCompletedExercises = 0;
     const skipCountMap: Record<string, { name: string; count: number }> = {};
+    const exerciseStatsMap: Record<string, { exerciseId: string; name: string; maxWeightKg: number; volume: number; frequency: number }> = {};
+
+    // Branch timezone current week boundary computation
+    const todayKey = getDayKeyForBranch(new Date(), timezone);
+    const [tYear, tMonth, tDay] = todayKey.split('-').map(Number);
+    const todayDate = new Date(Date.UTC(tYear, tMonth - 1, tDay));
+    const dayOfWeekIdx = (todayDate.getUTCDay() + 6) % 7; // 0=Mon, ..., 6=Sun
+
+    const mondayDate = new Date(todayDate);
+    mondayDate.setUTCDate(todayDate.getUTCDate() - dayOfWeekIdx);
+    const mondayKey = getDayKeyForBranch(mondayDate, 'UTC');
+
+    const sundayDate = new Date(mondayDate);
+    sundayDate.setUTCDate(mondayDate.getUTCDate() + 6);
+    const sundayKey = getDayKeyForBranch(sundayDate, 'UTC');
+
+    const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const weeklyVolumeMap: Record<string, { volume: number; label: string }> = {
+      Mon: { volume: 0, label: 'Rest' },
+      Tue: { volume: 0, label: 'Rest' },
+      Wed: { volume: 0, label: 'Rest' },
+      Thu: { volume: 0, label: 'Rest' },
+      Fri: { volume: 0, label: 'Rest' },
+      Sat: { volume: 0, label: 'Rest' },
+      Sun: { volume: 0, label: 'Rest' },
+    };
 
     for (const log of logs) {
+      const logDayKey = getDayKeyForBranch(log.startedAt || log.createdAt, timezone);
+      const isCurrentWeek = logDayKey >= mondayKey && logDayKey <= sundayKey;
+      let sessionVolume = 0;
+
       for (const ex of log.exercises) {
         totalPlannedExercises++;
-        if (ex.completedAt || ex.sets.some((s) => s.completed)) {
+        const exIdStr = (ex.exerciseId as any)?._id?.toString() || ex.exerciseId?.toString() || 'unknown';
+        const name = (ex.exerciseId as any)?.name || 'Exercise';
+
+        let exMaxWeight = 0;
+        let exVolume = 0;
+        let isExCompleted = false;
+
+        if (ex.sets && Array.isArray(ex.sets)) {
+          for (const s of ex.sets) {
+            if (s.completed) {
+              isExCompleted = true;
+              const w = Number(s.weightKg) || 0;
+              const r = Number(s.reps) || 0;
+              if (w > exMaxWeight) exMaxWeight = w;
+              exVolume += w * r;
+            }
+          }
+        }
+
+        if (ex.completedAt || isExCompleted) {
           totalCompletedExercises++;
+          sessionVolume += exVolume;
+
+          if (!exerciseStatsMap[exIdStr]) {
+            exerciseStatsMap[exIdStr] = {
+              exerciseId: exIdStr,
+              name,
+              maxWeightKg: exMaxWeight,
+              volume: exVolume,
+              frequency: 1,
+            };
+          } else {
+            exerciseStatsMap[exIdStr].frequency += 1;
+            if (exMaxWeight > exerciseStatsMap[exIdStr].maxWeightKg) {
+              exerciseStatsMap[exIdStr].maxWeightKg = exMaxWeight;
+            }
+            exerciseStatsMap[exIdStr].volume += exVolume;
+          }
         } else {
-          const exIdStr = ex.exerciseId.toString();
-          const name = (ex.exerciseId as unknown as { name?: string })?.name || 'Exercise';
           if (!skipCountMap[exIdStr]) {
             skipCountMap[exIdStr] = { name, count: 0 };
           }
           skipCountMap[exIdStr].count++;
+        }
+      }
+
+      if (isCurrentWeek && sessionVolume > 0) {
+        const [lYear, lMonth, lDay] = logDayKey.split('-').map(Number);
+        const logDateObj = new Date(Date.UTC(lYear, lMonth - 1, lDay));
+        const logDayIdx = (logDateObj.getUTCDay() + 6) % 7;
+        const dayName = daysOfWeek[logDayIdx];
+        if (dayName) {
+          weeklyVolumeMap[dayName].volume += sessionVolume;
+          weeklyVolumeMap[dayName].label = log.dayLabel || 'Logged Workout';
         }
       }
     }
@@ -326,12 +404,24 @@ export class WorkoutLogService {
       .sort((a, b) => b.skipCount - a.skipCount)
       .slice(0, 5);
 
+    const exerciseStats = Object.values(exerciseStatsMap)
+      .sort((a, b) => b.frequency - a.frequency || b.maxWeightKg - a.maxWeightKg || b.volume - a.volume)
+      .map(({ exerciseId, name, maxWeightKg, volume }) => ({ exerciseId, name, maxWeightKg, volume }));
+
+    const weeklyVolumeLogs = daysOfWeek.map((day) => ({
+      day,
+      volume: weeklyVolumeMap[day].volume,
+      label: weeklyVolumeMap[day].label,
+    }));
+
     return {
       totalWorkoutSessions,
       totalPlannedExercises,
       totalCompletedExercises,
       completionRatePercent,
       mostSkippedExercises,
+      exerciseStats,
+      weeklyVolumeLogs,
     };
   }
 }

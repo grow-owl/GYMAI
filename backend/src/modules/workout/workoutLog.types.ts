@@ -35,4 +35,7 @@ export interface WorkoutCompletionStats {
   totalCompletedExercises: number;
   completionRatePercent: number;
   mostSkippedExercises: { exerciseId: string; name: string; skipCount: number }[];
+  exerciseStats: { exerciseId: string; name: string; maxWeightKg: number; volume: number }[];
+  weeklyVolumeLogs: { day: string; volume: number; label: string }[];
 }
+
