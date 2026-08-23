@@ -42,8 +42,10 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
   const [workloads, setWorkloads] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
+  const { searchQuery: search, setSearchQuery: setSearch, clearSearchQuery } = useSearchStore();
 
+  // Clear search on page unmount so query doesn't bleed into other pages (fix #34)
+  useEffect(() => () => { clearSearchQuery(); }, [clearSearchQuery]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);

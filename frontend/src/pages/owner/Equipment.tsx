@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Wrench, Loader2, RefreshCw, Pencil, Trash2 } from "lucide-react";
 
 import PageHeader from "@/components/ui/PageHeader";
@@ -52,8 +52,10 @@ export default function Equipment() {
   });
 
   const [showMaintenanceDueOnly, setShowMaintenanceDueOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
-  const fetchEquipment = async () => {
+  const fetchEquipment = useCallback(async () => {
     if (!gymId) {
       setEquipmentList([]);
       setLoading(false);
@@ -70,16 +72,18 @@ export default function Equipment() {
         const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
         setEquipmentList(list);
       }
-    } catch {
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to load equipment");
       setEquipmentList([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [gymId, branchId, showMaintenanceDueOnly]);
 
   useEffect(() => {
     fetchEquipment();
-  }, [gymId, branchId, showMaintenanceDueOnly]);
+    setPage(1);
+  }, [fetchEquipment]);
 
   const handleAddEquipment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,7 +204,7 @@ export default function Equipment() {
       ) : (
         <Card className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {equipmentList.map((item) => {
+            {equipmentList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((item) => {
               const eqId = item._id || item.id;
               const status = item.status || "WORKING";
               return (
@@ -249,6 +253,32 @@ export default function Equipment() {
               );
             })}
           </div>
+
+          {/* Pagination Controls */}
+          {equipmentList.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-(--color-border)">
+              <p className="text-xs text-(--color-text-muted)">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, equipmentList.length)} of {equipmentList.length} items
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 rounded-lg text-xs bg-(--color-surface-2) text-(--color-text) disabled:opacity-40 hover:bg-(--color-accent)/10 transition-colors"
+                >
+                  ← Prev
+                </button>
+                <span className="px-3 py-1.5 text-xs text-(--color-text-muted)">Page {page} of {Math.ceil(equipmentList.length / PAGE_SIZE)}</span>
+                <button
+                  onClick={() => setPage((p) => Math.min(Math.ceil(equipmentList.length / PAGE_SIZE), p + 1))}
+                  disabled={page >= Math.ceil(equipmentList.length / PAGE_SIZE)}
+                  className="px-3 py-1.5 rounded-lg text-xs bg-(--color-surface-2) text-(--color-text) disabled:opacity-40 hover:bg-(--color-accent)/10 transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, DollarSign, Receipt, Loader2, RefreshCw, Pencil, Trash2 } from "lucide-react";
 
 import PageHeader from "@/components/ui/PageHeader";
@@ -23,6 +23,7 @@ export default function Expenses() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [expenseList, setExpenseList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -43,27 +44,31 @@ export default function Expenses() {
     notes: "",
   });
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     if (!gymId) {
       setExpenseList([]);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setFetchError(null);
     try {
       const res = await expenseApi.list(gymId);
       const list = Array.isArray(res) ? res : (res as any)?.expenses || [];
       setExpenseList(list);
-    } catch {
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || "Failed to load expenses";
+      setFetchError(msg);
+      toast.error(msg);
       setExpenseList([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [gymId]);
 
   useEffect(() => {
     fetchExpenses();
-  }, [gymId, branchId]);
+  }, [fetchExpenses]);
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,6 +179,15 @@ export default function Expenses() {
       {resolvingBranch || loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
           <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading expense records from backend...
+        </Card>
+      ) : fetchError ? (
+        <Card className="text-center py-12 space-y-2 border-rose-500/20">
+          <Receipt className="w-8 h-8 mx-auto text-rose-400" />
+          <p className="text-sm font-medium text-(--color-text)">Failed to load expenses</p>
+          <p className="text-xs text-rose-400">{fetchError}</p>
+          <button onClick={fetchExpenses} className="mt-2 inline-flex items-center gap-1.5 text-xs text-(--color-accent) hover:underline">
+            <RefreshCw size={12} /> Retry
+          </button>
         </Card>
       ) : expenseList.length === 0 ? (
         <Card className="text-center py-12 text-(--color-text-muted) space-y-2">

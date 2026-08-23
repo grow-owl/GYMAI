@@ -20,6 +20,8 @@ import {
   Send,
   MessageSquare,
   CheckCircle2,
+  Menu,
+  X,
 } from "lucide-react";
 import heroImg from "@/assets/hero-gym.png";
 
@@ -133,6 +135,7 @@ export default function Landing() {
   const dashboardPath = user ? (roleHome[user.role] ?? "/owner") : "/login";
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +148,7 @@ export default function Landing() {
 
   return (
     <div className="relative z-10 min-h-screen bg-(--color-surface)">
-      {/* Navbar — clean white bar, sits above the dark hero */}
+      {/* Navbar */}
       <header className="sticky top-0 z-30 border-b border-(--color-border) bg-(--color-surface)/95 backdrop-blur-sm">
         <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-6xl mx-auto">
           <div className="flex items-center gap-2.5 animate-fade-in group cursor-pointer">
@@ -154,6 +157,7 @@ export default function Landing() {
             </span>
             <span className="font-display text-lg font-bold tracking-tight text-(--color-text) group-hover:text-(--color-accent-text) transition-colors">GYMAI</span>
           </div>
+          {/* Desktop Nav */}
           <nav className="hidden sm:flex items-center gap-7 animate-fade-in">
             <a href="#features" className="nav-link-underline text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">
               Features
@@ -188,7 +192,41 @@ export default function Landing() {
               </>
             )}
           </nav>
+          {/* Mobile hamburger */}
+          <button
+            className="sm:hidden p-2 rounded-lg text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-2) transition-colors"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <nav className="sm:hidden border-t border-(--color-border) bg-(--color-surface)/98 px-6 py-4 flex flex-col gap-4 animate-fade-in">
+            <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">Features</a>
+            <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">How it works</a>
+            <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">Pricing</a>
+            <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) transition-colors">Contact Us</a>
+            <div className="flex flex-col gap-2 pt-2 border-t border-(--color-border)">
+              {isAuthenticated && user ? (
+                <Link to={dashboardPath} onClick={() => setMobileMenuOpen(false)} className="w-full text-center py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-semibold text-sm">
+                  Go to Dashboard →
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="w-full text-center py-2.5 rounded-xl border border-(--color-border) text-(--color-text) font-medium text-sm hover:bg-(--color-surface-2) transition-colors">
+                    Sign in
+                  </Link>
+                  <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="w-full text-center py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-semibold text-sm">
+                    Start Free Trial
+                  </Link>
+                </>
+              )}
+            </div>
+          </nav>
+        )}
       </header>
 
       {/* Hero — dark, image-backed, motivational */}

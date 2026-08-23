@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2, MoreVertical, CreditCard, IndianRupee } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -94,7 +94,10 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
   const [memberList, setMemberList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
+  const { searchQuery: search, setSearchQuery: setSearch, clearSearchQuery } = useSearchStore();
+
+  // Clear search on page unmount so query doesn't bleed into other pages (fix #34)
+  useEffect(() => () => { clearSearchQuery(); }, [clearSearchQuery]);
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -147,7 +150,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     }
   };
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     if (!gymId || !branchId) {
       setMemberList([]);
       setLoading(false);
@@ -165,11 +168,11 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     } finally {
       setLoading(false);
     }
-  };
+  }, [gymId, branchId]);
 
   useEffect(() => {
     fetchMembers();
-  }, [gymId, branchId]);
+  }, [fetchMembers]);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();

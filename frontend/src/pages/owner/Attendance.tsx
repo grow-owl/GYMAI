@@ -9,6 +9,7 @@ import QRCode from "qrcode";
 export default function Attendance() {
   const user = useAuthStore((s) => s.user);
   const [secondsLeft, setSecondsLeft] = useState(21);
+  const [ttl, setTtl] = useState(21);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(true);
 
@@ -26,7 +27,9 @@ export default function Attendance() {
         const url = await QRCode.toDataURL(res.qrToken);
         setQrCodeUrl(url);
       }
-      setSecondsLeft(res?.ttlSeconds || 21);
+      const newTtl = res?.ttlSeconds || 21;
+      setTtl(newTtl);
+      setSecondsLeft(newTtl);
     } catch (err) {
       console.error("Failed to generate dynamic branch QR code:", err);
     } finally {
@@ -43,14 +46,14 @@ export default function Attendance() {
       setSecondsLeft((value) => {
         if (value <= 1) {
           fetchKioskQr();
-          return 21;
+          return ttl;
         }
         return value - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [fetchKioskQr]);
+  }, [fetchKioskQr, ttl]);
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto w-full">

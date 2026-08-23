@@ -9,6 +9,7 @@ import Heatmap, { type HeatmapCell } from "@/components/ui/Heatmap";
 import { ownerQuickAccess } from "@/data/nav";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { reportApi, memberApi, aiApi, attendanceApi, type DashboardOverview } from "@/lib/endpoints";
+import { toast } from "sonner";
 
 const kpiTones = ["blue", "orange", "purple", "amber"] as const;
 
@@ -72,7 +73,7 @@ function getChurnRisk(riskData: any): { value: string; note: string } {
 }
 
 export default function OwnerDashboard() {
-  const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
+  const { gymId, branchId, loading: resolvingBranch, error: branchError } = useGymBranch();
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [memberList, setMemberList] = useState<any[]>([]);
   const [expiringList, setExpiringList] = useState<any[]>([]);
@@ -89,6 +90,9 @@ export default function OwnerDashboard() {
   const [atRiskData, setAtRiskData] = useState<any>(null);
 
   useEffect(() => {
+    if (branchError) {
+      toast.error(`Branch error: ${branchError}`);
+    }
     if (!gymId) return;
 
     setLoadingOverview(true);

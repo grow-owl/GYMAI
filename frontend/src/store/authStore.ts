@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { authApi, notificationApi, type AuthUser } from "@/lib/endpoints";
-import { getAccessToken, setAccessToken, ApiError } from "@/lib/api";
+import { setAccessToken, ApiError } from "@/lib/api";
 
 export interface OwnerAddress {
   line1: string;
@@ -33,7 +33,7 @@ interface AuthState {
   init: () => Promise<void>;
   register: (input: RegisterInput) => Promise<AuthUser>;
   login: (email: string, password: string) => Promise<AuthUser>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -80,16 +80,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fieldErrors: {},
 
   init: async () => {
-    const token = getAccessToken();
-    if (!token) {
-      set({ loading: false, initializing: false });
-      return;
-    }
+    // Access token is in-memory only — on page reload we need to silently refresh
+    // via the httpOnly refresh-token cookie. If the cookie is absent or expired,
+    // the user is simply treated as logged out (no localStorage to clean up).
     try {
-      const res = await authApi.getMe();
-      set({ user: res.user, isAuthenticated: true });
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1"}/auth/refresh-token`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const token = json?.data?.accessToken as string | undefined;
+        if (token) {
+          setAccessToken(token);
+          const meRes = await authApi.getMe();
+          set({ user: meRes.user, isAuthenticated: true });
+        }
+      }
     } catch {
-      setAccessToken(null);
+      // No valid session — stay logged out
     } finally {
       set({ loading: false, initializing: false });
     }
@@ -139,7 +149,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
     // Capture current user ID before clearing state
     const currentUser = get().user;
     const userId = currentUser?.id || currentUser?._id || '';
@@ -164,9 +174,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // ignore storage errors
     }
-    authApi.logout().catch(() => {
-      // Even if the network call fails, clear the local session.
-    });
+
+    // Attempt to clear httpOnly refresh-token cookie on the backend first.
+    // Even if this fails (e.g. network error), we still tear down the local
+    // session so the user is never stuck on a logged-in screen.
+    try {
+      await authApi.logout();
+    } catch {
+      // Graceful degradation — refresh token may dangle, but local session is cleared.
+    }
     setAccessToken(null);
     set({ user: null, isAuthenticated: false });
   },

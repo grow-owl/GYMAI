@@ -3,15 +3,21 @@
 export const API_BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || "http://localhost:5000/api/v1";
 
-const ACCESS_TOKEN_KEY = "gymai.accessToken";
+/**
+ * Access token is kept IN-MEMORY only (never in localStorage / sessionStorage)
+ * to mitigate XSS token-theft attacks. The refresh token lives in an httpOnly
+ * cookie (set by the backend), so a silent refresh restores the access token
+ * automatically after a page reload or 401 response.
+ */
+let _accessToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return _accessToken;
 }
 
 export function setAccessToken(token: string | null) {
-  if (token) localStorage.setItem(ACCESS_TOKEN_KEY, token);
-  else localStorage.removeItem(ACCESS_TOKEN_KEY);
+  _accessToken = token;
+  // No longer written to localStorage — intentional XSS mitigation.
 }
 
 export interface ApiFieldError {
@@ -54,7 +60,7 @@ async function refreshAccessToken(): Promise<string | null> {
         if (!res.ok) return null;
         const json = await res.json();
         const token = json?.data?.accessToken as string | undefined;
-        if (token) setAccessToken(token);
+        if (token) _accessToken = token; // Set in-memory directly (avoid re-export indirection)
         return token ?? null;
       } catch {
         return null;
