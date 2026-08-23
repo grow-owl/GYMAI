@@ -51,7 +51,17 @@ const PRESET_ROUTINES = [
   },
 ];
 
-export default function WorkoutTracking() {
+export interface WorkoutTrackingProps {
+  isEmbedded?: boolean;
+  initialRoutine?: {
+    name: string;
+    exercises: any[];
+  } | null;
+  onWorkoutComplete?: () => void;
+  onNavigateToPlan?: () => void;
+}
+
+export default function WorkoutTracking({ isEmbedded = false, initialRoutine = null, onWorkoutComplete, onNavigateToPlan }: WorkoutTrackingProps = {}) {
   const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,8 +127,29 @@ export default function WorkoutTracking() {
   };
 
   useEffect(() => {
-    loadData();
-  }, [user]);
+    if (initialRoutine) {
+      setRoutines([initialRoutine]);
+      setRoutineName(initialRoutine.name);
+      setLoggedSets(initialRoutine.exercises.length > 0 ? initialRoutine.exercises : PRESET_ROUTINES[0].exercises);
+      setIsPresetRoutine(false);
+      setIsCompleted(false);
+    }
+  }, [initialRoutine]);
+
+  useEffect(() => {
+    if (!initialRoutine) {
+      loadData();
+    } else {
+      // Just fetch exercises if we have initialRoutine
+      workoutApi.listExercises().then((res) => {
+        setExercises(Array.isArray(res) ? res : []);
+        setLoading(false);
+      }).catch(() => {
+        setError("Failed to load workout exercises.");
+        setLoading(false);
+      });
+    }
+  }, [user, initialRoutine]);
 
   const handleAddSetRow = () => {
     const defaultObj = exercises[0];
@@ -156,6 +187,7 @@ export default function WorkoutTracking() {
 
       setIsCompleted(true);
       toast.success("Workout logged & completed successfully! +100 XP Earned 🎉");
+      onWorkoutComplete?.();
     } catch {
       toast.error("Failed to log workout session.");
     } finally {
@@ -175,19 +207,21 @@ export default function WorkoutTracking() {
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto w-full">
-      <PageHeader
-        title="Workout Tracker"
-        subtitle="Log your sets & weights"
-        backTo="/member"
-        action={
-          <Link
-            to="/member/workout-history"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text) hover:bg-(--color-surface-3) border border-(--color-border-soft) transition-all"
-          >
-            <History size={14} className="text-(--color-accent)" /> History
-          </Link>
-        }
-      />
+      {!isEmbedded && (
+        <PageHeader
+          title="Workout Tracker"
+          subtitle="Log your sets & weights"
+          backTo="/member"
+          action={
+            <Link
+              to="/member/workout-history"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text) hover:bg-(--color-surface-3) border border-(--color-border-soft) transition-all"
+            >
+              <History size={14} className="text-(--color-accent)" /> History
+            </Link>
+          }
+        />
+      )}
 
       {loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -243,12 +277,21 @@ export default function WorkoutTracking() {
 
           {/* Action Buttons: Next Workout & Navigation */}
           <div className="space-y-3 pt-2">
-            <button
-              onClick={handleStartNextWorkout}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-sm py-3.5 shadow-lg transition-all cursor-pointer"
-            >
-              Start Next Workout Session <ArrowRight className="h-4 w-4" />
-            </button>
+            {isEmbedded && onNavigateToPlan ? (
+              <button
+                onClick={onNavigateToPlan}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-sm py-3.5 shadow-lg transition-all cursor-pointer"
+              >
+                Back to My Plan <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                onClick={handleStartNextWorkout}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-sm py-3.5 shadow-lg transition-all cursor-pointer"
+              >
+                Start Next Workout Session <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <Link

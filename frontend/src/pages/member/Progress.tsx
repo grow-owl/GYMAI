@@ -147,10 +147,10 @@ export default function Progress() {
         }
 
         const statsData = compRes?.stats || compRes;
-        if (statsData?.exerciseStats && Array.isArray(statsData.exerciseStats)) {
-          const bars: BarDatum[] = statsData.exerciseStats.slice(0, 4).map((ex: any) => ({
-            label: ex.name || "Exercise",
-            value: ex.maxWeightKg || ex.volume || 0,
+        if (statsData?.weeklyVolumeLogs && Array.isArray(statsData.weeklyVolumeLogs)) {
+          const bars: BarDatum[] = statsData.weeklyVolumeLogs.map((log: any) => ({
+            label: log.day || "Day",
+            value: log.volume || 0,
             color: "var(--color-accent)",
           }));
           setStrengthTrend(bars);
@@ -325,7 +325,7 @@ export default function Progress() {
         </Card>
 
         <Card className="p-5">
-          <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase mb-3">Strength & Exercise Progression</p>
+          <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase mb-3">Weekly Volume Progression</p>
           {strengthTrend.length > 0 ? (
             <BarChart data={strengthTrend} height={180} />
           ) : (

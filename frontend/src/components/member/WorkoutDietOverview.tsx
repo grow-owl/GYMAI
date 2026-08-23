@@ -125,7 +125,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
         )}
 
         <Link
-          to="/member/workout-tracking"
+          to="/member/workout-plan?tab=tracking"
           className="flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-white font-bold text-xs py-3 hover:brightness-110 transition-all shadow-lg"
         >
           <Play className="h-4 w-4 fill-white" /> Start Workout Logging

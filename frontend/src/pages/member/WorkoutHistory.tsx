@@ -7,7 +7,12 @@ import Badge from "@/components/ui/Badge";
 import { workoutApi, memberApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 
-export default function WorkoutHistory() {
+export interface WorkoutHistoryProps {
+  isEmbedded?: boolean;
+  refreshTrigger?: number;
+}
+
+export default function WorkoutHistory({ isEmbedded = false, refreshTrigger = 0 }: WorkoutHistoryProps = {}) {
   const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +49,7 @@ export default function WorkoutHistory() {
 
   useEffect(() => {
     fetchHistory(1);
-  }, [user]);
+  }, [user, refreshTrigger]);
 
   const handlePrevPage = () => {
     if (page > 1) fetchHistory(page - 1);
@@ -58,19 +63,21 @@ export default function WorkoutHistory() {
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto w-full">
-      <PageHeader
-        title="Workout History"
-        subtitle="Review your past completed training sessions"
-        backTo="/member"
-        action={
-          <Link
-            to="/member/workout-tracking"
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3.5 py-2 hover:opacity-90 shadow-sm transition-all"
-          >
-            <Dumbbell size={14} /> Log Workout
-          </Link>
-        }
-      />
+      {!isEmbedded && (
+        <PageHeader
+          title="Workout History"
+          subtitle="Review your past completed training sessions"
+          backTo="/member"
+          action={
+            <Link
+              to="/member/workout-tracking"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3.5 py-2 hover:opacity-90 shadow-sm transition-all"
+            >
+              <Dumbbell size={14} /> Log Workout
+            </Link>
+          }
+        />
+      )}
 
       {loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
