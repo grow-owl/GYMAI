@@ -14,6 +14,7 @@ export default function CheckIn() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(true);
   const [countdown, setCountdown] = useState(25);
+  const [ttl, setTtl] = useState(25);
 
   const fetchKioskQr = useCallback(async () => {
     if (!user?.gymId || !user?.branchId) {
@@ -29,7 +30,9 @@ export default function CheckIn() {
         const url = await QRCode.toDataURL(res.qrToken);
         setQrCodeUrl(url);
       }
-      setCountdown(res?.ttlSeconds || 25);
+      const newTtl = res?.ttlSeconds || 25;
+      setTtl(newTtl);
+      setCountdown(newTtl);
     } catch (err: any) {
       console.error("Failed to generate dynamic kiosk QR:", err);
     } finally {
@@ -39,19 +42,21 @@ export default function CheckIn() {
 
   useEffect(() => {
     fetchKioskQr();
-    const rotateInterval = setInterval(() => {
-      fetchKioskQr();
-    }, 25000);
+  }, [fetchKioskQr]);
 
-    const countTimer = setInterval(() => {
-      setCountdown((prev) => (prev > 1 ? prev - 1 : 25));
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchKioskQr();
+          return ttl;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
-    return () => {
-      clearInterval(rotateInterval);
-      clearInterval(countTimer);
-    };
-  }, [fetchKioskQr]);
+    return () => clearInterval(timer);
+  }, [fetchKioskQr, ttl]);
 
   const handleManualCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
