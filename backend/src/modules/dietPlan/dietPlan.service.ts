@@ -177,4 +177,23 @@ export class DietPlanService {
     }
     return plan;
   }
+
+  /**
+   * Delete Diet Plan
+   */
+  public static async deleteDietPlan(planId: string, gymId?: string): Promise<void> {
+    const filter: any = { _id: planId, isDeleted: false };
+    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+
+    const plan = await DietPlan.findOneAndUpdate(
+      filter,
+      { isDeleted: true, status: PlanStatus.ARCHIVED },
+      { new: true }
+    );
+
+    if (!plan) {
+      throw AppError.notFound('Diet plan not found');
+    }
+    logger.info(`🗑️ Diet Plan deleted: [ID: ${planId}]`);
+  }
 }

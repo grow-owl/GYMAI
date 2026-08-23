@@ -41,5 +41,10 @@ generalDietRouter.patch(
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
   DietPlanController.archiveDietPlan
 );
+generalDietRouter.delete(
+  '/:planId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  DietPlanController.deleteDietPlan
+);
 
 export { memberDietRouter, generalDietRouter as dietPlanRouter };

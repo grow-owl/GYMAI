@@ -48,4 +48,10 @@ export class DietPlanController {
     const dietPlan = await DietPlanService.archiveDietPlan(req.params.planId, gymId);
     return sendSuccess(res, { dietPlan }, 'Diet plan archived successfully');
   });
+
+  public static deleteDietPlan = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.user?.gymId?.toString() || req.params.gymId;
+    await DietPlanService.deleteDietPlan(req.params.planId, gymId);
+    return sendSuccess(res, null, 'Diet plan deleted successfully');
+  });
 }

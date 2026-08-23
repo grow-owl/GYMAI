@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, Dumbbell, Copy, Archive, Loader2, Users } from "lucide-react";
+import { Plus, Dumbbell, Copy, Archive, Trash2, Edit2, Loader2, Users, Search, Settings } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { trainerApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -33,11 +34,17 @@ export default function WorkoutPlans() {
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [plans, setPlans] = useState<any[]>([]);
   const [exercisesList, setExercisesList] = useState<any[]>([]);
-  
+
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submittingPlan, setSubmittingPlan] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+
+  // Exercise Library Manager Modal State
+  const [showExerciseManagerModal, setShowExerciseManagerModal] = useState(false);
+  const [exSearch, setExSearch] = useState("");
+  const [editingCustomExId, setEditingCustomExId] = useState<string | null>(null);
 
   // Custom Exercise Modal State
   const [showAddCustomExerciseModal, setShowAddCustomExerciseModal] = useState(false);
@@ -50,48 +57,6 @@ export default function WorkoutPlans() {
     defaultSets: 3,
     defaultReps: 10,
   });
-
-  const handleCreateCustomExerciseSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customExForm.name.trim()) {
-      toast.error("Exercise name is required.");
-      return;
-    }
-    setSubmittingCustomExercise(true);
-    try {
-      const payload = {
-        name: customExForm.name.trim(),
-        muscleGroup: customExForm.muscleGroup,
-        equipment: customExForm.equipment.trim() || undefined,
-        instructions: customExForm.instructions.trim() || undefined,
-        defaultSets: Number(customExForm.defaultSets) || 3,
-        defaultReps: Number(customExForm.defaultReps) || 10,
-      };
-      const res = await workoutApi.createExercise(payload);
-      const newEx = res?.exercise || res?.data || res;
-      toast.success(`Custom exercise "${customExForm.name}" created!`);
-      setShowAddCustomExerciseModal(false);
-      setCustomExForm({
-        name: "",
-        muscleGroup: "CHEST",
-        equipment: "",
-        instructions: "",
-        defaultSets: 3,
-        defaultReps: 10,
-      });
-      const updatedList = await workoutApi.listExercises().catch(() => null);
-      const exList = Array.isArray(updatedList) ? updatedList : updatedList?.exercises || [];
-      if (exList.length > 0) {
-        setExercisesList(exList);
-      } else if (newEx && newEx._id) {
-        setExercisesList((prev) => [...prev, newEx]);
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to create custom exercise");
-    } finally {
-      setSubmittingCustomExercise(false);
-    }
-  };
 
   // Form State
   const [title, setTitle] = useState("");
@@ -146,6 +111,89 @@ export default function WorkoutPlans() {
     fetchClientPlans();
   }, [selectedClientId]);
 
+  // Create or Update Custom Exercise Submit
+  const handleCustomExerciseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customExForm.name.trim()) {
+      toast.error("Exercise name is required.");
+      return;
+    }
+    setSubmittingCustomExercise(true);
+    try {
+      const payload = {
+        name: customExForm.name.trim(),
+        muscleGroup: customExForm.muscleGroup,
+        equipment: customExForm.equipment.trim() || undefined,
+        instructions: customExForm.instructions.trim() || undefined,
+        defaultSets: Number(customExForm.defaultSets) || 3,
+        defaultReps: Number(customExForm.defaultReps) || 10,
+      };
+
+      if (editingCustomExId) {
+        await workoutApi.updateExercise(editingCustomExId, payload);
+        toast.success(`Exercise "${customExForm.name}" updated successfully!`);
+      } else {
+        await workoutApi.createExercise(payload);
+        toast.success(`Custom exercise "${customExForm.name}" created!`);
+      }
+
+      setShowAddCustomExerciseModal(false);
+      setEditingCustomExId(null);
+      setCustomExForm({
+        name: "",
+        muscleGroup: "CHEST",
+        equipment: "",
+        instructions: "",
+        defaultSets: 3,
+        defaultReps: 10,
+      });
+
+      const updatedList = await workoutApi.listExercises().catch(() => null);
+      const exList = Array.isArray(updatedList) ? updatedList : updatedList?.exercises || [];
+      setExercisesList(exList);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to save exercise");
+    } finally {
+      setSubmittingCustomExercise(false);
+    }
+  };
+
+  const handleEditCustomExerciseClick = (ex: any) => {
+    setEditingCustomExId(ex._id || ex.id);
+    setCustomExForm({
+      name: ex.name || "",
+      muscleGroup: ex.muscleGroup || "CHEST",
+      equipment: ex.equipment || "",
+      instructions: ex.instructions || "",
+      defaultSets: ex.defaultSets || 3,
+      defaultReps: ex.defaultReps || 10,
+    });
+    setShowAddCustomExerciseModal(true);
+  };
+
+  // Delete Custom Exercise State
+  const [deleteExTarget, setDeleteExTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingEx, setDeletingEx] = useState(false);
+
+  const confirmDeleteExercise = async () => {
+    if (!deleteExTarget) return;
+    setDeletingEx(true);
+    try {
+      await workoutApi.deleteExercise(deleteExTarget.id);
+      toast.success(`Exercise "${deleteExTarget.name}" deleted.`);
+      setExercisesList((prev) => prev.filter((item) => (item._id || item.id) !== deleteExTarget.id));
+      setDeleteExTarget(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to delete exercise");
+    } finally {
+      setDeletingEx(false);
+    }
+  };
+
+  const handleDeleteCustomExercise = (exerciseId: string, exName: string) => {
+    setDeleteExTarget({ id: exerciseId, name: exName });
+  };
+
   // Day builder helpers
   const addDay = () => {
     setDays((prev) => [...prev, { dayLabel: `Day ${prev.length + 1}`, exercises: [] }]);
@@ -186,8 +234,36 @@ export default function WorkoutPlans() {
     });
   };
 
-  // Submit new workout plan
-  const handleCreatePlanSubmit = async (e: React.FormEvent) => {
+  // Open Edit Modal for a plan
+  const handleOpenEditPlanModal = (plan: any) => {
+    setEditingPlanId(plan._id || plan.id);
+    setTitle(plan.title || "");
+    setGoal(plan.goal || "General Fitness");
+    setStartDate(plan.startDate ? plan.startDate.split("T")[0] : new Date().toISOString().split("T")[0]);
+
+    if (plan.days && Array.isArray(plan.days) && plan.days.length > 0) {
+      setDays(
+        plan.days.map((d: any) => ({
+          dayLabel: d.dayLabel || d.dayName || "Workout Day",
+          exercises: (d.exercises || []).map((e: any, idx: number) => ({
+            exerciseId: typeof e.exerciseId === "object" ? String(e.exerciseId?._id || e.exerciseId?.id) : String(e.exerciseId),
+            order: e.order || idx + 1,
+            targetSets: Number(e.targetSets || 3),
+            targetReps: Number(e.targetReps || 10),
+            targetWeightKg: e.targetWeightKg ? Number(e.targetWeightKg) : undefined,
+            restSeconds: e.restSeconds ? Number(e.restSeconds) : 60,
+            notes: e.notes || undefined,
+          })),
+        }))
+      );
+    } else {
+      setDays([{ dayLabel: "Day 1: Push", exercises: [] }]);
+    }
+    setShowCreateModal(true);
+  };
+
+  // Submit new or updated workout plan
+  const handlePlanFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClientId) {
       toast.error("Please select a client first.");
@@ -222,20 +298,50 @@ export default function WorkoutPlans() {
         })),
       };
 
-      await workoutApi.createPlan(selectedClientId, payload);
-      toast.success("Workout plan created & assigned successfully!");
+      if (editingPlanId) {
+        await workoutApi.updatePlan(editingPlanId, payload);
+        toast.success("Workout plan updated successfully!");
+      } else {
+        await workoutApi.createPlan(selectedClientId, payload);
+        toast.success("Workout plan created & assigned successfully!");
+      }
+
       setShowCreateModal(false);
+      setEditingPlanId(null);
       setTitle("");
       setDays([{ dayLabel: "Day 1: Push", exercises: [] }]);
-      
+
       // Refresh list
       const res = await workoutApi.listPlans(selectedClientId).catch(() => null);
       setPlans(Array.isArray(res) ? res : res?.plans || []);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to create workout plan");
+      toast.error(err.response?.data?.message || err.message || "Failed to save workout plan");
     } finally {
       setSubmittingPlan(false);
     }
+  };
+
+  // Delete Plan State
+  const [deletePlanTarget, setDeletePlanTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState(false);
+
+  const confirmDeletePlan = async () => {
+    if (!deletePlanTarget) return;
+    setDeletingPlan(true);
+    try {
+      await workoutApi.deletePlan(deletePlanTarget.id);
+      toast.success("Workout plan deleted.");
+      setPlans((prev) => prev.filter((p) => (p._id || p.id) !== deletePlanTarget.id));
+      setDeletePlanTarget(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to delete plan");
+    } finally {
+      setDeletingPlan(false);
+    }
+  };
+
+  const handleDeletePlan = (planId: string, planTitle: string) => {
+    setDeletePlanTarget({ id: planId, title: planTitle });
   };
 
   // Archive Plan
@@ -276,21 +382,34 @@ export default function WorkoutPlans() {
     <div className="space-y-4">
       <PageHeader
         title="Workout Plans"
-        subtitle="Create, assign, and manage client workout routines"
+        subtitle="Create, assign, update, and delete client workout routines"
         backTo="/trainer"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handleSeedExercises}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) text-(--color-text) text-xs font-semibold px-3.5 py-2 hover:bg-(--color-surface-3) transition-colors border border-(--color-border)"
-              title="Seed Default Exercise Library"
+              onClick={() => setShowExerciseManagerModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) text-(--color-text) text-xs font-semibold px-3.5 py-2 hover:bg-(--color-surface-3) transition-colors border border-(--color-border) cursor-pointer"
+              title="Manage Exercises & Custom Library"
             >
-              <Dumbbell size={14} /> Seed Exercises
+              <Settings size={14} /> Exercise Library ({exercisesList.length})
             </button>
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleSeedExercises}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) text-(--color-text) text-xs font-semibold px-3.5 py-2 hover:bg-(--color-surface-3) transition-colors border border-(--color-border) cursor-pointer"
+              title="Seed Default Exercise Library"
+            >
+              <Dumbbell size={14} /> Seed Library
+            </button>
+            <button
+              onClick={() => {
+                setEditingPlanId(null);
+                setTitle("");
+                setGoal("Muscle Building");
+                setDays([{ dayLabel: "Day 1: Push", exercises: [] }]);
+                setShowCreateModal(true);
+              }}
               disabled={!selectedClientId}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50 cursor-pointer"
             >
               <Plus size={15} /> Create Plan
             </button>
@@ -352,7 +471,7 @@ export default function WorkoutPlans() {
             const dayCount = p.days?.length || 0;
 
             return (
-              <Card key={pId} className="p-4 space-y-3 flex flex-col justify-between">
+              <Card key={pId} className="p-4 space-y-3 flex flex-col justify-between border border-(--color-border)">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -367,23 +486,37 @@ export default function WorkoutPlans() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t border-(--color-border)">
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-(--color-border)">
+                  <button
+                    onClick={() => handleOpenEditPlanModal(p)}
+                    className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-(--color-surface-2) text-xs font-semibold text-(--color-text) hover:border-(--color-accent) border border-transparent cursor-pointer"
+                    title="Edit Plan"
+                  >
+                    <Edit2 size={12} /> Edit
+                  </button>
                   <button
                     onClick={() => handleDuplicatePlan(pId)}
-                    className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-lg bg-(--color-surface-2) text-xs font-semibold text-(--color-text) hover:bg-(--color-surface-3)"
+                    className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-(--color-surface-2) text-xs font-semibold text-(--color-text) hover:bg-(--color-surface-3) cursor-pointer"
                     title="Duplicate Plan"
                   >
-                    <Copy size={13} /> Duplicate
+                    <Copy size={12} /> Duplicate
                   </button>
                   {status === "ACTIVE" && (
                     <button
                       onClick={() => handleArchivePlan(pId)}
-                      className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20"
+                      className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 cursor-pointer"
                       title="Archive Plan"
                     >
-                      <Archive size={13} /> Archive
+                      <Archive size={12} /> Archive
                     </button>
                   )}
+                  <button
+                    onClick={() => handleDeletePlan(pId, p.title)}
+                    className="inline-flex items-center justify-center p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 cursor-pointer"
+                    title="Delete Plan Permanently"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </Card>
             );
@@ -391,10 +524,17 @@ export default function WorkoutPlans() {
         </div>
       )}
 
-      {/* Create Workout Plan Modal */}
+      {/* Create / Edit Workout Plan Modal */}
       {showCreateModal && (
-        <Modal onClose={() => setShowCreateModal(false)} maxWidth="2xl" title="Create Workout Plan">
-          <form onSubmit={handleCreatePlanSubmit} className="space-y-4 text-xs">
+        <Modal
+          onClose={() => {
+            setShowCreateModal(false);
+            setEditingPlanId(null);
+          }}
+          maxWidth="2xl"
+          title={editingPlanId ? "Edit Workout Plan" : "Create Workout Plan"}
+        >
+          <form onSubmit={handlePlanFormSubmit} className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Plan Title</label>
@@ -439,7 +579,7 @@ export default function WorkoutPlans() {
                 <button
                   type="button"
                   onClick={addDay}
-                  className="px-2.5 py-1 rounded-lg bg-(--color-surface-2) text-(--color-accent) text-xs font-semibold flex items-center gap-1"
+                  className="px-2.5 py-1 rounded-lg bg-(--color-surface-2) text-(--color-accent) text-xs font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Plus size={13} /> Add Day
                 </button>
@@ -467,7 +607,7 @@ export default function WorkoutPlans() {
                       <button
                         type="button"
                         onClick={() => removeDay(dIdx)}
-                        className="text-red-400 text-xs hover:underline font-semibold"
+                        className="text-red-400 text-xs hover:underline font-semibold cursor-pointer"
                       >
                         Remove Day
                       </button>
@@ -483,7 +623,7 @@ export default function WorkoutPlans() {
                           <button
                             type="button"
                             onClick={() => removeExerciseFromDay(dIdx, exIdx)}
-                            className="text-red-400 text-[10px] hover:underline"
+                            className="text-red-400 text-[10px] hover:underline cursor-pointer"
                           >
                             Remove
                           </button>
@@ -495,7 +635,7 @@ export default function WorkoutPlans() {
                             <button
                               type="button"
                               onClick={() => setShowAddCustomExerciseModal(true)}
-                              className="text-[10px] text-(--color-accent) font-semibold hover:underline flex items-center gap-0.5"
+                              className="text-[10px] text-(--color-accent) font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
                             >
                               <Plus size={11} /> Add custom exercise
                             </button>
@@ -550,7 +690,7 @@ export default function WorkoutPlans() {
                     <button
                       type="button"
                       onClick={() => addExerciseToDay(dIdx)}
-                      className="w-full py-2 rounded-lg bg-(--color-surface) text-(--color-accent) text-xs font-semibold border border-dashed border-(--color-border) flex items-center justify-center gap-1"
+                      className="w-full py-2 rounded-lg bg-(--color-surface) text-(--color-accent) text-xs font-semibold border border-dashed border-(--color-border) flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Plus size={13} /> Add Exercise to {day.dayLabel || "Day"}
                     </button>
@@ -562,26 +702,140 @@ export default function WorkoutPlans() {
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setEditingPlanId(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text) cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submittingPlan}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                {submittingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save & Assign Plan"}
+                {submittingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : editingPlanId ? "Update Workout Plan" : "Save & Assign Plan"}
               </button>
             </div>
           </form>
         </Modal>
       )}
-      {/* Add Custom Exercise Modal */}
+
+      {/* Exercise Library Manager Modal */}
+      {showExerciseManagerModal && (
+        <Modal
+          onClose={() => setShowExerciseManagerModal(false)}
+          maxWidth="3xl"
+          title="Exercise Library Management"
+          subtitle="View, create, edit, and delete custom exercises for your gym"
+        >
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search size={14} className="absolute left-3 top-3 text-(--color-text-muted)" />
+                <input
+                  type="text"
+                  placeholder="Search exercises..."
+                  value={exSearch}
+                  onChange={(e) => setExSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-(--color-surface-2) text-xs text-(--color-text) border border-(--color-border) outline-none focus:border-(--color-accent)"
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setEditingCustomExId(null);
+                  setCustomExForm({
+                    name: "",
+                    muscleGroup: "CHEST",
+                    equipment: "",
+                    instructions: "",
+                    defaultSets: 3,
+                    defaultReps: 10,
+                  });
+                  setShowAddCustomExerciseModal(true);
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow cursor-pointer"
+              >
+                <Plus size={14} /> Add Custom Exercise
+              </button>
+            </div>
+
+            {/* Exercise List */}
+            <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+              {exercisesList
+                .filter((ex) => !exSearch || ex.name?.toLowerCase().includes(exSearch.toLowerCase()) || ex.muscleGroup?.toLowerCase().includes(exSearch.toLowerCase()))
+                .map((ex) => {
+                  const isCustom = Boolean(ex.gymId);
+                  const exId = ex._id || ex.id;
+
+                  return (
+                    <div
+                      key={exId}
+                      className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border) flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-(--color-text)">{ex.name}</p>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-(--color-surface-3) font-semibold text-(--color-text-muted)">
+                            {ex.muscleGroup || "General"}
+                          </span>
+                          {isCustom ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-(--color-accent)/15 font-bold text-(--color-accent)">
+                              Custom
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 font-bold text-slate-400">
+                              Global
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-(--color-text-muted)">
+                          Equipment: {ex.equipment || "Bodyweight"} · Default: {ex.defaultSets || 3} sets × {ex.defaultReps || 10} reps
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {isCustom ? (
+                          <>
+                            <button
+                              onClick={() => handleEditCustomExerciseClick(ex)}
+                              className="p-1.5 rounded-lg bg-(--color-surface-3) text-(--color-text) hover:text-(--color-accent) transition-colors cursor-pointer"
+                              title="Edit Custom Exercise"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCustomExercise(exId, ex.name)}
+                              className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                              title="Delete Custom Exercise"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-(--color-text-faint) italic">Read-only library</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Add / Edit Custom Exercise Modal */}
       {showAddCustomExerciseModal && (
-        <Modal onClose={() => setShowAddCustomExerciseModal(false)} maxWidth="md" title="Add Custom Exercise">
-          <form onSubmit={handleCreateCustomExerciseSubmit} className="space-y-3.5 text-xs">
+        <Modal
+          onClose={() => {
+            setShowAddCustomExerciseModal(false);
+            setEditingCustomExId(null);
+          }}
+          maxWidth="md"
+          title={editingCustomExId ? "Edit Custom Exercise" : "Add Custom Exercise"}
+        >
+          <form onSubmit={handleCustomExerciseSubmit} className="space-y-3.5 text-xs">
             <div>
               <label className="block text-(--color-text-muted) mb-1 font-medium">Exercise Name</label>
               <input
@@ -662,22 +916,49 @@ export default function WorkoutPlans() {
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setShowAddCustomExerciseModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+                onClick={() => {
+                  setShowAddCustomExerciseModal(false);
+                  setEditingCustomExId(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text) cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submittingCustomExercise}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) font-bold shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                {submittingCustomExercise ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Custom Exercise"}
+                {submittingCustomExercise ? <Loader2 className="w-4 h-4 animate-spin" /> : editingCustomExId ? "Update Exercise" : "Save Custom Exercise"}
               </button>
             </div>
           </form>
         </Modal>
       )}
+
+      {/* Delete Custom Exercise Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteExTarget}
+        onClose={() => setDeleteExTarget(null)}
+        onConfirm={confirmDeleteExercise}
+        title="Delete Custom Exercise"
+        description={`Are you sure you want to delete "${deleteExTarget?.name}"?`}
+        confirmText="Delete Exercise"
+        tone="danger"
+        loading={deletingEx}
+      />
+
+      {/* Delete Plan Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deletePlanTarget}
+        onClose={() => setDeletePlanTarget(null)}
+        onConfirm={confirmDeletePlan}
+        title="Delete Workout Plan"
+        description={`Are you sure you want to permanently delete "${deletePlanTarget?.title}"?`}
+        confirmText="Delete Plan"
+        tone="danger"
+        loading={deletingPlan}
+      />
     </div>
   );
 }

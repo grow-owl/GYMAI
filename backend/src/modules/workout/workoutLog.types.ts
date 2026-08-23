@@ -31,6 +31,7 @@ export interface IWorkoutLog {
 
 export interface WorkoutCompletionStats {
   totalWorkoutSessions: number;
+  completedWorkoutSessions: number;
   totalPlannedExercises: number;
   totalCompletedExercises: number;
   completionRatePercent: number;

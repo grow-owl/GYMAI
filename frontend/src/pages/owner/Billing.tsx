@@ -1,35 +1,66 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Shield, Zap, Mail, PhoneCall } from "lucide-react";
+import { CheckCircle2, Shield, Zap, Mail, PhoneCall, Loader2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { paymentApi } from "@/lib/endpoints";
+import { gymApi, paymentApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 
 import { plans, CARD_ID_TO_GYM_PLAN, GYM_PLAN_TO_CARD_ID } from "@/data/pricing";
 
 export default function Billing() {
   const user = useAuthStore((s) => s.user);
-  const [currentPlanCardId, setCurrentPlanCardId] = useState("pro");
-  const [currentPlanRaw, setCurrentPlanRaw] = useState("PRO");
+  const { gymId } = useGymBranch();
+  const [currentPlanCardId, setCurrentPlanCardId] = useState<string | null>(null);
+  const [currentPlanRaw, setCurrentPlanRaw] = useState<string | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
   const [selectedPlanForUpgrade, setSelectedPlanForUpgrade] = useState<any | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingDowngrade, setPendingDowngrade] = useState<string | null>(null);
 
   useEffect(() => {
-    paymentApi
-      .getPlatformBilling()
-      .then((res) => {
-        if (res?.plan) {
-          const raw = String(res.plan).toUpperCase();
+    const fetchPlan = async () => {
+      setLoadingPlan(true);
+      try {
+        const activeGymId = gymId || user?.gymId;
+        if (activeGymId) {
+          const gymRes = await gymApi.getGymById(activeGymId).catch(() => null);
+          const rawPlan = gymRes?.gym?.plan || (gymRes as any)?.plan;
+          if (rawPlan) {
+            const raw = String(rawPlan).toUpperCase();
+            setCurrentPlanRaw(raw);
+            setCurrentPlanCardId(GYM_PLAN_TO_CARD_ID[raw] || raw.toLowerCase());
+            return;
+          }
+        }
+
+        const billingRes = await paymentApi.getPlatformBilling().catch(() => null);
+        if (billingRes?.plan) {
+          const raw = String(billingRes.plan).toUpperCase();
           setCurrentPlanRaw(raw);
           setCurrentPlanCardId(GYM_PLAN_TO_CARD_ID[raw] || raw.toLowerCase());
+        } else if (billingRes?.invoices?.length) {
+          const latestInvoice = billingRes.invoices[0];
+          const raw = String(latestInvoice.plan || "PRO").toUpperCase();
+          setCurrentPlanRaw(raw);
+          setCurrentPlanCardId(GYM_PLAN_TO_CARD_ID[raw] || raw.toLowerCase());
+        } else {
+          setCurrentPlanRaw("STARTER");
+          setCurrentPlanCardId("starter");
         }
-      })
-      .catch(() => {});
-  }, []);
+      } catch {
+        setCurrentPlanRaw("STARTER");
+        setCurrentPlanCardId("starter");
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+
+    fetchPlan();
+  }, [gymId, user?.gymId]);
 
   const handleOpenUpgradeModal = (plan: any) => {
     setSelectedPlanForUpgrade(plan);
@@ -79,9 +110,15 @@ export default function Billing() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-(--color-text-muted) mb-1">Active SaaS Plan</p>
-            <p className="text-2xl font-bold text-(--color-text) capitalize flex items-center gap-2">
-              {currentPlanRaw} Plan <Badge tone="good">Active</Badge>
-            </p>
+            {loadingPlan ? (
+              <div className="flex items-center gap-2 text-sm text-(--color-text-muted) py-1">
+                <Loader2 size={16} className="animate-spin text-(--color-accent)" /> Loading subscription tier...
+              </div>
+            ) : (
+              <p className="text-2xl font-bold text-(--color-text) capitalize flex items-center gap-2">
+                {currentPlanRaw} Plan <Badge tone="good">Active</Badge>
+              </p>
+            )}
             {pendingDowngrade && (
               <div className="mt-2 flex items-center gap-2">
                 <Badge tone="warn">Pending Downgrade: {pendingDowngrade}</Badge>
@@ -131,15 +168,19 @@ export default function Billing() {
             </div>
 
             <button
-              disabled={currentPlanCardId === p.id}
+              disabled={loadingPlan || currentPlanCardId === p.id}
               onClick={() => handleOpenUpgradeModal(p)}
               className={`mt-6 w-full py-2.5 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 currentPlanCardId === p.id
                   ? "bg-(--color-surface-3) text-(--color-text-muted) cursor-default"
-                  : "bg-(--color-accent) text-(--color-navbar) font-bold hover:opacity-90 shadow-md"
+                  : "bg-(--color-accent) text-(--color-navbar) font-bold hover:opacity-90 shadow-md cursor-pointer"
               }`}
             >
-              {currentPlanCardId === p.id ? (
+              {loadingPlan ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" /> Checking Plan...
+                </>
+              ) : currentPlanCardId === p.id ? (
                 "Current Active Plan"
               ) : (
                 <>

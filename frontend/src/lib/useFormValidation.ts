@@ -45,7 +45,7 @@ export function validateValue<T>(
 
   if (rules.phone) {
     const phoneRegex = /^[6-9]\d{9}$/; // Standard 10-digit Indian mobile format
-    const cleanPhone = String(value).replace(/[\s\-\+\(\)]/g, "");
+    const cleanPhone = String(value).replace(/[\s\-+()]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
       return typeof rules.phone === "string"
         ? rules.phone

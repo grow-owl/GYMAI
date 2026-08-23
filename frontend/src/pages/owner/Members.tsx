@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2, MoreVertical } from "lucide-react";
+import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2, MoreVertical, CreditCard, IndianRupee } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { memberApi, authApi } from "@/lib/endpoints";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { memberApi, authApi, paymentApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useSearchStore } from "../../store/searchStore";
 import { useAuthStore } from "@/store/authStore";
@@ -20,6 +21,62 @@ const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
   trial: "accent",
   FROZEN: "accent",
 };
+
+export interface GymPlanOption {
+  id: string;
+  name: string;
+  durationMonths: number;
+  price: number;
+  badge?: string;
+  description: string;
+}
+
+export const GYM_MEMBERSHIP_PLANS: GymPlanOption[] = [
+  {
+    id: "monthly",
+    name: "Monthly Fitness",
+    durationMonths: 1,
+    price: 1500,
+    description: "30 Days standard gym access",
+  },
+  {
+    id: "quarterly",
+    name: "Quarterly Transformation",
+    durationMonths: 3,
+    price: 4000,
+    badge: "Popular",
+    description: "90 Days full gym access",
+  },
+  {
+    id: "half_yearly",
+    name: "Half-Yearly Pro",
+    durationMonths: 6,
+    price: 7500,
+    description: "180 Days intensive gym access",
+  },
+  {
+    id: "annual",
+    name: "Annual Elite",
+    durationMonths: 12,
+    price: 14000,
+    badge: "Best Value",
+    description: "365 Days complete elite access",
+  },
+  {
+    id: "pt_monthly",
+    name: "Personal Training (PT) Pack",
+    durationMonths: 1,
+    price: 5000,
+    description: "30 Days 1-on-1 personal trainer",
+  },
+  {
+    id: "custom",
+    name: "Custom Plan",
+    durationMonths: 1,
+    price: 2000,
+    description: "Custom duration & fee",
+  },
+];
 
 interface MembersProps {
   overrideGymId?: string;
@@ -38,7 +95,6 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { searchQuery: search, setSearchQuery: setSearch } = useSearchStore();
-
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -59,13 +115,37 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     email: "",
     phone: "",
     password: "Member@123",
-    planName: "Monthly Fitness",
     referralCode: "",
   });
+
+  // Membership Plan Selection states
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("monthly");
+  const [customPlanName, setCustomPlanName] = useState("");
+  const [customDurationMonths, setCustomDurationMonths] = useState(1);
+  const [customPrice, setCustomPrice] = useState(2000);
+
+  // Initial Payment Recording states
+  const [recordInitialPayment, setRecordInitialPayment] = useState(true);
+  const [paymentAmount, setPaymentAmount] = useState(1500);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card" | "bank_transfer">("cash");
+  const [paymentNotes, setPaymentNotes] = useState("");
+
   const [reason, setReason] = useState("");
   const [extendDays, setExtendDays] = useState(30);
   const [renewPlanName, setRenewPlanName] = useState("");
   const [renewEndDate, setRenewEndDate] = useState("");
+
+  const handleSelectPlan = (planId: string) => {
+    setSelectedPlanId(planId);
+    if (planId === "custom") {
+      setPaymentAmount(customPrice);
+    } else {
+      const preset = GYM_MEMBERSHIP_PLANS.find((p) => p.id === planId);
+      if (preset) {
+        setPaymentAmount(preset.price);
+      }
+    }
+  };
 
   const fetchMembers = async () => {
     if (!gymId || !branchId) {
@@ -96,24 +176,79 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     const activeGymId = gymId || "";
     const activeBranchId = branchId || "";
 
+    if (!activeGymId || !activeBranchId) {
+      toast.error("Please select a gym branch before registering members.");
+      return;
+    }
+
+    const preset = GYM_MEMBERSHIP_PLANS.find((p) => p.id === selectedPlanId);
+    const effectivePlanName =
+      selectedPlanId === "custom"
+        ? (customPlanName.trim() || "Custom Plan")
+        : (preset?.name || "Monthly Fitness");
+
+    const effectiveMonths =
+      selectedPlanId === "custom"
+        ? Math.max(1, Number(customDurationMonths) || 1)
+        : (preset?.durationMonths || 1);
+
     setSubmittingAdd(true);
     try {
       const now = new Date();
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + 1);
+      const endDate = new Date(now);
+      endDate.setMonth(endDate.getMonth() + effectiveMonths);
 
       const payload = {
-        ...formData,
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
+        password: formData.password || "Member@123",
+        planName: effectivePlanName,
         referralCode: formData.referralCode?.trim() || undefined,
         branchId: activeBranchId,
         membershipStartDate: now.toISOString(),
         membershipEndDate: endDate.toISOString(),
       };
 
-      await memberApi.create(activeGymId, activeBranchId, payload);
-      toast.success(`Member ${formData.fullName} registered successfully!`);
+      const createdRes: any = await memberApi.create(activeGymId, activeBranchId, payload);
+      const newMemberId = createdRes?.member?._id || createdRes?._id || createdRes?.member?.id;
+
+      // Auto-record initial payment if selected and valid
+      if (recordInitialPayment && newMemberId && Number(paymentAmount) > 0) {
+        try {
+          await paymentApi.recordMemberPayment(activeGymId, {
+            memberId: String(newMemberId),
+            branchId: activeBranchId,
+            amount: Number(paymentAmount),
+            purpose: selectedPlanId === "pt_monthly" ? "personal_training" : "membership_fee",
+            method: paymentMethod,
+            notes: paymentNotes.trim() || `Initial admission & payment for ${effectivePlanName}`,
+          });
+        } catch {
+          // Member is created, payment error caught gracefully
+        }
+      }
+
+      toast.success(
+        `Member ${formData.fullName} enrolled with ${effectivePlanName} plan${
+          recordInitialPayment ? ` (₹${paymentAmount} payment recorded)` : ""
+        }!`
+      );
+
       setShowAddModal(false);
-      setFormData({ fullName: "", email: "", phone: "", password: "Member@123", planName: "Monthly Fitness", referralCode: "" });
+      setFormData({
+        fullName: "",
+        email: "",
+        phone: "",
+        password: "Member@123",
+        referralCode: "",
+      });
+      setSelectedPlanId("monthly");
+      setCustomPlanName("");
+      setCustomDurationMonths(1);
+      setCustomPrice(2000);
+      setPaymentAmount(1500);
+      setPaymentNotes("");
       fetchMembers();
     } catch (err: any) {
       toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to register member");
@@ -164,16 +299,27 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     }
   };
 
-  const handleDeleteMember = async (mId: string, name: string) => {
-    if (!gymId) return;
-    if (!confirm(`Are you sure you want to delete member profile for "${name}"?`)) return;
+  // Delete Member Confirm Dialog State
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingMember, setDeletingMember] = useState(false);
+
+  const confirmDeleteMember = async () => {
+    if (!deleteTarget || !gymId) return;
+    setDeletingMember(true);
     try {
-      await memberApi.deleteMember(gymId, mId);
-      toast.success(`Member "${name}" deleted successfully.`);
+      await memberApi.deleteMember(gymId, deleteTarget.id);
+      toast.success(`Member "${deleteTarget.name}" deleted successfully.`);
+      setDeleteTarget(null);
       fetchMembers();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to delete member.");
+    } finally {
+      setDeletingMember(false);
     }
+  };
+
+  const handleDeleteMember = (mId: string, name: string) => {
+    setDeleteTarget({ id: mId, name });
   };
 
   const filteredMembers = memberList.filter((m) => {
@@ -461,63 +607,208 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
 
       {/* Add Member Modal */}
       {showAddModal && (
-        <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Register New Gym Member">
+        <Modal onClose={() => setShowAddModal(false)} maxWidth="lg" title="Register New Gym Member">
           <form onSubmit={handleAddMember} className="space-y-4">
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rahul Sharma"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
-                />
+            <div className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Rahul Sharma"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="rahul@gmail.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-(--color-text-muted) mb-1 font-medium">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="rahul@gmail.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
-                />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="+91 9876543210"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Account Password *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Member@123"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-(--color-text-muted) mb-1 font-medium">Phone Number</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="+91 9876543210"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
-                />
+
+              {/* Membership Plan Selection Grid */}
+              <div className="pt-2 border-t border-(--color-border-soft)">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-(--color-text) font-bold flex items-center gap-1.5">
+                    <CreditCard size={14} className="text-(--color-accent)" /> Select Membership Plan *
+                  </label>
+                  <span className="text-[10px] text-(--color-text-muted)">Auto-configures duration & admission fee</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {GYM_MEMBERSHIP_PLANS.map((plan) => {
+                    const isSelected = selectedPlanId === plan.id;
+                    return (
+                      <button
+                        type="button"
+                        key={plan.id}
+                        onClick={() => handleSelectPlan(plan.id)}
+                        className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? "bg-(--color-accent)/10 border-(--color-accent) shadow-sm ring-1 ring-(--color-accent)"
+                            : "bg-(--color-surface-2) border-(--color-border) hover:border-(--color-text-muted)/40"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="font-semibold text-xs text-(--color-text) line-clamp-1">{plan.name}</span>
+                            {plan.badge && (
+                              <span className="px-1.5 py-0.2 rounded-full bg-(--color-accent) text-(--color-navbar) text-[9px] font-extrabold shrink-0">
+                                {plan.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-(--color-text-muted) leading-tight mb-2">{plan.description}</p>
+                        </div>
+                        <div className="flex items-baseline justify-between pt-1 border-t border-(--color-border-soft)/60">
+                          <span className="font-bold text-xs text-(--color-accent-text)">
+                            {plan.id === "custom" ? "Custom ₹" : `₹${plan.price.toLocaleString("en-IN")}`}
+                          </span>
+                          <span className="text-[10px] text-(--color-text-faint)">
+                            {plan.id === "custom" ? "Custom dur." : `${plan.durationMonths} Mo`}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Plan Extra Fields */}
+                {selectedPlanId === "custom" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-2.5 p-3 rounded-xl bg-(--color-surface-2)/80 border border-(--color-border)">
+                    <div>
+                      <label className="block text-[11px] text-(--color-text-muted) mb-1 font-medium">Custom Plan Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Student 2-Month Special"
+                        value={customPlanName}
+                        onChange={(e) => setCustomPlanName(e.target.value)}
+                        className="w-full rounded-lg bg-(--color-surface) p-2 text-xs text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-(--color-text-muted) mb-1 font-medium">Duration (Months) *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="36"
+                        required
+                        value={customDurationMonths}
+                        onChange={(e) => setCustomDurationMonths(Number(e.target.value))}
+                        className="w-full rounded-lg bg-(--color-surface) p-2 text-xs text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-(--color-text-muted) mb-1 font-medium">Fee Amount (₹) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={customPrice}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setCustomPrice(val);
+                          setPaymentAmount(val);
+                        }}
+                        className="w-full rounded-lg bg-(--color-surface) p-2 text-xs text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-(--color-text-muted) mb-1 font-medium">Account Password</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Member@123"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
-                />
+
+              {/* Initial Payment Collection Option */}
+              <div className="pt-2 border-t border-(--color-border-soft)">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={recordInitialPayment}
+                      onChange={(e) => setRecordInitialPayment(e.target.checked)}
+                      className="w-4 h-4 rounded text-(--color-accent) focus:ring-(--color-accent) cursor-pointer"
+                    />
+                    <span className="font-bold text-xs text-(--color-text) flex items-center gap-1.5">
+                      <IndianRupee size={13} className="text-emerald-400" /> Collect & Record Initial Payment
+                    </span>
+                  </label>
+                  <span className="text-[10px] text-emerald-400 font-medium">Auto-syncs with Payments & Invoices</span>
+                </div>
+
+                {recordInitialPayment && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                    <div>
+                      <label className="block text-[11px] text-(--color-text-muted) mb-1 font-medium">Amount Received (₹) *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        required={recordInitialPayment}
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                        className="w-full rounded-lg bg-(--color-surface) p-2 text-xs font-bold text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-(--color-text-muted) mb-1 font-medium">Payment Mode *</label>
+                      <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="w-full rounded-lg bg-(--color-surface) p-2 text-xs text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent) cursor-pointer"
+                      >
+                        <option value="cash">Cash</option>
+                        <option value="upi">UPI / QR Code (GPay, PhonePe, Paytm)</option>
+                        <option value="card">Credit / Debit Card</option>
+                        <option value="bank_transfer">Bank Transfer / IMPS</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-(--color-text-muted) mb-1 font-medium">Payment Note (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Full cash at reception"
+                        value={paymentNotes}
+                        onChange={(e) => setPaymentNotes(e.target.value)}
+                        className="w-full rounded-lg bg-(--color-surface) p-2 text-xs text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-(--color-text-muted) mb-1 font-medium">Membership Plan</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.planName}
-                  onChange={(e) => setFormData({ ...formData, planName: e.target.value })}
-                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
-                />
-              </div>
+
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Referral Code (Optional)</label>
                 <input
@@ -530,20 +821,20 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-3 border-t border-(--color-border-soft)">
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text)"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-surface-2) text-xs font-semibold text-(--color-text) hover:bg-(--color-surface-3) transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submittingAdd}
-                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md flex items-center justify-center gap-1.5 hover:bg-(--color-accent-hover) transition-colors cursor-pointer disabled:opacity-50"
               >
-                {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register Member"}
+                {submittingAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register & Enroll Member"}
               </button>
             </div>
           </form>
@@ -583,16 +874,28 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                 )}
 
                 {activeModalType === "renew" && (
-                  <>
+                  <div className="space-y-2.5">
                     <div>
-                      <label className="block text-(--color-text-muted) mb-1 font-medium">Membership Plan</label>
-                      <input
-                        type="text"
-                        required
+                      <label className="block text-(--color-text-muted) mb-1 font-medium">Select Renewal Plan</label>
+                      <select
                         value={renewPlanName}
-                        onChange={(e) => setRenewPlanName(e.target.value)}
-                        className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
-                      />
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRenewPlanName(val);
+                          const matched = GYM_MEMBERSHIP_PLANS.find((p) => p.name === val);
+                          const months = matched ? matched.durationMonths : 1;
+                          const newEnd = new Date();
+                          newEnd.setMonth(newEnd.getMonth() + months);
+                          setRenewEndDate(newEnd.toISOString().split("T")[0]);
+                        }}
+                        className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) cursor-pointer"
+                      >
+                        {GYM_MEMBERSHIP_PLANS.map((p) => (
+                          <option key={p.id} value={p.name}>
+                            {p.name} ({p.durationMonths} Mo - ₹{p.price.toLocaleString("en-IN")})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-(--color-text-muted) mb-1 font-medium">New Expiration Date</label>
@@ -604,7 +907,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                         className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
                       />
                     </div>
-                  </>
+                  </div>
                 )}
 
                 {activeModalType !== "renew" && (
@@ -684,6 +987,18 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
           </form>
         </Modal>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteMember}
+        title="Delete Member Profile"
+        description={`Are you sure you want to permanently delete member "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmText="Delete Member"
+        tone="danger"
+        loading={deletingMember}
+      />
     </div>
   );
 }

@@ -319,6 +319,9 @@ export class WorkoutLogService {
     const logs = await WorkoutLog.find({ memberId: member._id }).populate('exercises.exerciseId', 'name');
 
     const totalWorkoutSessions = logs.length;
+    const completedWorkoutSessions = logs.filter(
+      (l) => Boolean(l.completedAt) || l.exercises.some((ex) => ex.completedAt || ex.sets?.some((s) => s.completed))
+    ).length;
     let totalPlannedExercises = 0;
     let totalCompletedExercises = 0;
     const skipCountMap: Record<string, { name: string; count: number }> = {};
@@ -434,6 +437,7 @@ export class WorkoutLogService {
 
     return {
       totalWorkoutSessions,
+      completedWorkoutSessions,
       totalPlannedExercises,
       totalCompletedExercises,
       completionRatePercent,

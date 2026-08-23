@@ -19,8 +19,6 @@ export default function QuickActionDrawer({
   referralCode = "",
   onWeightSuccess,
 }: QuickActionModalProps) {
-  if (!type) return null;
-
   // Weight modal state
   const [weightKg, setWeightKg] = useState<string>("");
   const [weightNotes, setWeightNotes] = useState<string>("");
@@ -36,6 +34,8 @@ export default function QuickActionDrawer({
 
   // Copy referral
   const [copied, setCopied] = useState(false);
+
+  if (!type) return null;
 
   const handleLogWeightSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +53,7 @@ export default function QuickActionDrawer({
       toast.success(`Logged ${val} kg successfully!`);
       if (onWeightSuccess) onWeightSuccess();
       onClose();
-    } catch (err: any) {
+    } catch {
       toast.success(`Logged ${val} kg successfully!`);
       if (onWeightSuccess) onWeightSuccess();
       onClose();
@@ -73,7 +73,7 @@ export default function QuickActionDrawer({
       await feedbackApi.create(memberId, { note: feedbackNote, rating });
       toast.success("Thank you! Your feedback has been recorded.");
       onClose();
-    } catch (err: any) {
+    } catch {
       toast.success("Feedback submitted successfully!");
       onClose();
     } finally {
@@ -95,7 +95,7 @@ export default function QuickActionDrawer({
       downloadAnchor.click();
       downloadAnchor.remove();
       toast.success("Your data export JSON downloaded!");
-    } catch (err) {
+    } catch {
       toast.error("Data export ready for download.");
     } finally {
       setExporting(false);

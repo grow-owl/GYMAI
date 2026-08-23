@@ -85,6 +85,12 @@ function PageLoader() {
   );
 }
 
+function getTimeBasedGreeting(firstName: string): string {
+  const hour = new Date().getHours();
+  const salutation = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  return `${salutation}, ${firstName} 👋`;
+}
+
 function OwnerShell() {
   const { user } = useAuth();
   const firstName = user?.fullName?.split(" ")[0] ?? "Owner";
@@ -99,7 +105,7 @@ function OwnerShell() {
       primary={ownerNav}
       secondary={secondaryNav}
       roleLabel={isSuperAdmin ? "Super Admin" : "Owner / Admin"}
-      greeting={`Good Morning, ${firstName} 👋`}
+      greeting={getTimeBasedGreeting(firstName)}
       subtitle={String(user?.gymName || "My Gym")}
       avatarInitial={initial}
     />
@@ -114,7 +120,7 @@ function TrainerShell() {
     <DashboardShell
       primary={trainerNav}
       roleLabel="Trainer"
-      greeting={`Good Morning, ${firstName} 👋`}
+      greeting={getTimeBasedGreeting(firstName)}
       subtitle={String(user?.gymName || "My Gym")}
       avatarInitial={initial}
     />

@@ -169,16 +169,13 @@ export const staffApi = {
   create: (gymId: string, branchId?: string, data?: any) =>
     api.post<{ staff: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`, data),
 
-  delete: (gymId: string, branchId?: string, staffId?: string) => {
-    const sId = staffId || branchId || "";
-    const bId = staffId ? branchId : undefined;
-    return api.delete<any>(bId ? `/gyms/${gymId}/branches/${bId}/staff/${sId}` : `/gyms/${gymId}/staff/${sId}`);
-  },
+  delete: (gymId: string, staffId: string, branchId?: string) =>
+    api.delete<any>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff/${staffId}` : `/gyms/${gymId}/staff/${staffId}`),
 };
 
 export const memberApi = {
   list: (gymId: string, branchId?: string) =>
-    api.get<{ members: any[] } | any[]>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`),
+    api.get<{ members: any[]; meta?: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`),
 
   create: (gymId: string, branchId?: string, data?: any) =>
     api.post<{ member: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`, data),
@@ -276,6 +273,10 @@ export const workoutApi = {
 
   createExercise: (data: any) => api.post<any>("/exercises", data),
 
+  updateExercise: (exerciseId: string, data: any) => api.patch<any>(`/exercises/${exerciseId}`, data),
+
+  deleteExercise: (exerciseId: string) => api.delete<any>(`/exercises/${exerciseId}`),
+
   seedGlobalExercises: () => api.post<any>("/exercises/seed-global"),
 
   listPlans: (memberId: string) => api.get<any[]>(`/members/${memberId}/workout-plans`),
@@ -287,6 +288,8 @@ export const workoutApi = {
   updatePlan: (planId: string, data: any) => api.patch<any>(`/workout-plans/${planId}`, data),
 
   archivePlan: (planId: string) => api.patch<any>(`/workout-plans/${planId}/archive`),
+
+  deletePlan: (planId: string) => api.delete<any>(`/workout-plans/${planId}`),
 
   duplicatePlan: (planId: string) => api.post<any>(`/workout-plans/${planId}/duplicate`),
 
@@ -317,6 +320,8 @@ export const dietApi = {
   updatePlan: (planId: string, data: any) => api.patch<any>(`/diet-plans/${planId}`, data),
 
   archivePlan: (planId: string) => api.patch<any>(`/diet-plans/${planId}/archive`),
+
+  deletePlan: (planId: string) => api.delete<any>(`/diet-plans/${planId}`),
 };
 
 export const progressApi = {

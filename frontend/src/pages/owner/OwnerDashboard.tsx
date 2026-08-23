@@ -12,19 +12,64 @@ import { reportApi, memberApi, aiApi, attendanceApi, type DashboardOverview } fr
 
 const kpiTones = ["blue", "orange", "purple", "amber"] as const;
 
-const miniStats = [
-  { label: "Revenue Forecast", value: "—", note: "next month", icon: TrendingUp, tone: "green" as const },
-  { label: "Peak Hours", value: "6–8 PM", note: "evening rush", icon: Clock, tone: "blue" as const },
-  { label: "Top Trainer", value: "Assigned Staff", note: "live rating", icon: Award, tone: "amber" as const },
-  { label: "Churn Risk", value: "0 members", note: "act this week", icon: AlertTriangle, tone: "pink" as const },
-];
-
 const miniStatClasses: Record<string, { bg: string; text: string }> = {
   green: { bg: "bg-(--tone-green)", text: "text-white" },
   blue: { bg: "bg-(--tone-blue)", text: "text-white" },
   amber: { bg: "bg-(--tone-amber)", text: "text-white" },
   pink: { bg: "bg-(--tone-pink)", text: "text-white" },
 };
+
+function formatPeakHour(peakData: any): { value: string; note: string } {
+  const list = Array.isArray(peakData) ? peakData : peakData?.peakHours || [];
+  if (!list.length) return { value: "6–8 PM", note: "evening rush" };
+  const sorted = [...list].sort((a, b) => (b.checkInCount || 0) - (a.checkInCount || 0));
+  const top = sorted[0];
+  if (!top || !top.checkInCount) return { value: "6–8 PM", note: "evening rush" };
+  const h = Number(top.hour);
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  const nextH = (h + 1) % 12 === 0 ? 12 : (h + 1) % 12;
+  return { value: `${displayH}–${nextH} ${period}`, note: `${top.checkInCount} check-ins` };
+}
+
+function getTopTrainer(perfData: any): { value: string; note: string } {
+  const list = Array.isArray(perfData) ? perfData : perfData?.trainerComparison || perfData?.trainerPerformance || [];
+  if (!list.length || !list[0]?.trainerName) {
+    return { value: "Assigned Staff", note: "live rating" };
+  }
+  const top = list[0];
+  return {
+    value: top.trainerName,
+    note: top.score ? `${top.score}% score` : `${top.assignedMembersCount || 0} clients`,
+  };
+}
+
+function formatRevForecast(revData: any, currentRev: number): { value: string; note: string } {
+  const forecast = revData?.revenueForecast || revData;
+  const projected = forecast?.projectedRevenue;
+  if (typeof projected === "number" && projected > 0) {
+    return {
+      value: `₹${Math.round(projected).toLocaleString("en-IN")}`,
+      note: forecast.confidence ? `${forecast.confidence} confidence` : "AI forecast",
+    };
+  }
+  if (currentRev > 0) {
+    return {
+      value: `₹${Math.round(currentRev * 1.05).toLocaleString("en-IN")}`,
+      note: "next month est.",
+    };
+  }
+  return { value: "₹0", note: "next month" };
+}
+
+function getChurnRisk(riskData: any): { value: string; note: string } {
+  const list = Array.isArray(riskData) ? riskData : riskData?.atRiskMembers || [];
+  const count = list.length;
+  return {
+    value: `${count} member${count === 1 ? "" : "s"}`,
+    note: count > 0 ? "act this week" : "all healthy",
+  };
+}
 
 export default function OwnerDashboard() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
@@ -36,6 +81,12 @@ export default function OwnerDashboard() {
   const [digestLoading, setDigestLoading] = useState(true);
   const [heatmapWeeks, setHeatmapWeeks] = useState<HeatmapCell[][]>([]);
   const [avgActive30d, setAvgActive30d] = useState(0);
+
+  // Dynamic AI Mini Stats states
+  const [revenueForecast, setRevenueForecast] = useState<any>(null);
+  const [peakHours, setPeakHours] = useState<any>(null);
+  const [trainerPerf, setTrainerPerf] = useState<any>(null);
+  const [atRiskData, setAtRiskData] = useState<any>(null);
 
   useEffect(() => {
     if (!gymId) return;
@@ -49,8 +100,12 @@ export default function OwnerDashboard() {
       aiApi.getWeeklyDigest(gymId).catch(() => null),
       reportApi.getExpiringMemberships(gymId).catch(() => []),
       attendanceApi.getHeatmap(gymId, branchId ?? undefined).catch(() => null),
+      aiApi.getRevenueForecast(gymId).catch(() => null),
+      aiApi.getPeakHours(gymId).catch(() => null),
+      aiApi.getTrainerPerformance(gymId).catch(() => null),
+      aiApi.getAtRiskMembers(gymId).catch(() => null),
     ])
-      .then(([ovRes, memRes, digestRes, expRes, heatRes]) => {
+      .then(([ovRes, memRes, digestRes, expRes, heatRes, revRes, peakRes, perfRes, riskRes]) => {
         const zeroOverview: DashboardOverview = {
           totalActiveMembers: 0,
           totalTrainers: 0,
@@ -80,6 +135,11 @@ export default function OwnerDashboard() {
           setHeatmapWeeks([]);
           setAvgActive30d(0);
         }
+
+        setRevenueForecast(revRes);
+        setPeakHours(peakRes);
+        setTrainerPerf(perfRes);
+        setAtRiskData(riskRes);
       })
       .finally(() => {
         setLoadingOverview(false);
@@ -108,6 +168,18 @@ export default function OwnerDashboard() {
     { label: "Expired", value: expiredCount, color: "var(--tone-amber)" },
     { label: "Frozen", value: frozenCount, color: "var(--tone-blue)" },
     { label: "Cancelled", value: cancelledCount, color: "var(--tone-pink)" },
+  ];
+
+  const revForecastItem = formatRevForecast(revenueForecast, overview?.revenueThisMonth || 0);
+  const peakHourItem = formatPeakHour(peakHours);
+  const topTrainerItem = getTopTrainer(trainerPerf);
+  const churnRiskItem = getChurnRisk(atRiskData);
+
+  const miniStats = [
+    { label: "Revenue Forecast", value: revForecastItem.value, note: revForecastItem.note, icon: TrendingUp, tone: "green" as const },
+    { label: "Peak Hours", value: peakHourItem.value, note: peakHourItem.note, icon: Clock, tone: "blue" as const },
+    { label: "Top Trainer", value: topTrainerItem.value, note: topTrainerItem.note, icon: Award, tone: "amber" as const },
+    { label: "Churn Risk", value: churnRiskItem.value, note: churnRiskItem.note, icon: AlertTriangle, tone: "pink" as const },
   ];
 
   return (
@@ -194,16 +266,19 @@ export default function OwnerDashboard() {
 
       {/* Mini stats footer */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {miniStats.map(({ label, value, icon: Icon, tone }) => {
+        {miniStats.map(({ label, value, note, icon: Icon, tone }) => {
           const { bg, text } = miniStatClasses[tone];
           return (
             <Card key={label} className="flex items-center gap-3">
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg} ${text}`}>
                 <Icon size={18} strokeWidth={2} />
               </span>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-display text-sm font-semibold text-(--color-text) truncate">{value}</p>
-                <p className="text-[11px] text-(--color-text-muted) truncate">{label}</p>
+                <p className="text-[11px] text-(--color-text-muted) truncate flex items-center justify-between">
+                  <span>{label}</span>
+                  {note && <span className="text-[10px] text-(--color-text-faint) font-normal ml-1">({note})</span>}
+                </p>
               </div>
             </Card>
           );

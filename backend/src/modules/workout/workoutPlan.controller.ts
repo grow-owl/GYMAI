@@ -58,4 +58,10 @@ export class WorkoutPlanController {
     const plan = await WorkoutPlanService.duplicatePlanForNewCycle(req.params.planId, gymId, newTitle);
     return sendSuccess(res, { plan }, 'Workout plan duplicated for new cycle successfully', 201);
   });
+
+  public static deleteWorkoutPlan = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.user?.gymId?.toString() || req.params.gymId || '';
+    await WorkoutPlanService.deleteWorkoutPlan(req.params.planId, gymId);
+    return sendSuccess(res, null, 'Workout plan deleted successfully');
+  });
 }

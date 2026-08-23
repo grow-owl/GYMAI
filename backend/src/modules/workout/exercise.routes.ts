@@ -5,7 +5,7 @@ import { authorize } from '../../common/middlewares/authorize.middleware';
 import { injectTenantScope } from '../../common/middlewares/tenant.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { Role } from '../../common/constants/roles.enum';
-import { createExerciseSchema } from './exercise.validation';
+import { createExerciseSchema, updateExerciseSchema } from './exercise.validation';
 
 const router = Router();
 
@@ -20,6 +20,21 @@ router.post(
   injectTenantScope,
   validate(createExerciseSchema, 'body'),
   ExerciseController.createExercise
+);
+
+router.patch(
+  '/:exerciseId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  injectTenantScope,
+  validate(updateExerciseSchema, 'body'),
+  ExerciseController.updateExercise
+);
+
+router.delete(
+  '/:exerciseId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  injectTenantScope,
+  ExerciseController.deleteExercise
 );
 
 router.post(

@@ -4,6 +4,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { staffApi, authApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
@@ -104,16 +105,27 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
     }
   };
 
-  const handleDeleteStaff = async (staffId: string, name: string) => {
-    if (!gymId) return;
-    if (!confirm(`Are you sure you want to delete staff account for "${name}"?`)) return;
+  // Delete Staff Dialog State
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingStaff, setDeletingStaff] = useState(false);
+
+  const confirmDeleteStaff = async () => {
+    if (!deleteTarget || !gymId) return;
+    setDeletingStaff(true);
     try {
-      await staffApi.delete(gymId, branchId || undefined, staffId);
-      toast.success(`Staff member "${name}" deleted successfully.`);
+      await staffApi.delete(gymId, deleteTarget.id, branchId || undefined);
+      toast.success(`Staff member "${deleteTarget.name}" deleted successfully.`);
+      setDeleteTarget(null);
       fetchStaff();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to delete staff member.");
+    } finally {
+      setDeletingStaff(false);
     }
+  };
+
+  const handleDeleteStaff = (staffId: string, name: string) => {
+    setDeleteTarget({ id: staffId, name });
   };
 
   return (
@@ -336,6 +348,18 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
           </form>
         </Modal>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteStaff}
+        title="Delete Staff Account"
+        description={`Are you sure you want to permanently delete staff member "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmText="Delete Staff"
+        tone="danger"
+        loading={deletingStaff}
+      />
     </div>
   );
 }

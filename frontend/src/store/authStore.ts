@@ -161,7 +161,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.removeItem(`gymai.selected_branch_id.${userId}`);
         localStorage.removeItem(`gymai.branches_list.${userId}`);
       }
-    } catch (e) {
+    } catch {
       // ignore storage errors
     }
     authApi.logout().catch(() => {

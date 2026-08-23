@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Loader2, RefreshCw, Users, Star, MessageSquare, Scale, Plus, Activity } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -9,6 +10,7 @@ import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 export default function MyClients() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +181,12 @@ export default function MyClients() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(`/trainer/progress?clientId=${clientId}`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-(--color-surface-3) text-(--color-text) text-xs font-bold border border-(--color-border) hover:border-(--color-accent) transition-all cursor-pointer"
+                    >
+                      <Activity size={13} className="text-(--color-accent)" /> View Progress & Report
+                    </button>
                     <button
                       onClick={() => openMetricsModal(c)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold shadow-md hover:brightness-110 transition-all cursor-pointer"

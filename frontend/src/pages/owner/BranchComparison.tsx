@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Building2, TrendingUp, Users, Loader2, BarChart2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -14,7 +14,7 @@ export default function BranchComparison() {
   const [period, setPeriod] = useState("30d");
   const [data, setData] = useState<any | null>(null);
 
-  const fetchComparison = async () => {
+  const fetchComparison = useCallback(async () => {
     if (!user?.gymId) return;
     setLoading(true);
     try {
@@ -25,11 +25,11 @@ export default function BranchComparison() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.gymId, metric, period]);
 
   useEffect(() => {
     fetchComparison();
-  }, [user, metric, period]);
+  }, [fetchComparison]);
 
   const metrics = [
     { key: "revenue", label: "Revenue (₹)", icon: TrendingUp },

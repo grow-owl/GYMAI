@@ -758,7 +758,7 @@ export default function Reports() {
       {active && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setActive(null)} />
-          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-auto rounded-2xl bg-(--color-surface) border border-(--color-border) shadow-2xl flex flex-col">
+          <div className="relative w-full max-w-4xl max-h-[85vh] overflow-auto rounded-2xl bg-(--color-surface) border border-(--color-border) shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border) sticky top-0 bg-(--color-surface) z-10">
               <div>
                 <p className="text-sm font-semibold text-(--color-text)">{active.name}</p>
@@ -767,11 +767,11 @@ export default function Reports() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => download(`${active.key}.csv`, toCsv(active.columns, active.rows()), "text/csv")}
-                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3 py-1.5 hover:bg-(--color-accent-hover) transition-colors"
+                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3.5 py-1.5 hover:bg-(--color-accent-hover) transition-colors shadow-sm cursor-pointer"
                 >
                   <FileSpreadsheet size={13} /> Export CSV
                 </button>
-                <button onClick={() => setActive(null)} className="text-(--color-text-muted) p-1 rounded-full hover:bg-(--color-surface-2)">
+                <button onClick={() => setActive(null)} className="text-(--color-text-muted) p-1 rounded-full hover:bg-(--color-surface-2) cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
@@ -779,13 +779,21 @@ export default function Reports() {
 
             <div className="p-5 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-(--color-surface-2)/60 rounded-xl p-4 border border-(--color-border-soft) space-y-2">
-                  <p className="text-xs font-semibold text-(--color-text) uppercase tracking-wide">Metric Comparison</p>
-                  <BarChart height={140} data={overviewBarData} />
+                <div className="bg-(--color-surface-2)/60 rounded-2xl p-4 sm:p-5 border border-(--color-border-soft) flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between border-b border-(--color-border-soft)/60 pb-2">
+                    <p className="text-xs font-bold text-(--color-text) uppercase tracking-wide">Metric Comparison</p>
+                    <span className="text-[10px] text-(--color-text-muted) font-semibold">Live Data</span>
+                  </div>
+                  <div className="pt-2 pb-1">
+                    <BarChart height={150} data={overviewBarData} />
+                  </div>
                 </div>
-                <div className="bg-(--color-surface-2)/60 rounded-xl p-4 border border-(--color-border-soft) space-y-2 flex flex-col items-center">
-                  <p className="text-xs font-semibold text-(--color-text) uppercase tracking-wide w-full text-left">Distribution Share</p>
-                  <DonutChart size={130} thickness={15} centerValue={`${overview?.totalActiveMembers ?? 24}`} segments={overviewDonutData} />
+                <div className="bg-(--color-surface-2)/60 rounded-2xl p-4 sm:p-5 border border-(--color-border-soft) flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between border-b border-(--color-border-soft)/60 pb-2">
+                    <p className="text-xs font-bold text-(--color-text) uppercase tracking-wide">Distribution Share</p>
+                    <span className="text-[10px] text-(--color-text-muted) font-semibold">Proportions</span>
+                  </div>
+                  <DonutChart size={120} thickness={15} centerValue={`${overview?.totalActiveMembers ?? 24}`} segments={overviewDonutData} layout="horizontal" />
                 </div>
               </div>
 
@@ -830,7 +838,7 @@ export default function Reports() {
       {viewingReport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setViewingReport(null)} />
-          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-auto rounded-2xl bg-(--color-surface) border border-(--color-border) shadow-2xl flex flex-col">
+          <div className="relative w-full max-w-4xl max-h-[85vh] overflow-auto rounded-2xl bg-(--color-surface) border border-(--color-border) shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border) sticky top-0 bg-(--color-surface) z-10">
               <div>
                 <p className="text-sm font-semibold text-(--color-text)">
@@ -844,11 +852,11 @@ export default function Reports() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleDownloadReportData(viewingReport)}
-                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3 py-1.5 hover:bg-(--color-accent-hover) transition-colors"
+                  className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3.5 py-1.5 hover:bg-(--color-accent-hover) transition-colors shadow-sm cursor-pointer"
                 >
                   <FileSpreadsheet size={13} /> Download
                 </button>
-                <button onClick={() => setViewingReport(null)} className="text-(--color-text-muted) p-1 rounded-full hover:bg-(--color-surface-2)">
+                <button onClick={() => setViewingReport(null)} className="text-(--color-text-muted) p-1 rounded-full hover:bg-(--color-surface-2) cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
@@ -858,7 +866,7 @@ export default function Reports() {
               <button
                 onClick={() => setModalViewTab("graph")}
                 className={clsx(
-                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200",
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 cursor-pointer",
                   modalViewTab === "graph"
                     ? "bg-(--color-accent) text-(--color-navbar) font-bold"
                     : "text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-3)"
@@ -869,7 +877,7 @@ export default function Reports() {
               <button
                 onClick={() => setModalViewTab("data")}
                 className={clsx(
-                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200",
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 cursor-pointer",
                   modalViewTab === "data"
                     ? "bg-(--color-accent) text-(--color-navbar) font-bold"
                     : "text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-3)"
@@ -883,20 +891,28 @@ export default function Reports() {
               {modalViewTab === "graph" && parsedModalChartData ? (
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-(--color-text) uppercase tracking-wide">{parsedModalChartData.title}</p>
-                    <span className="px-2 py-0.5 rounded-full bg-(--color-accent-soft) text-(--color-accent-text) text-[10px] font-bold">
+                    <p className="text-xs font-bold text-(--color-text) uppercase tracking-wide">{parsedModalChartData.title}</p>
+                    <span className="px-2.5 py-0.5 rounded-full bg-(--color-accent-soft) text-(--color-accent-text) text-[10px] font-bold">
                       Parsed Visual Data
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-(--color-surface-2)/60 rounded-xl p-4 border border-(--color-border-soft) space-y-2">
-                      <p className="text-[11px] font-medium text-(--color-text-muted) uppercase">Bar Comparison</p>
-                      <BarChart height={140} data={parsedModalChartData.bar} />
+                    <div className="bg-(--color-surface-2)/60 rounded-2xl p-4 sm:p-5 border border-(--color-border-soft) flex flex-col justify-between space-y-3">
+                      <div className="flex items-center justify-between border-b border-(--color-border-soft)/60 pb-2">
+                        <p className="text-xs font-bold text-(--color-text) uppercase tracking-wide">Bar Comparison</p>
+                        <span className="text-[10px] text-(--color-text-muted) font-semibold">Distribution</span>
+                      </div>
+                      <div className="pt-2 pb-1">
+                        <BarChart height={150} data={parsedModalChartData.bar} />
+                      </div>
                     </div>
-                    <div className="bg-(--color-surface-2)/60 rounded-xl p-4 border border-(--color-border-soft) space-y-2 flex flex-col items-center justify-center">
-                      <p className="text-[11px] font-medium text-(--color-text-muted) uppercase w-full text-left">Donut Distribution</p>
-                      <DonutChart size={130} thickness={15} segments={parsedModalChartData.donut} />
+                    <div className="bg-(--color-surface-2)/60 rounded-2xl p-4 sm:p-5 border border-(--color-border-soft) flex flex-col justify-between space-y-3">
+                      <div className="flex items-center justify-between border-b border-(--color-border-soft)/60 pb-2">
+                        <p className="text-xs font-bold text-(--color-text) uppercase tracking-wide">Donut Distribution</p>
+                        <span className="text-[10px] text-(--color-text-muted) font-semibold">Proportions</span>
+                      </div>
+                      <DonutChart size={120} thickness={15} segments={parsedModalChartData.donut} layout="horizontal" />
                     </div>
                   </div>
                 </div>

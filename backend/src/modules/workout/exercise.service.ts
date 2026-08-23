@@ -118,6 +118,45 @@ export class ExerciseService {
   }
 
   /**
+   * Update gym-custom Exercise
+   */
+  public static async updateExercise(
+    exerciseId: string,
+    gymId: string,
+    input: Partial<CreateExerciseInput>
+  ): Promise<IExercise> {
+    const filter: any = {
+      _id: exerciseId,
+      gymId: new mongoose.Types.ObjectId(gymId),
+      isDeleted: false,
+    };
+
+    const exercise = await Exercise.findOneAndUpdate(filter, input, { new: true, runValidators: true });
+    if (!exercise) {
+      throw AppError.notFound('Custom exercise not found or cannot edit global exercises');
+    }
+    logger.info(`🏋️ Custom Exercise updated: [ID: ${exercise._id}] [Gym: ${gymId}]`);
+    return exercise;
+  }
+
+  /**
+   * Soft-delete gym-custom Exercise
+   */
+  public static async deleteExercise(exerciseId: string, gymId: string): Promise<void> {
+    const filter: any = {
+      _id: exerciseId,
+      gymId: new mongoose.Types.ObjectId(gymId),
+      isDeleted: false,
+    };
+
+    const exercise = await Exercise.findOneAndUpdate(filter, { isDeleted: true }, { new: true });
+    if (!exercise) {
+      throw AppError.notFound('Custom exercise not found or cannot delete global exercises');
+    }
+    logger.info(`🗑️ Custom Exercise deleted: [ID: ${exerciseId}] [Gym: ${gymId}]`);
+  }
+
+  /**
    * Batch validate that all referenced exercise IDs exist in library
    */
   public static async batchValidateExerciseIds(exerciseIds: string[]): Promise<void> {

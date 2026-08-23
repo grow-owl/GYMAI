@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { productApi, memberApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useAuthStore } from "@/store/authStore";
@@ -146,15 +147,27 @@ export default function Inventory() {
     }
   };
 
-  const handleDeleteProduct = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete product "${name}"?`)) return;
+  // Delete Product Dialog State
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState(false);
+
+  const confirmDeleteProduct = async () => {
+    if (!deleteTarget) return;
+    setDeletingProduct(true);
     try {
-      await productApi.delete(id);
-      toast.success(`Product "${name}" deleted.`);
+      await productApi.delete(deleteTarget.id);
+      toast.success(`Product "${deleteTarget.name}" deleted.`);
+      setDeleteTarget(null);
       fetchProducts();
     } catch {
       toast.error("Failed to delete product.");
+    } finally {
+      setDeletingProduct(false);
     }
+  };
+
+  const handleDeleteProduct = (id: string, name: string) => {
+    setDeleteTarget({ id, name });
   };
 
   const handleSellProduct = async (e: React.FormEvent) => {
@@ -571,6 +584,18 @@ export default function Inventory() {
           </form>
         </Modal>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteProduct}
+        title="Delete Inventory Item"
+        description={`Are you sure you want to permanently delete "${deleteTarget?.name}"?`}
+        confirmText="Delete Item"
+        tone="danger"
+        loading={deletingProduct}
+      />
     </div>
   );
 }

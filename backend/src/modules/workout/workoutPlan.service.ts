@@ -147,14 +147,48 @@ export class WorkoutPlanService {
   public static async updateWorkoutPlan(
     planId: string,
     gymId: string,
-    updateData: Partial<IWorkoutPlan>
+    updateData: any
   ): Promise<IWorkoutPlan> {
     const filter: any = { _id: planId, isDeleted: false };
     if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
 
-    const plan = await WorkoutPlan.findOneAndUpdate(filter, updateData, { new: true });
+    const formattedData = { ...updateData };
+    if (updateData.days && Array.isArray(updateData.days)) {
+      formattedData.days = updateData.days.map((d: any) => ({
+        dayLabel: d.dayLabel || d.dayName,
+        dayName: d.dayName || d.dayLabel,
+        exercises: (d.exercises || []).map((e: any) => ({
+          exerciseId: new mongoose.Types.ObjectId(e.exerciseId),
+          order: e.order || 1,
+          targetSets: Number(e.targetSets),
+          targetReps: Number(e.targetReps),
+          targetWeightKg: e.targetWeightKg ? Number(e.targetWeightKg) : undefined,
+          restSeconds: e.restSeconds ? Number(e.restSeconds) : 60,
+          notes: e.notes ? e.notes.trim() : undefined,
+        })),
+      }));
+    }
+
+    const plan = await WorkoutPlan.findOneAndUpdate(filter, formattedData, { new: true });
     if (!plan) throw AppError.notFound('Workout plan not found');
+    logger.info(`📋 Workout Plan updated: [ID: ${plan._id}] [Gym: ${gymId}]`);
     return plan;
+  }
+
+  /**
+   * Delete Workout Plan with strict gymId tenant match
+   */
+  public static async deleteWorkoutPlan(planId: string, gymId: string): Promise<void> {
+    const filter: any = { _id: planId, isDeleted: false };
+    if (gymId) filter.gymId = new mongoose.Types.ObjectId(gymId);
+
+    const plan = await WorkoutPlan.findOneAndUpdate(
+      filter,
+      { isDeleted: true, isActive: false },
+      { new: true }
+    );
+    if (!plan) throw AppError.notFound('Workout plan not found');
+    logger.info(`🗑️ Workout Plan deleted: [ID: ${planId}] [Gym: ${gymId}]`);
   }
 
   /**

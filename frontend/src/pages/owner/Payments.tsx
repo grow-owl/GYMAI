@@ -3,6 +3,7 @@ import { Plus, Loader2, RefreshCw, CreditCard, Pencil, Trash2 } from "lucide-rea
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { paymentApi, memberApi } from "@/lib/endpoints";
@@ -180,16 +181,26 @@ export default function Payments() {
     }
   };
 
-  const handleDeletePayment = async (pId: string, name: string) => {
-    const activeGymId = gymId || "";
-    if (!confirm(`Are you sure you want to delete payment record for "${name}"?`)) return;
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState(false);
+
+  const confirmDeletePayment = async () => {
+    if (!deleteTarget || !gymId) return;
+    setDeletingPayment(true);
     try {
-      await paymentApi.delete(activeGymId, pId);
+      await paymentApi.delete(gymId, deleteTarget.id);
       toast.success("Payment record deleted.");
+      setDeleteTarget(null);
       fetchData();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to delete payment");
+    } finally {
+      setDeletingPayment(false);
     }
+  };
+
+  const handleDeletePayment = (pId: string, name: string) => {
+    setDeleteTarget({ id: pId, name });
   };
 
   return (
@@ -464,6 +475,18 @@ export default function Payments() {
           </form>
         </Modal>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeletePayment}
+        title="Delete Payment Record"
+        description={`Are you sure you want to permanently delete the payment record for "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmText="Delete Record"
+        tone="danger"
+        loading={deletingPayment}
+      />
     </div>
   );
 }

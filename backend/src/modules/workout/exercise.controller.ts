@@ -44,4 +44,22 @@ export class ExerciseController {
     );
     return sendSuccess(res, { exercise }, 'Exercise details retrieved successfully');
   });
+
+  public static updateExercise = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.tenant?.gymId || req.user?.gymId;
+    if (!gymId) {
+      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+    }
+    const exercise = await ExerciseService.updateExercise(req.params.exerciseId, gymId.toString(), req.body);
+    return sendSuccess(res, { exercise }, 'Exercise updated successfully');
+  });
+
+  public static deleteExercise = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.tenant?.gymId || req.user?.gymId;
+    if (!gymId) {
+      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+    }
+    await ExerciseService.deleteExercise(req.params.exerciseId, gymId.toString());
+    return sendSuccess(res, null, 'Exercise deleted successfully');
+  });
 }

@@ -7,6 +7,7 @@ import { WeightEntry } from '../progress/weightEntry.model';
 import { AIReport } from '../aiCoach/aiReport.model';
 import { TrainerFeedback } from '../feedback/trainerFeedback.model';
 import { Member } from '../member/member.model';
+import { Trainer } from '../trainer/trainer.model';
 import { MemberPaymentService } from '../payment/memberPayment.service';
 import { PdfRendererService } from './pdfRenderer';
 import { IReportRequest, ReportType, ReportFormat } from './report.types';
@@ -480,9 +481,10 @@ export class ReportService {
       if (!scope.memberId) {
         throw AppError.forbidden('Trainers can only request member-scoped reports');
       }
+      const trainer = await Trainer.findOne({ userId: new mongoose.Types.ObjectId(actingUser.id), isDeleted: false });
       const member = await Member.findOne({
-        _id: scope.memberId,
-        assignedTrainerId: actingUser.id,
+        _id: new mongoose.Types.ObjectId(scope.memberId),
+        ...(trainer ? { assignedTrainerId: trainer._id } : {}),
         isDeleted: false,
       });
       if (!member) {

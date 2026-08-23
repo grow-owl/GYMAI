@@ -92,7 +92,7 @@ export default function AIChatWidget() {
           ]);
         }
       }
-    } catch (err: any) {
+    } catch {
       // Fallback smart AI response if server backend response delayed
       const fallbackReply = generateFallbackAIResponse(textToSend);
       setMessages((prev) => [

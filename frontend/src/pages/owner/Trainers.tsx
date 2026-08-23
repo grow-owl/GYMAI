@@ -3,6 +3,7 @@ import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search, Ke
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { useGymBranch } from "@/hooks/useGymBranch";
@@ -177,16 +178,27 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
     }
   };
 
-  const handleDeleteTrainer = async (tId: string) => {
-    if (!gymId) return;
-    if (!confirm("Are you sure you want to remove this trainer?")) return;
+  // Delete Trainer Dialog State
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name?: string } | null>(null);
+  const [deletingTrainer, setDeletingTrainer] = useState(false);
+
+  const confirmDeleteTrainer = async () => {
+    if (!deleteTarget || !gymId) return;
+    setDeletingTrainer(true);
     try {
-      await trainerApi.delete(gymId, tId);
-      toast.success("Trainer removed.");
+      await trainerApi.delete(gymId, deleteTarget.id);
+      toast.success("Trainer removed successfully.");
+      setDeleteTarget(null);
       fetchTrainers();
     } catch (err: any) {
       toast.error(err.response?.data?.error?.message || err.response?.data?.message || err.message || "Failed to delete trainer");
+    } finally {
+      setDeletingTrainer(false);
     }
+  };
+
+  const handleDeleteTrainer = (tId: string) => {
+    setDeleteTarget({ id: tId });
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -520,6 +532,18 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
           </form>
         </Modal>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteTrainer}
+        title="Remove Trainer"
+        description="Are you sure you want to remove this trainer? Their assigned clients will become unassigned."
+        confirmText="Remove Trainer"
+        tone="danger"
+        loading={deletingTrainer}
+      />
     </div>
   );
 }

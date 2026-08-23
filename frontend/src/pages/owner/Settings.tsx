@@ -26,7 +26,7 @@ function getStoredBranches(): any[] {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  return [{ _id: "b1", name: "Main Branch", city: "Mumbai", contactPhone: "+91 9876543210" }];
+  return [];
 }
 
 function saveStoredBranches(list: any[]) {
@@ -198,8 +198,8 @@ export default function Settings() {
     const newBranchObj = {
       _id: `b-${Date.now()}`,
       name: branchForm.name,
-      city: branchForm.city || "Mumbai",
-      contactPhone: branchForm.contactPhone || "+91 9876543210",
+      city: branchForm.city || "",
+      contactPhone: branchForm.contactPhone || "",
       timezone: branchForm.timezone || "Asia/Kolkata",
     };
 
@@ -215,10 +215,10 @@ export default function Settings() {
         contactPhone: branchForm.contactPhone,
         timezone: branchForm.timezone,
         address: {
-          line1: branchForm.line1 || "Main Road",
-          city: branchForm.city || "Mumbai",
-          state: branchForm.state || "Maharashtra",
-          pincode: branchForm.pincode || "400001",
+          line1: branchForm.line1 || "",
+          city: branchForm.city || "",
+          state: branchForm.state || "",
+          pincode: branchForm.pincode || "",
           country: branchForm.country || "India",
         },
       });

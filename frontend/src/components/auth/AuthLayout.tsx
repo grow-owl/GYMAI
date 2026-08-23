@@ -1,4 +1,4 @@
-import { Dumbbell, ShieldCheck, Sparkles, TrendingUp, Users, Activity } from "lucide-react";
+import { Dumbbell, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 
 const highlights = [
@@ -73,19 +73,19 @@ export default function AuthLayout({
           <p className="text-white/70 mt-3 max-w-sm text-sm leading-relaxed">{subtitle}</p>
         </div>
 
-        {/* Decorative floating mock stat cards — signals "product" without a screenshot */}
+        {/* Platform capability badges — verified SaaS features without fake mock numbers */}
         <div className="relative hidden lg:flex gap-3 mt-6 animate-fade-in-up stagger-item" style={{ ["--stagger-i" as string]: 3 }}>
           <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-2.5 flex-1">
-            <div className="flex items-center gap-2 text-white/60 text-[11px]">
-              <Users size={12} /> Members
+            <div className="flex items-center gap-1.5 text-white/75 text-[11px] font-medium">
+              <Sparkles size={13} className="text-amber-300 shrink-0" /> AI Insights
             </div>
-            <p className="font-display text-lg font-semibold mt-1">1,248</p>
+            <p className="font-display text-sm font-bold mt-1 text-white">Smart Workout & Diet</p>
           </div>
           <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 px-4 py-2.5 flex-1">
-            <div className="flex items-center gap-2 text-white/60 text-[11px]">
-              <Activity size={12} /> Retention
+            <div className="flex items-center gap-1.5 text-white/75 text-[11px] font-medium">
+              <ShieldCheck size={13} className="text-emerald-300 shrink-0" /> Secure Cloud
             </div>
-            <p className="font-display text-lg font-semibold mt-1">94.2%</p>
+            <p className="font-display text-sm font-bold mt-1 text-white">Role-Based & QR Sync</p>
           </div>
         </div>
 

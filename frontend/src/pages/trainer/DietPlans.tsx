@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, Utensils, Archive, Loader2, Users } from "lucide-react";
+import { Plus, Utensils, Archive, Loader2, Users, Trash2, Edit2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { trainerApi, dietApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -203,6 +204,29 @@ export default function DietPlans() {
     }
   };
 
+  // Delete Plan State
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState(false);
+
+  const confirmDeletePlan = async () => {
+    if (!deleteTarget) return;
+    setDeletingPlan(true);
+    try {
+      await dietApi.deletePlan(deleteTarget.id);
+      toast.success("Diet plan deleted.");
+      setPlans((prev) => prev.filter((p) => (p._id || p.id) !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to delete diet plan");
+    } finally {
+      setDeletingPlan(false);
+    }
+  };
+
+  const handleDeletePlan = (planId: string, planTitle: string) => {
+    setDeleteTarget({ id: planId, title: planTitle });
+  };
+
   // Update Existing Plan
   const handleEditPlanClick = (p: any) => {
     setEditingPlanId(p._id || p.id);
@@ -224,9 +248,21 @@ export default function DietPlans() {
         backTo="/trainer"
         action={
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              setEditingPlanId(null);
+              setTitle("");
+              setDailyCalorieTarget(2400);
+              setDailyProteinTargetG(160);
+              setMeals([
+                {
+                  mealType: "breakfast",
+                  items: [{ name: "Oats & Eggs", quantity: "1 bowl + 4 whites", calories: 450, protein_g: 35 }],
+                },
+              ]);
+              setShowCreateModal(true);
+            }}
             disabled={!selectedClientId}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90 shadow-md disabled:opacity-50 cursor-pointer"
           >
             <Plus size={15} /> Create Diet Plan
           </button>
@@ -289,7 +325,7 @@ export default function DietPlans() {
             const protein = p.dailyProteinTarget_g || 120;
 
             return (
-              <Card key={pId} className="p-4 space-y-3 flex flex-col justify-between">
+              <Card key={pId} className="p-4 space-y-3 flex flex-col justify-between border border-(--color-border)">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -312,7 +348,7 @@ export default function DietPlans() {
                     className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-lg bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:border-(--color-accent) border border-transparent transition-all cursor-pointer"
                     title="Edit Plan"
                   >
-                    Edit Plan
+                    <Edit2 size={12} /> Edit Plan
                   </button>
                   {status === "ACTIVE" && (
                     <button
@@ -323,6 +359,13 @@ export default function DietPlans() {
                       <Archive size={13} /> Archive
                     </button>
                   )}
+                  <button
+                    onClick={() => handleDeletePlan(pId, p.title)}
+                    className="inline-flex items-center justify-center p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                    title="Delete Diet Plan Permanently"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </Card>
             );
@@ -524,6 +567,18 @@ export default function DietPlans() {
           </form>
         </Modal>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeletePlan}
+        title="Delete Diet Plan"
+        description={`Are you sure you want to permanently delete "${deleteTarget?.title}"?`}
+        confirmText="Delete Plan"
+        tone="danger"
+        loading={deletingPlan}
+      />
     </div>
   );
 }

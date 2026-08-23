@@ -46,5 +46,10 @@ generalPlanRouter.post(
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
   WorkoutPlanController.duplicatePlan
 );
+generalPlanRouter.delete(
+  '/:planId',
+  authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
+  WorkoutPlanController.deleteWorkoutPlan
+);
 
 export { memberPlanRouter, generalPlanRouter };
