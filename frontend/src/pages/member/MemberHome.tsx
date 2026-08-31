@@ -162,12 +162,12 @@ export default function MemberHome() {
 
         {/* Header Actions (Check-In & Alerts) */}
         <div className="flex items-center gap-2 w-full md:w-auto shrink-0 border-t md:border-t-0 border-(--color-border-soft) pt-3 md:pt-0">
-          <button
-            onClick={() => setActiveModal("checkin")}
+          <Link
+            to="/member/attendance"
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-navbar font-bold text-xs hover:brightness-110 shadow-md transition-all cursor-pointer"
           >
             <Shield className="h-4 w-4" /> Check-In
-          </button>
+          </Link>
         </div>
       </div>
 

@@ -34,10 +34,10 @@ export default function MobileShell() {
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-0 h-full w-72 bg-(--color-navbar) border-r border-(--color-navbar-border) p-4 flex flex-col">
             <div className="flex items-center justify-between mb-6">
-              <div className="leading-tight">
+              <NavLink to={memberNav[0]?.path || "/"} className="leading-tight block hover:opacity-80">
                 <p className="font-display text-sm font-semibold text-(--color-navbar-text)">GYMAI</p>
                 <p className="text-[11px] text-(--color-navbar-text-muted)">Member</p>
-              </div>
+              </NavLink>
               <button onClick={() => setMobileOpen(false)} className="text-(--color-navbar-text-muted)">
                 <icons.X size={20} />
               </button>
