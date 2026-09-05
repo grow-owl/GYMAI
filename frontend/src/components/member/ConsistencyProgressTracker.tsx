@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Trophy, Activity, Target } from "lucide-react";
+import { CheckCircle2, Circle, Activity, Target } from "lucide-react";
 import Card from "@/components/ui/Card";
 
 interface ConsistencyProgressTrackerProps {

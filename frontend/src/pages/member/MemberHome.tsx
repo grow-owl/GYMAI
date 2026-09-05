@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Scale, MessageSquare, Shield, Share2, AlertCircle } from "lucide-react";
-import { memberApi, progressApi, gamificationApi, attendanceApi, notificationApi, paymentApi, workoutApi } from "@/lib/endpoints";
+import { Shield, AlertCircle } from "lucide-react";
+import { memberApi, progressApi, attendanceApi, paymentApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
-import { deriveGameStats } from "@/lib/gamification";
 import PerformanceCharts from "@/components/member/PerformanceCharts";
 import ConsistencyProgressTracker from "@/components/member/ConsistencyProgressTracker";
 import LeaderboardCard from "@/components/member/LeaderboardCard";
@@ -17,12 +16,10 @@ export default function MemberHome() {
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [memberProfile, setMemberProfile] = useState<any | null>(null);
-  const [gameProfile, setGameProfile] = useState<any | null>(null);
   const [weightLogs, setWeightLogs] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState<any | null>(null);
   const [completedWorkoutsCount, setCompletedWorkoutsCount] = useState<number>(0);
   const [workoutVolumeLogs, setWorkoutVolumeLogs] = useState<any[]>([]);
-  const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const [, setMyPayment] = useState<any | null>(null);
   const [activePlanName, setActivePlanName] = useState<string | null>(null);
 
@@ -47,22 +44,18 @@ export default function MemberHome() {
       }
 
       // 2. Fetch parallel endpoints
-      const [gameRes, weightRes, attStatsRes, unreadRes, payRes, workoutStatsRes] = await Promise.all([
-        gamificationApi.getMyProfile().catch(() => null),
+      const [weightRes, attStatsRes, payRes, workoutStatsRes] = await Promise.all([
         memberId ? progressApi.getHistory(memberId).catch(() => null) : null,
         attendanceApi.getMyStats().catch(() => null),
-        notificationApi.getUnreadCount().catch(() => null),
         gymId ? paymentApi.getMyPayments(gymId).catch(() => null) : null,
         memberId ? workoutApi.getCompletionStats(memberId).catch(() => null) : null,
       ]);
 
-      if (gameRes) setGameProfile(gameRes);
       if (weightRes) {
         const logs = Array.isArray(weightRes) ? weightRes : weightRes?.history || weightRes?.logs || [];
         setWeightLogs(logs);
       }
       if (attStatsRes) setAttendanceStats(attStatsRes);
-      if (unreadRes) setUnreadNotifications(unreadRes?.unreadCount || 0);
       if (payRes) setMyPayment(payRes);
       if (workoutStatsRes) {
         const stats = workoutStatsRes?.stats || workoutStatsRes;
@@ -95,10 +88,6 @@ export default function MemberHome() {
   }, [fetchDashboardData]);
 
   const memberName = memberProfile?.userId?.fullName || user?.fullName || "Gym Member";
-  const gameStats = deriveGameStats(gameProfile);
-  const streakDays = gameStats.streak || attendanceStats?.currentStreak || 0;
-  const attendanceRate = attendanceStats?.attendanceRate ?? 0;
-  const totalXp = gameStats.totalXp;
   const referralCode = memberProfile?.referralCode || "";
   const gymId = memberProfile?.gymId || user?.gymId || "";
   
