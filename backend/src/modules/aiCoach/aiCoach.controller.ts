@@ -4,26 +4,35 @@ import { AIChatbotService } from './aiChatbot.service';
 import { ChurnPredictionService } from './churnPrediction.service';
 import { OwnerInsightsService } from './ownerInsights.service';
 import { SupplementPTRecommendationService } from './supplementPTRecommendation.service';
+import { AIDataAggregatorService } from './aiDataAggregator.service';
 import { AIReport } from './aiReport.model';
 import { AIReportType } from './aiCoach.types';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
 
+function resolveTargetMemberId(req: Request): string {
+  const param = req.params.memberId;
+  if (!param || param === 'me') {
+    return req.user!.id;
+  }
+  return param;
+}
+
 export class AICoachController {
   public static getSuggestions = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const memberId = resolveTargetMemberId(req);
     const suggestions = await AICoachService.generatePersonalizedSuggestions(memberId);
     return sendSuccess(res, suggestions, 'Personalized AI suggestions generated successfully');
   });
 
   public static getDietRecommendation = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const memberId = resolveTargetMemberId(req);
     const dietRec = await AICoachService.generateDietRecommendation(memberId);
     return sendSuccess(res, dietRec, 'AI diet recommendation generated successfully');
   });
 
   public static getReports = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const memberId = resolveTargetMemberId(req);
     const type = (req.query.type as AIReportType) || AIReportType.WEEKLY;
 
     const reports = await AIReport.find({ memberId, type }).sort({ periodStart: -1 });
@@ -31,7 +40,7 @@ export class AICoachController {
   });
 
   public static generateNewReport = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const memberId = resolveTargetMemberId(req);
     const type = (req.query.type as AIReportType) || AIReportType.WEEKLY;
 
     const report = await AICoachService.generateReport(memberId, type);
@@ -39,18 +48,89 @@ export class AICoachController {
   });
 
   public static getGoalPrediction = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const memberId = resolveTargetMemberId(req);
     const goalType = (req.query.goalType as string) || 'target_weight';
 
     const prediction = await AICoachService.predictGoalAchievement(memberId, goalType);
     return sendSuccess(res, { prediction }, 'Goal prediction generated successfully');
   });
 
+  public static getRecoveryStatus = asyncHandler(async (req: Request, res: Response) => {
+    const memberId = resolveTargetMemberId(req);
+    const context = await AIDataAggregatorService.buildMemberContext(memberId);
+
+    const sleepTarget = '8h 00m';
+    const formatSleep = (hours?: number): string => {
+      if (hours === undefined || hours === null) return '--';
+      const wholeHours = Math.floor(hours);
+      const minutes = Math.round((hours - wholeHours) * 60);
+      return `${wholeHours}h ${minutes.toString().padStart(2, '0')}m`;
+    };
+
+    const avgSleepFormatted = context.wellnessAverages.avgSleepHours !== undefined
+      ? formatSleep(context.wellnessAverages.avgSleepHours)
+      : '--';
+    const avgHydrationFormatted = context.wellnessAverages.avgWaterMl !== undefined
+      ? `${(context.wellnessAverages.avgWaterMl / 1000).toFixed(1)}L`
+      : '--';
+
+    let trainingStatus = 'Ready';
+    if (context.recoveryCategory === 'Fatigued' || (context.recoveryScore ?? 0) < 50) {
+      trainingStatus = 'Rest Needed';
+    } else if (context.recoveryCategory === 'Adequate' || (context.recoveryScore ?? 0) < 70) {
+      trainingStatus = 'Moderate';
+    }
+
+    const todayWellness = context.todayWellness;
+    const todaySleepFormatted =
+      todayWellness?.sleepHours !== undefined && todayWellness?.sleepHours !== null
+        ? formatSleep(todayWellness.sleepHours)
+        : null;
+    const todayHydrationFormatted =
+      todayWellness?.waterIntakeMl !== undefined && todayWellness?.waterIntakeMl !== null
+        ? `${(todayWellness.waterIntakeMl / 1000).toFixed(1)}L`
+        : null;
+
+    return sendSuccess(
+      res,
+      {
+        recoveryScore: context.insufficientData ? null : context.recoveryScore,
+        recoveryCategory: context.insufficientData
+          ? 'BASELINE BUILDING'
+          : (context.recoveryCategory || 'Adequate').toUpperCase(),
+        recoveryAdvice: context.recoveryAdvice,
+        sleepTarget,
+        todayWellness: context.todayWellness || null,
+        todayDayKey: todayWellness?.dayKey,
+        todaySleepHours: todayWellness?.sleepHours,
+        todaySleepFormatted,
+        todayWaterMl: todayWellness?.waterIntakeMl,
+        todayHydrationFormatted,
+        todayMood: todayWellness?.mood,
+        avgSleepHours: context.wellnessAverages.avgSleepHours,
+        avgSleepFormatted,
+        avgWaterMl: context.wellnessAverages.avgWaterMl,
+        avgHydrationFormatted,
+        trainingStatus: context.insufficientData ? 'Building Baseline' : trainingStatus,
+        totalVisits: context.attendanceStats.totalVisits,
+        totalWorkouts: context.workoutStats.totalWorkoutSessions,
+        insufficientData: context.insufficientData,
+      },
+      'AI Recovery & Training status retrieved successfully'
+    );
+  });
+
   // Chatbot Endpoints
+  public static getChatDailyLimit = asyncHandler(async (req: Request, res: Response) => {
+    const quota = await AIChatbotService.checkUserDailyLimit(req.user!.id);
+    return sendSuccess(res, quota, 'AI Chat daily limit retrieved successfully');
+  });
+
   public static startConversation = asyncHandler(async (req: Request, res: Response) => {
     const { firstMessage } = req.body;
     const result = await AIChatbotService.startConversation(req.user!.id, firstMessage, req.user!.role);
-    return sendSuccess(res, result, 'AI Chat conversation started successfully', 201);
+    const quota = await AIChatbotService.checkUserDailyLimit(req.user!.id);
+    return sendSuccess(res, { ...result, quota }, 'AI Chat conversation started successfully', 201);
   });
 
   public static sendMessage = asyncHandler(async (req: Request, res: Response) => {
@@ -58,7 +138,8 @@ export class AICoachController {
     const { content } = req.body;
 
     const replyMessage = await AIChatbotService.sendMessage(conversationId, req.user!.id, content, req.user!.role);
-    return sendSuccess(res, { replyMessage }, 'AI Chat message processed successfully');
+    const quota = await AIChatbotService.checkUserDailyLimit(req.user!.id);
+    return sendSuccess(res, { replyMessage, quota }, 'AI Chat message processed successfully');
   });
 
   public static getConversationHistory = asyncHandler(async (req: Request, res: Response) => {
@@ -131,7 +212,7 @@ export class AICoachController {
   });
 
   public static getUpsellRecommendation = asyncHandler(async (req: Request, res: Response) => {
-    const memberId = req.params.memberId || req.user!.id;
+    const memberId = resolveTargetMemberId(req);
     const recommendation = await SupplementPTRecommendationService.generateUpsellRecommendation(memberId);
     return sendSuccess(res, recommendation, 'AI Supplement & PT recommendation generated successfully');
   });

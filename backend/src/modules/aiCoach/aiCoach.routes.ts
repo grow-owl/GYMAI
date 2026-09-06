@@ -41,8 +41,18 @@ router.get(
   authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   AICoachController.getUpsellRecommendation
 );
+router.get(
+  '/members/:memberId/recovery-status',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  AICoachController.getRecoveryStatus
+);
 
 // Chatbot Endpoints (/api/v1/ai/chat/conversations)
+router.get(
+  '/chat/daily-limit',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  AICoachController.getChatDailyLimit
+);
 router.post(
   '/chat/conversations',
   authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),

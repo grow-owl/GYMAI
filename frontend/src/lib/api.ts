@@ -20,6 +20,8 @@ export function setAccessToken(token: string | null) {
   // No longer written to localStorage — intentional XSS mitigation.
 }
 
+import { toast } from "sonner";
+
 export interface ApiFieldError {
   field: string;
   message: string;
@@ -30,13 +32,58 @@ export class ApiError extends Error {
   code?: string;
   /** Per-field validation errors, e.g. [{ field: "phone", message: "..." }], when the backend sends them. */
   details?: ApiFieldError[];
-  constructor(message: string, status: number, code?: string, details?: ApiFieldError[]) {
+  /** Legacy Axios response compatibility object for components checking err.response?.data */
+  response?: {
+    data?: any;
+    status: number;
+  };
+
+  constructor(message: string, status: number, code?: string, details?: ApiFieldError[], rawData?: any) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details;
+    this.response = {
+      data: rawData || { message, error: { code, message, details } },
+      status,
+    };
   }
+}
+
+/**
+ * Universal error message extractor that unwraps ApiError, Axios-like errors,
+ * Zod validation details, or generic error objects.
+ */
+export function formatApiError(err: unknown, fallback = "An unexpected error occurred"): string {
+  if (!err) return fallback;
+  if (err instanceof ApiError) {
+    return err.message || fallback;
+  }
+  if (typeof err === "object" && err !== null) {
+    const anyErr = err as any;
+    if (anyErr.response?.data?.error?.message) {
+      const details = anyErr.response.data.error.details;
+      if (Array.isArray(details) && details.length > 0) {
+        const detailsStr = details.map((d: any) => d.message || `${d.field}: invalid`).join("; ");
+        return `${anyErr.response.data.error.message}: ${detailsStr}`;
+      }
+      return anyErr.response.data.error.message;
+    }
+    if (anyErr.response?.data?.message) return anyErr.response.data.message;
+    if (anyErr.message) return anyErr.message;
+  }
+  if (typeof err === "string") return err;
+  return fallback;
+}
+
+/**
+ * Trigger an informative, detailed error toast with actionable failure details.
+ */
+export function showApiErrorToast(err: unknown, fallback = "Action failed"): string {
+  const message = formatApiError(err, fallback);
+  toast.error(message);
+  return message;
 }
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
@@ -109,8 +156,17 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   if (!res.ok || json?.success === false) {
     const details = json?.error?.details as ApiFieldError[] | undefined;
-    const message = json?.error?.message || json?.message || `Request failed (${res.status})`;
-    throw new ApiError(message, res.status, json?.error?.code, Array.isArray(details) ? details : undefined);
+    let message = json?.error?.message || json?.message || `Request failed (${res.status})`;
+    if (Array.isArray(details) && details.length > 0) {
+      const detailsStr = details
+        .map((d) => (d.field ? `${d.field}: ${d.message || "invalid"}` : d.message))
+        .filter(Boolean)
+        .join("; ");
+      if (detailsStr && !message.includes(detailsStr)) {
+        message = `${message} — ${detailsStr}`;
+      }
+    }
+    throw new ApiError(message, res.status, json?.error?.code, Array.isArray(details) ? details : undefined, json);
   }
 
   return (json?.data ?? json) as T;

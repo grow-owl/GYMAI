@@ -73,7 +73,7 @@ export class WorkoutLogService {
     const timezone = branch?.timezone || 'UTC';
     const dayKey = getDayKeyForBranch(new Date(), timezone);
 
-    const loggedExercises: { exerciseId: mongoose.Types.ObjectId; sets: Record<string, unknown>[] }[] = [];
+    const loggedExercises: { exerciseId: mongoose.Types.ObjectId; sets: Record<string, unknown>[]; completedAt?: Date }[] = [];
 
     if (input.exercises && Array.isArray(input.exercises) && input.exercises.length > 0) {
       input.exercises.forEach((batchEx) => {
@@ -97,6 +97,7 @@ export class WorkoutLogService {
         loggedExercises.push({
           exerciseId: exId,
           sets: setsArr,
+          completedAt: new Date(),
         });
       });
     } else if (input.workoutPlanId) {
@@ -127,11 +128,28 @@ export class WorkoutLogService {
       }
     }
 
+    // Auto-link active workout plan if not explicitly supplied
+    let assignedPlanId = input.workoutPlanId ? new mongoose.Types.ObjectId(input.workoutPlanId) : undefined;
+    let assignedDayIndex: number | undefined;
+
+    if (!assignedPlanId) {
+      const activePlan = await WorkoutPlan.findOne({
+        memberId: member._id,
+        isActive: true,
+        isDeleted: false,
+      });
+      if (activePlan) {
+        assignedPlanId = activePlan._id as mongoose.Types.ObjectId;
+        assignedDayIndex = 0;
+      }
+    }
+
     const isBatchCompleted = Boolean(input.exercises && input.exercises.length > 0);
     const log = new WorkoutLog({
       gymId: member.gymId,
       memberId: member._id,
-      workoutPlanId: input.workoutPlanId ? new mongoose.Types.ObjectId(input.workoutPlanId) : undefined,
+      workoutPlanId: assignedPlanId,
+      dayIndex: assignedDayIndex,
       attendanceId: input.attendanceId ? new mongoose.Types.ObjectId(input.attendanceId) : undefined,
       dayLabel: input.dayLabel || (isBatchCompleted ? 'Custom Session' : undefined),
       exercises: loggedExercises,
@@ -549,6 +567,7 @@ export class WorkoutLogService {
       totalExercises: exercises.length,
       completedExerciseIds,
       exercises,
+      isCompleted: exercises.length > 0 && completedExerciseIds.length >= exercises.length,
     };
   }
 
@@ -642,6 +661,20 @@ export class WorkoutLogService {
 
     // 6. Return fresh merged view (reuse getTodayWorkout)
     const todayView = await this.getTodayWorkout(memberId, gymId);
+
+    // If today's workout is now 100% completed, mark log.completedAt and award XP
+    if (todayView?.isCompleted) {
+      if (!log.completedAt) {
+        log.completedAt = new Date();
+        await log.save();
+      }
+      try {
+        await GamificationService.recordWorkoutCompletion(member._id.toString(), log._id.toString());
+      } catch (err: any) {
+        logger.warn(`Failed to award gamification XP on checklist completion: ${err.message}`);
+      }
+    }
+
     return todayView!;
   }
 
@@ -693,28 +726,55 @@ export class WorkoutLogService {
       dayKey: { $in: dateKeys },
     });
 
-    // Build a map: dayKey → log
-    const logMap = new Map(logs.map((l) => [l.dayKey, l]));
+    // Group logs by dayKey (handles multiple logs on the same date, e.g. checklist + detailed logger)
+    const logsByDate = new Map<string, typeof logs>();
+    for (const l of logs) {
+      if (!logsByDate.has(l.dayKey)) {
+        logsByDate.set(l.dayKey, []);
+      }
+      logsByDate.get(l.dayKey)!.push(l);
+    }
 
     // 5. Calculate completion % for each date
     const result: ChartDataPoint[] = dateKeys.map((dateKey) => {
-      const log = logMap.get(dateKey);
+      const dayLogs = logsByDate.get(dateKey) || [];
 
-      if (!log || !plan) {
+      if (dayLogs.length === 0) {
         return { date: dateKey, completionPercentage: 0 };
       }
 
-      // totalAssigned = exercises in the plan day this log was for
-      const planDayIdx = log.dayIndex ?? 0;
-      const planDay = plan.days[planDayIdx];
-      const totalAssigned = planDay?.exercises?.length ?? 0;
+      let maxPercentage = 0;
 
-      // totalCompleted = exercises that have completedAt set in this log
-      const totalCompleted = log.exercises.filter((ex) => ex.completedAt != null).length;
+      for (const log of dayLogs) {
+        // totalAssigned = exercises in the plan day this log was for (or length of logged exercises)
+        let totalAssigned = 0;
+        if (plan) {
+          const planDayIdx = log.dayIndex ?? 0;
+          const planDay = plan.days[planDayIdx];
+          totalAssigned = planDay?.exercises?.length ?? 0;
+        }
+        if (totalAssigned === 0) {
+          totalAssigned = log.exercises?.length || 1;
+        }
+
+        // totalCompleted = exercises with completedAt set OR any completed set
+        const totalCompleted = (log.exercises || []).filter(
+          (ex) => ex.completedAt != null || (ex.sets && ex.sets.some((s: any) => s.completed))
+        ).length;
+
+        let pct = calculateDailyPercentage(totalAssigned, totalCompleted);
+        if (log.completedAt && pct < 100) {
+          pct = 100;
+        }
+
+        if (pct > maxPercentage) {
+          maxPercentage = pct;
+        }
+      }
 
       return {
         date: dateKey,
-        completionPercentage: calculateDailyPercentage(totalAssigned, totalCompleted),
+        completionPercentage: maxPercentage,
       };
     });
 

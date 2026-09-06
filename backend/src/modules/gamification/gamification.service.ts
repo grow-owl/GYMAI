@@ -4,6 +4,7 @@ import { MemberGameStats } from './memberGameStats.model';
 import { XpLedger } from './xpLedger.model';
 import { Challenge } from './challenge.model';
 import { Attendance } from '../attendance/attendance.model';
+import { WorkoutLog } from '../workout/workoutLog.model';
 import { BadgeCode, BADGE_DEFINITIONS, calculateLevel, IMemberGameStats } from './gamification.types';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
@@ -370,6 +371,13 @@ export class GamificationService {
       gamificationLevel: stats.level,
     });
 
+    // Update active streak_days challenges
+    try {
+      await this.updateChallengeProgress(member._id.toString(), 'streak_days', newStreak);
+    } catch (err) {
+      logger.warn('Failed to update streak challenge progress:', err);
+    }
+
     return { currentStreak: newStreak, bestStreak: newBest };
   }
 
@@ -456,6 +464,31 @@ export class GamificationService {
     });
     if (!member) return;
 
+    // 1. Always update Challenge progress (e.g. 20 workouts challenge)
+    try {
+      const workoutCount = await WorkoutLog.countDocuments({
+        memberId: member._id,
+      });
+      await this.updateChallengeProgress(member._id.toString(), 'workout_count', workoutCount);
+    } catch (err) {
+      logger.warn('Failed to update workout challenge progress:', err);
+    }
+
+    // 2. Daily cap check: Workout completion XP can only be earned ONCE per calendar day
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const existingAwardToday = await XpLedger.findOne({
+      memberId: member._id,
+      reason: { $regex: /^WORKOUT_COMPLETED/ },
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+    if (existingAwardToday) {
+      logger.info(`ℹ️ Daily workout XP already earned today by member [${member._id}], skipping duplicate.`);
+      return;
+    }
+
     await this.awardXp(member._id.toString(), member.gymId.toString(), 100, `WORKOUT_COMPLETED: ${logId}`);
 
     const stats = await this.getOrCreateMemberGameStats(member._id.toString());
@@ -528,11 +561,14 @@ export class GamificationService {
 
     const ranked = members.map((m) => {
       const s = statsMap.get(m._id.toString());
+      const xpVal = s?.xp || 0;
       return {
         memberId: m._id,
         name: (m.userId as any)?.fullName || 'Member',
         avatarUrl: (m.userId as any)?.avatarUrl,
-        score: metric === 'streak' ? (s?.currentStreak || 0) : (s?.xp || 0),
+        score: metric === 'streak' ? (s?.currentStreak || 0) : xpVal,
+        xp: xpVal,
+        points: xpVal,
         level: s?.level || 1,
         currentStreakDays: s?.currentStreak || 0,
       };
@@ -554,7 +590,41 @@ export class GamificationService {
       filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
 
-    const challenges = await Challenge.find(filter).sort({ endDate: 1 });
+    let challenges = await Challenge.find(filter).sort({ endDate: 1 });
+
+    if (challenges.length === 0 && gymId && mongoose.Types.ObjectId.isValid(gymId)) {
+      const thirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const fourteenDays = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      try {
+        await Challenge.create([
+          {
+            gymId: new mongoose.Types.ObjectId(gymId),
+            title: '30-Day Consistency Warrior',
+            description: 'Log 20 completed workout sessions this month to prove your elite discipline.',
+            metric: 'workout_count',
+            targetValue: 20,
+            rewardXp: 1000,
+            startDate: now,
+            endDate: thirtyDays,
+            participants: [],
+          },
+          {
+            gymId: new mongoose.Types.ObjectId(gymId),
+            title: 'Weekly Iron Sprint',
+            description: 'Complete 5 high-intensity workout routines to boost your gym standing.',
+            metric: 'workout_count',
+            targetValue: 5,
+            rewardXp: 500,
+            startDate: now,
+            endDate: fourteenDays,
+            participants: [],
+          },
+        ]);
+        challenges = await Challenge.find(filter).sort({ endDate: 1 });
+      } catch (err) {
+        logger.warn('Failed to auto-seed gym challenges:', err);
+      }
+    }
 
     let memberIdStr: string | null = null;
     if (memberUserIdOrId) {

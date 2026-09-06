@@ -65,6 +65,7 @@ export interface TodayWorkoutResponse {
   totalExercises: number;
   completedExerciseIds: string[]; // exerciseIds checked off today
   exercises: TodayWorkoutExercise[];
+  isCompleted?: boolean;
 }
 
 // ─── Spec Section 5 ──────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { TrendingDown, Scale, Calendar, Plus, Activity, Dumbbell } from "lucide-react";
+import { TrendingDown, Scale, Calendar, Plus, Activity, Dumbbell, Flame } from "lucide-react";
 import Card from "@/components/ui/Card";
+import WorkoutConsistencyChart from "./WorkoutConsistencyChart";
 
 interface WeightLogItem {
   _id?: string;
@@ -11,6 +12,7 @@ interface WeightLogItem {
 }
 
 interface PerformanceChartsProps {
+  memberId?: string;
   weightLogs?: WeightLogItem[];
   targetWeightKg?: number;
   attendanceStats?: any;
@@ -20,13 +22,14 @@ interface PerformanceChartsProps {
 }
 
 export default function PerformanceCharts({
+  memberId,
   weightLogs = [],
   targetWeightKg,
   attendanceStats,
   workoutVolumeLogs = [],
   onLogWeightClick,
 }: PerformanceChartsProps) {
-  const [activeTab, setActiveTab] = useState<"weight" | "volume" | "attendance">("weight");
+  const [activeTab, setActiveTab] = useState<"consistency" | "weight" | "volume" | "attendance">("consistency");
 
   const displayLogs = useMemo(() => {
     if (weightLogs && weightLogs.length > 0) {
@@ -137,7 +140,19 @@ export default function PerformanceCharts({
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between sm:justify-start">
           {/* Tab Buttons - Grid on mobile for equal width */}
-          <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border) w-full sm:w-auto">
+          <div className="grid grid-cols-2 sm:flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border) w-full sm:w-auto">
+            <button
+              onClick={() => setActiveTab("consistency")}
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === "consistency"
+                  ? "bg-(--color-accent) text-(--color-navbar) shadow-md"
+                  : "text-(--color-text-muted) hover:text-(--color-text)"
+              }`}
+            >
+              <Flame className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Consistency</span>
+            </button>
+
             <button
               onClick={() => setActiveTab("weight")}
               className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -185,6 +200,11 @@ export default function PerformanceCharts({
           )}
         </div>
       </div>
+
+      {/* Consistency Progress View */}
+      {activeTab === "consistency" && (
+        <WorkoutConsistencyChart memberId={memberId} />
+      )}
 
       {/* Weight Progress View */}
       {activeTab === "weight" && (

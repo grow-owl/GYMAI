@@ -5,6 +5,8 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { aiApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
+import MarkdownRenderer from "@/components/common/MarkdownRenderer";
 
 interface Msg {
   from: "user" | "ai";
@@ -23,7 +25,7 @@ export default function AIInsights() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       from: "ai",
-      text: "Hello! I am your AI Gym Business Advisor. Ask me anything about your gym's revenue, member retention, trainer management, or supplement sales strategies!",
+      text: "Hello! I am your AI Gym Business Analyst. I can analyze revenue trends, member churn risk, peak workout hours, and recommend high-impact retention strategies. Ask me anything or choose a quick prompt below.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -50,20 +52,21 @@ export default function AIInsights() {
           const historyRes = await aiApi.getHistory(latestConv._id);
           if (historyRes?.messages?.length) {
             setMessages(
-              historyRes.messages.map((m) => ({
+              historyRes.messages.map((m: any) => ({
                 from: m.role === "user" ? "user" : "ai",
                 text: m.content,
               }))
             );
           }
         }
-      } catch {
-        // Keep initial fallback message
+      } catch (err) {
+        console.warn("No prior AI conversation found:", err);
       }
     };
 
     const loadAtRiskAndInsights = async () => {
-      const gymId = user?.gymId || "";
+      const gymId = user?.gymId;
+      if (!gymId) return;
       setLoadingAtRisk(true);
       try {
         const [riskRes, perfRes, peakRes, revRes, planRes] = await Promise.all([
@@ -80,7 +83,8 @@ export default function AIInsights() {
         if (peakRes) setPeakHoursData(peakRes);
         if (revRes) setRevenueForecastData(revRes);
         if (planRes) setPlanProfitabilityData(planRes);
-      } catch {
+      } catch (err) {
+        showApiErrorToast(err, "Failed to load gym analytics insights");
         setAtRiskMembers([]);
       } finally {
         setLoadingAtRisk(false);
@@ -90,23 +94,6 @@ export default function AIInsights() {
     loadOwnerAi();
     loadAtRiskAndInsights();
   }, [user]);
-
-function getSmartFallbackAdvice(query: string): string {
-  const q = query.toLowerCase();
-  if (q.includes("supplement") || q.includes("sales") || q.includes("revenue") || q.includes("store")) {
-    return "💡 **Supplement Sales & Store Strategy**\n\n1. **High-Margin Bundles:** Offer Whey Protein + Creatine Monohydrate combos with a 10% discount at reception.\n2. **Trainer Recommendations:** Train personal trainers to recommend post-workout recovery shakes immediately following intensive client sessions.\n3. **Front-Desk Placement:** Place pre-workout samples and energy bars at eye-level on the front desk counter.\n4. **First-Purchase Voucher:** Give a ₹200 voucher for store products to all newly enrolled members.";
-  }
-  if (q.includes("retention") || q.includes("churn") || q.includes("expire") || q.includes("leave")) {
-    return "⚠️ **Member Retention & Churn Reduction**\n\n1. **10-Day Absence Protocol:** Automated WhatsApp check-in for members missing check-ins for 7-10 consecutive days.\n2. **Renewal Discount Window:** Send early membership renewal vouchers 7 days before expiry.\n3. **Free Progress Reviews:** Schedule 1-on-1 consultations with head trainers for members with declining attendance.\n4. **Community Challenges:** Run monthly 30-day streak challenges with branded gym shakers as rewards.";
-  }
-  if (q.includes("peak") || q.includes("crowd") || q.includes("time") || q.includes("hour")) {
-    return "⏳ **Peak Hour Capacity Management (6 PM - 8 PM)**\n\n1. **Early Bird Incentives:** Encourage 6 AM - 9 AM check-ins with extra streak reward points.\n2. **Floor Trainer Rotation:** Assign floor trainers to manage bench press and squat rack rotation during peak hours.\n3. **Staggered Group Classes:** Schedule popular group class slots at 5:30 PM and 7:15 PM to split arrival waves.";
-  }
-  if (q.includes("lead") || q.includes("convert") || q.includes("prospect")) {
-    return "🎯 **Lead Conversion & Sales Growth**\n\n1. **Speed to Lead:** Reach out to online trial signups within 15 minutes of registration.\n2. **Day Pass Experience:** Offer a free body composition analysis during their initial trial session.\n3. **Same-Day Discount:** Waive admission fees for prospects who convert on their trial day.";
-  }
-  return "💡 **Gym Business Insights & Growth Actions**\n\n- **Retention:** Active member attendance is consistent. Continue 7-day absence WhatsApp follow-ups.\n- **Sales:** Up-sell supplement combo packs during peak evening check-ins.\n- **Leads:** Ensure rapid 24-hour follow-up on all incoming trial pass requests.";
-}
 
   const send = async (text: string) => {
     if (!text.trim() || loading) return;
@@ -126,12 +113,14 @@ function getSmartFallbackAdvice(query: string): string {
         replyText = res.replyMessage.content;
       }
       setMessages((m) => [...m, { from: "ai", text: replyText }]);
-    } catch {
+    } catch (err: any) {
+      const errorMsg = formatApiError(err, "AI Assistant is currently unavailable. Please verify connection.");
+      showApiErrorToast(err, "AI Assistant query failed");
       setMessages((m) => [
         ...m,
         {
           from: "ai",
-          text: getSmartFallbackAdvice(userText),
+          text: `⚠️ **AI Query Failed**\n\n${errorMsg}\n\n*Please try asking again in a moment.*`,
         },
       ]);
     } finally {
@@ -265,7 +254,11 @@ function getSmartFallbackAdvice(query: string): string {
                     : "max-w-[80%] rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text) text-sm px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
                 }
               >
-                {m.text}
+                {m.from === "user" ? (
+                  m.text
+                ) : (
+                  <MarkdownRenderer content={m.text} isUser={false} />
+                )}
               </div>
             </div>
           ))}

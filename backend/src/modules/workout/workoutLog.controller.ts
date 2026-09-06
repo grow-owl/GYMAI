@@ -92,7 +92,10 @@ export class WorkoutLogController {
   // GET /api/v1/workout-logs/analytics/progress?days=7
   // Returns ChartDataPoint[] for the progress line graph
   public static getProgressChart = asyncHandler(async (req: Request, res: Response) => {
-    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const requestedMemberId =
+      (req.query.memberId as string) ||
+      req.params.memberId ||
+      (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
     const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
     const gymId = req.user?.gymId?.toString();
     const days = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 90);

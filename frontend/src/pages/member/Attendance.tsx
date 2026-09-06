@@ -6,6 +6,7 @@ import QRScanner from "@/components/member/QRScanner";
 import { attendanceApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import { showApiErrorToast } from "@/lib/api";
 
 type ScanView = "idle" | "scanning" | "invalid" | "success";
 
@@ -57,7 +58,7 @@ export default function Attendance() {
       }
     } catch (err: any) {
       setView("invalid");
-      toast.error(err.response?.data?.message || err.message || "Check-in rejected: invalid or expired QR token.");
+      showApiErrorToast(err, "Check-in rejected: invalid or expired QR token.");
     }
   };
 
@@ -69,8 +70,8 @@ export default function Attendance() {
       toast.success("Checked out! Workout session ended.");
       setCurrentSession(null);
       setView("idle");
-    } catch {
-      toast.error("Failed to check out.");
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to check out. Please try again.");
     } finally {
       setSubmittingCheckOut(false);
     }

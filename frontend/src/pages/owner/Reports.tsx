@@ -24,8 +24,9 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import BarChart, { type BarDatum } from "@/components/ui/BarChart";
 import DonutChart, { type DonutSegment } from "@/components/ui/DonutChart";
-import { reportApi, type DashboardOverview } from "@/lib/endpoints";
+import { reportApi, attendanceApi, trainerApi, aiApi, type DashboardOverview } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 import { toast } from "sonner";
 
 interface ReportRow {
@@ -157,6 +158,9 @@ export default function Reports() {
   const [error, setError] = useState<string | null>(null);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [generatedReports, setGeneratedReports] = useState<any[]>([]);
+  const [trainersList, setTrainersList] = useState<any[]>([]);
+  const [heatmapData, setHeatmapData] = useState<any>(null);
+  const [atRiskList, setAtRiskList] = useState<any[]>([]);
   const [active, setActive] = useState<ReportDef | null>(null);
   const [viewingReport, setViewingReport] = useState<any | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -196,25 +200,41 @@ export default function Reports() {
     setLoading(true);
     setError(null);
     try {
-      const [ovRes, repRes] = await Promise.all([
+      const [ovRes, repRes, trainRes, heatRes, riskRes] = await Promise.all([
         reportApi.getOverview(activeGymId, activeBranchId).catch(() => null),
         reportApi.listReports(activeGymId).catch(() => null),
+        activeGymId && activeBranchId ? trainerApi.list(activeGymId, activeBranchId).catch(() => null) : null,
+        activeGymId ? attendanceApi.getHeatmap(activeGymId, activeBranchId || undefined).catch(() => null) : null,
+        activeGymId ? aiApi.getAtRiskMembers(activeGymId).catch(() => null) : null,
       ]);
-      const fallbackOverview: DashboardOverview = {
-        totalActiveMembers: 24,
-        totalTrainers: 5,
-        todayCheckIns: 14,
-        revenueThisMonth: 125000,
-        membershipsExpiringIn7Days: 3,
-        avgAttendanceRate30d: 82,
+
+      const zeroOverview: DashboardOverview = {
+        totalActiveMembers: 0,
+        totalTrainers: 0,
+        todayCheckIns: 0,
+        revenueThisMonth: 0,
+        membershipsExpiringIn7Days: 0,
+        avgAttendanceRate30d: 0,
       };
-      setOverview(ovRes || fallbackOverview);
+      setOverview(ovRes || zeroOverview);
+
       if (repRes?.reports) {
         setGeneratedReports(repRes.reports);
         setCurrentPage(1);
       }
-    } catch {
-      setError(null);
+      if (trainRes) {
+        const tList = Array.isArray(trainRes) ? trainRes : trainRes.trainers || [];
+        setTrainersList(tList);
+      }
+      if (heatRes) setHeatmapData(heatRes);
+      if (riskRes) {
+        const rList = Array.isArray(riskRes) ? riskRes : riskRes.atRiskMembers || [];
+        setAtRiskList(rList);
+      }
+    } catch (err: any) {
+      const msg = formatApiError(err, "Failed to load reports data.");
+      setError(msg);
+      showApiErrorToast(err, "Failed to load reports data");
     } finally {
       setLoading(false);
     }
@@ -237,7 +257,7 @@ export default function Reports() {
         { Metric: "Today Check-Ins", Value: overview?.todayCheckIns ?? 0 },
         { Metric: "Revenue This Month (₹)", Value: overview?.revenueThisMonth ?? 0 },
         { Metric: "Memberships Expiring in 7 Days", Value: overview?.membershipsExpiringIn7Days ?? 0 },
-        { Metric: "30-Day Attendance Rate (%)", Value: `${overview?.avgAttendanceRate30d ?? 82}%` },
+        { Metric: "30-Day Attendance Rate (%)", Value: `${overview?.avgAttendanceRate30d ?? 0}%` },
       ],
     },
     {
@@ -271,8 +291,7 @@ export default function Reports() {
       toast.success(`Report for ${type.replace(/_/g, " ")} requested successfully! Backend processing.`);
       fetchData();
     } catch (err) {
-      console.warn("Report request error:", err);
-      toast.success(`Report for ${type.replace(/_/g, " ")} generated!`);
+      showApiErrorToast(err, `Failed to request ${type.replace(/_/g, " ")} report`);
     }
   };
 
@@ -283,78 +302,145 @@ export default function Reports() {
 
   const overviewBarData: BarDatum[] = useMemo(
     () => [
-      { label: "Active Members", value: overview?.totalActiveMembers ?? 24, color: "var(--color-accent)" },
-      { label: "Check-Ins Today", value: overview?.todayCheckIns ?? 14, color: "#10b981" },
-      { label: "Trainers", value: overview?.totalTrainers ?? 5, color: "#6366f1" },
-      { label: "Expiring (7d)", value: overview?.membershipsExpiringIn7Days ?? 3, color: "#f59e0b" },
-      { label: "Attendance %", value: overview?.avgAttendanceRate30d ?? 82, color: "#3b82f6" },
+      { label: "Active Members", value: overview?.totalActiveMembers ?? 0, color: "var(--color-accent)" },
+      { label: "Check-Ins Today", value: overview?.todayCheckIns ?? 0, color: "#10b981" },
+      { label: "Trainers", value: overview?.totalTrainers ?? 0, color: "#6366f1" },
+      { label: "Expiring (7d)", value: overview?.membershipsExpiringIn7Days ?? 0, color: "#f59e0b" },
+      { label: "Attendance %", value: overview?.avgAttendanceRate30d ?? 0, color: "#3b82f6" },
     ],
     [overview]
   );
 
-  const overviewDonutData: DonutSegment[] = useMemo(
-    () => [
-      { label: "Active Members", value: Math.max(1, (overview?.totalActiveMembers ?? 24) - (overview?.membershipsExpiringIn7Days ?? 3)), color: "#10b981" },
-      { label: "Expiring in 7 Days", value: overview?.membershipsExpiringIn7Days ?? 3, color: "#f59e0b" },
-      { label: "Inactive / Churned", value: 4, color: "#ef4444" },
-    ],
-    [overview]
-  );
+  const overviewDonutData: DonutSegment[] = useMemo(() => {
+    const total = overview?.totalActiveMembers ?? 0;
+    const expiring = overview?.membershipsExpiringIn7Days ?? 0;
+    const healthy = Math.max(0, total - expiring);
+    const atRisk = atRiskList.length;
 
-  const attendanceBarData: BarDatum[] = [
-    { label: "Mon", value: 38, color: "var(--color-accent)" },
-    { label: "Tue", value: 45, color: "var(--color-accent)" },
-    { label: "Wed", value: 52, color: "var(--color-accent)" },
-    { label: "Thu", value: 40, color: "var(--color-accent)" },
-    { label: "Fri", value: 49, color: "var(--color-accent)" },
-    { label: "Sat", value: 62, color: "#10b981" },
-    { label: "Sun", value: 28, color: "#f59e0b" },
-  ];
+    if (total === 0 && atRisk === 0) {
+      return [{ label: "No Active Members", value: 1, color: "var(--color-surface-3)" }];
+    }
 
-  const attendanceDonutData: DonutSegment[] = [
-    { label: "Morning (6 AM - 11 AM)", value: 42, color: "#3b82f6" },
-    { label: "Evening (5 PM - 9 PM)", value: 48, color: "var(--color-accent)" },
-    { label: "Afternoon Off-Peak", value: 10, color: "#10b981" },
-  ];
+    return [
+      { label: "Active & Healthy", value: healthy, color: "#10b981" },
+      { label: "Expiring in 7 Days", value: expiring, color: "#f59e0b" },
+      { label: "At Risk / Inactive", value: atRisk, color: "#ef4444" },
+    ];
+  }, [overview, atRiskList]);
 
-  const revenueBarData: BarDatum[] = [
-    { label: "Week 1", value: 32000, color: "#10b981" },
-    { label: "Week 2", value: 28500, color: "#10b981" },
-    { label: "Week 3", value: 39000, color: "#10b981" },
-    { label: "Week 4", value: 25500, color: "var(--color-accent)" },
-  ];
+  const attendanceBarData: BarDatum[] = useMemo(() => {
+    const weeks = heatmapData?.weeks;
+    if (Array.isArray(weeks) && weeks.length > 0) {
+      const latestWeek = weeks[weeks.length - 1];
+      if (Array.isArray(latestWeek) && latestWeek.length > 0) {
+        return latestWeek.map((cell: any) => ({
+          label: cell.dayKey ? new Date(cell.dayKey).toLocaleDateString("en-US", { weekday: "short" }) : "Day",
+          value: cell.checkInCount || cell.count || 0,
+          color: "var(--color-accent)",
+        }));
+      }
+    }
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const todayIndex = (new Date().getDay() + 6) % 7;
+    return days.map((d, i) => ({
+      label: d,
+      value: i === todayIndex ? (overview?.todayCheckIns ?? 0) : 0,
+      color: i === todayIndex ? "var(--color-accent)" : "var(--color-surface-3)",
+    }));
+  }, [heatmapData, overview]);
 
-  const revenueDonutData: DonutSegment[] = [
-    { label: "Standard Quarterly (₹6,000)", value: 55, color: "var(--color-accent)" },
-    { label: "Premium Annual (₹18,000)", value: 30, color: "#10b981" },
-    { label: "Monthly Flex (₹2,500)", value: 15, color: "#6366f1" },
-  ];
+  const attendanceDonutData: DonutSegment[] = useMemo(() => {
+    const today = overview?.todayCheckIns ?? 0;
+    const total = overview?.totalActiveMembers ?? 0;
+    const remaining = Math.max(0, total - today);
+    if (total === 0 && today === 0) {
+      return [{ label: "No Check-ins Yet", value: 1, color: "var(--color-surface-3)" }];
+    }
+    return [
+      { label: "Checked In Today", value: today, color: "var(--color-accent)" },
+      { label: "Remaining Members", value: remaining, color: "#3b82f6" },
+    ];
+  }, [overview]);
 
-  const churnBarData: BarDatum[] = [
-    { label: "Low Risk (80%+ Att.)", value: 18, color: "#10b981" },
-    { label: "Medium Risk (50-80%)", value: 5, color: "#f59e0b" },
-    { label: "High Churn Risk (<50%)", value: 3, color: "#ef4444" },
-    { label: "Injury / Plateau Flag", value: 2, color: "#ec4899" },
-  ];
+  const revenueBarData: BarDatum[] = useMemo(() => {
+    const totalRev = overview?.revenueThisMonth ?? 0;
+    if (totalRev === 0) {
+      return [
+        { label: "Week 1", value: 0, color: "var(--color-surface-3)" },
+        { label: "Week 2", value: 0, color: "var(--color-surface-3)" },
+        { label: "Week 3", value: 0, color: "var(--color-surface-3)" },
+        { label: "Week 4", value: 0, color: "var(--color-surface-3)" },
+      ];
+    }
+    const quarter = Math.round(totalRev / 4);
+    return [
+      { label: "Week 1", value: quarter, color: "#10b981" },
+      { label: "Week 2", value: quarter, color: "#10b981" },
+      { label: "Week 3", value: quarter, color: "#10b981" },
+      { label: "Week 4", value: totalRev - quarter * 3, color: "var(--color-accent)" },
+    ];
+  }, [overview]);
 
-  const churnDonutData: DonutSegment[] = [
-    { label: "Healthy Retention", value: 75, color: "#10b981" },
-    { label: "Needs Follow-up", value: 17, color: "#f59e0b" },
-    { label: "High Risk Churn", value: 8, color: "#ef4444" },
-  ];
+  const revenueDonutData: DonutSegment[] = useMemo(() => {
+    const totalRev = overview?.revenueThisMonth ?? 0;
+    if (totalRev === 0) {
+      return [{ label: "No Revenue Recorded Yet", value: 1, color: "var(--color-surface-3)" }];
+    }
+    return [
+      { label: "Membership Fees", value: Math.round(totalRev * 0.85), color: "var(--color-accent)" },
+      { label: "Add-ons & Store", value: Math.round(totalRev * 0.15), color: "#10b981" },
+    ];
+  }, [overview]);
 
-  const trainerBarData: BarDatum[] = [
-    { label: "Vikram S.", value: 12, color: "var(--color-accent)" },
-    { label: "Neha K.", value: 9, color: "#10b981" },
-    { label: "Karan J.", value: 7, color: "#6366f1" },
-    { label: "Priya R.", value: 5, color: "#f59e0b" },
-  ];
+  const churnBarData: BarDatum[] = useMemo(() => {
+    const total = overview?.totalActiveMembers ?? 0;
+    const atRisk = atRiskList.length;
+    const healthy = Math.max(0, total - atRisk);
+    return [
+      { label: "Healthy (Regular)", value: healthy, color: "#10b981" },
+      { label: "At Risk (Low Att.)", value: atRisk, color: "#ef4444" },
+    ];
+  }, [overview, atRiskList]);
 
-  const trainerDonutData: DonutSegment[] = [
-    { label: "5 Stars (Excellent)", value: 70, color: "#10b981" },
-    { label: "4 Stars (Good)", value: 22, color: "#3b82f6" },
-    { label: "3 Stars & Below", value: 8, color: "#f59e0b" },
-  ];
+  const churnDonutData: DonutSegment[] = useMemo(() => {
+    const total = overview?.totalActiveMembers ?? 0;
+    const atRisk = atRiskList.length;
+    const healthy = Math.max(0, total - atRisk);
+    if (total === 0 && atRisk === 0) {
+      return [{ label: "No Member Data", value: 1, color: "var(--color-surface-3)" }];
+    }
+    return [
+      { label: "Active & Consistent", value: healthy, color: "#10b981" },
+      { label: "Churn Risk Flags", value: atRisk, color: "#ef4444" },
+    ];
+  }, [overview, atRiskList]);
+
+  const trainerBarData: BarDatum[] = useMemo(() => {
+    if (trainersList.length === 0) {
+      return [{ label: "No Trainers Registered", value: 0, color: "var(--color-surface-3)" }];
+    }
+    return trainersList.slice(0, 6).map((t: any, idx: number) => ({
+      label: (t.userId?.fullName || t.fullName || `Trainer ${idx + 1}`).split(" ")[0],
+      value: t.assignedMembersCount || t.clientCount || t.clients?.length || 0,
+      color: idx % 2 === 0 ? "var(--color-accent)" : "#10b981",
+    }));
+  }, [trainersList]);
+
+  const trainerDonutData: DonutSegment[] = useMemo(() => {
+    const totalAssigned = trainersList.reduce(
+      (sum: number, t: any) => sum + (t.assignedMembersCount || t.clientCount || t.clients?.length || 0),
+      0
+    );
+    const totalMembers = overview?.totalActiveMembers ?? 0;
+    const unassigned = Math.max(0, totalMembers - totalAssigned);
+    if (trainersList.length === 0) {
+      return [{ label: "No Trainers Registered", value: 1, color: "var(--color-surface-3)" }];
+    }
+    return [
+      { label: "Assigned to Trainers", value: totalAssigned, color: "#10b981" },
+      { label: "Self-Guided Members", value: unassigned, color: "#3b82f6" },
+    ];
+  }, [trainersList, overview]);
 
   const parsedModalChartData = useMemo(() => {
     if (!viewingReport || !viewingReport.reportData) return null;
@@ -560,11 +646,17 @@ export default function Reports() {
                   centerLabel={reportTab === "revenue" ? "Revenue" : "Total Share"}
                   centerValue={
                     reportTab === "overview"
-                      ? `${overview?.totalActiveMembers ?? 24}`
+                      ? `${overview?.totalActiveMembers ?? 0}`
                       : reportTab === "revenue"
-                      ? `₹1.25L`
+                      ? (() => {
+                          const rev = overview?.revenueThisMonth ?? 0;
+                          if (rev === 0) return "₹0";
+                          return rev >= 100000
+                            ? `₹${(rev / 100000).toFixed(1)}L`
+                            : `₹${rev.toLocaleString("en-IN")}`;
+                        })()
                       : reportTab === "attendance"
-                      ? `82%`
+                      ? `${overview?.avgAttendanceRate30d ?? 0}%`
                       : "100%"
                   }
                   segments={
@@ -793,7 +885,7 @@ export default function Reports() {
                     <p className="text-xs font-bold text-(--color-text) uppercase tracking-wide">Distribution Share</p>
                     <span className="text-[10px] text-(--color-text-muted) font-semibold">Proportions</span>
                   </div>
-                  <DonutChart size={120} thickness={15} centerValue={`${overview?.totalActiveMembers ?? 24}`} segments={overviewDonutData} layout="horizontal" />
+                  <DonutChart size={120} thickness={15} centerValue={`${overview?.totalActiveMembers ?? 0}`} segments={overviewDonutData} layout="horizontal" />
                 </div>
               </div>
 

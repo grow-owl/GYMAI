@@ -22,10 +22,10 @@ const miniStatClasses: Record<string, { bg: string; text: string }> = {
 
 function formatPeakHour(peakData: any): { value: string; note: string } {
   const list = Array.isArray(peakData) ? peakData : peakData?.peakHours || [];
-  if (!list.length) return { value: "6–8 PM", note: "evening rush" };
+  if (!list.length) return { value: "--", note: "no check-ins yet" };
   const sorted = [...list].sort((a, b) => (b.checkInCount || 0) - (a.checkInCount || 0));
   const top = sorted[0];
-  if (!top || !top.checkInCount) return { value: "6–8 PM", note: "evening rush" };
+  if (!top || !top.checkInCount) return { value: "--", note: "no check-ins yet" };
   const h = Number(top.hour);
   const period = h >= 12 ? "PM" : "AM";
   const displayH = h % 12 === 0 ? 12 : h % 12;
@@ -36,7 +36,7 @@ function formatPeakHour(peakData: any): { value: string; note: string } {
 function getTopTrainer(perfData: any): { value: string; note: string } {
   const list = Array.isArray(perfData) ? perfData : perfData?.trainerComparison || perfData?.trainerPerformance || [];
   if (!list.length || !list[0]?.trainerName) {
-    return { value: "Assigned Staff", note: "live rating" };
+    return { value: "--", note: "no ratings yet" };
   }
   const top = list[0];
   return {

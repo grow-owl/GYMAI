@@ -1,12 +1,14 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Modal from "@/components/ui/Modal";
-import { Camera, Upload, Clock3, Plus, Scale, Target, Activity, TrendingDown, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { Camera, Upload, Clock3, Plus, Scale, Target, Activity, TrendingDown, Trash2, Sparkles, Loader2, Moon, Droplets, Calendar, Edit3 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import BarChart, { type BarDatum } from "@/components/ui/BarChart";
 import { progressApi, memberApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import WorkoutConsistencyChart from "@/components/member/WorkoutConsistencyChart";
+import { getLocalDateKey } from "@/lib/dateUtils";
 
 interface ProgressPhoto {
   id: string;
@@ -17,6 +19,88 @@ interface ProgressPhoto {
 }
 
 const UPLOAD_GAP_DAYS = 5;
+
+const MOOD_META: Record<string, { label: string; emoji: string; badgeClass: string }> = {
+  great: { label: "Great", emoji: "😄", badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800" },
+  good: { label: "Good", emoji: "🙂", badgeClass: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800" },
+  okay: { label: "Okay", emoji: "😐", badgeClass: "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800" },
+  tired: { label: "Tired", emoji: "🥱", badgeClass: "bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800" },
+  stressed: { label: "Stressed", emoji: "😫", badgeClass: "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800" },
+};
+
+function formatWellnessDate(dayKey?: string, createdAt?: string): string {
+  if (dayKey) {
+    const today = getLocalDateKey();
+    if (dayKey === today) return "Today";
+    const yDate = new Date();
+    yDate.setDate(yDate.getDate() - 1);
+    const yesterday = getLocalDateKey(yDate);
+    if (dayKey === yesterday) return "Yesterday";
+
+    const [y, m, d] = dayKey.split("-").map(Number);
+    if (y && m && d) {
+      return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+    }
+  }
+  if (createdAt) {
+    return new Date(createdAt).toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  }
+  return "Past Entry";
+}
+
+function getPastNDays(n = 7) {
+  const days: { dayKey: string; label: string; subLabel: string; isToday: boolean; isYesterday: boolean }[] = [];
+  const todayKey = getLocalDateKey();
+  
+  const yDate = new Date();
+  yDate.setDate(yDate.getDate() - 1);
+  const yesterdayKey = getLocalDateKey(yDate);
+
+  for (let i = 0; i < n; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dayKey = getLocalDateKey(d);
+    const isToday = dayKey === todayKey;
+    const isYesterday = dayKey === yesterdayKey;
+    
+    const label = isToday ? "Today" : isYesterday ? "Yesterday" : d.toLocaleDateString(undefined, { weekday: "short" });
+    const subLabel = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+    days.push({ dayKey, label, subLabel, isToday, isYesterday });
+  }
+  return days;
+}
+
+function calculateQuickRecoveryScore(sleepHours?: number, waterIntakeMl?: number): { score: number; label: string; color: string } {
+  if (sleepHours === undefined && waterIntakeMl === undefined) {
+    return { score: 0, label: "Not Logged", color: "text-(--color-text-faint) bg-gray-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700" };
+  }
+  let score = 50;
+  if (sleepHours !== undefined) {
+    if (sleepHours >= 7.5) score += 30;
+    else if (sleepHours >= 6.5) score += 20;
+    else if (sleepHours >= 5.5) score += 10;
+    else score -= 15;
+  }
+  if (waterIntakeMl !== undefined) {
+    if (waterIntakeMl >= 2500) score += 20;
+    else if (waterIntakeMl >= 1500) score += 10;
+    else score -= 10;
+  }
+  score = Math.max(15, Math.min(100, score));
+  if (score >= 85) return { score, label: "Optimal", color: "text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800" };
+  if (score >= 70) return { score, label: "Good", color: "text-teal-700 bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800" };
+  if (score >= 50) return { score, label: "Moderate", color: "text-amber-700 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800" };
+  return { score, label: "Fatigued", color: "text-rose-700 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800" };
+}
 
 function daysBetween(a: Date, b: Date) {
   const ms = Math.abs(a.getTime() - b.getTime());
@@ -137,6 +221,20 @@ export default function Progress() {
   const [showLogModal, setShowLogModal] = useState(false);
   const [newWeight, setNewWeight] = useState("70.0");
 
+  const [showWellnessModal, setShowWellnessModal] = useState(false);
+  const [editingDayKey, setEditingDayKey] = useState<string>(() => getLocalDateKey());
+  const [sleepHours, setSleepHours] = useState("8");
+  const [waterLiters, setWaterLiters] = useState("2.5");
+  const [mood, setMood] = useState<"great" | "good" | "okay" | "tired" | "stressed">("good");
+  const [savingWellness, setSavingWellness] = useState(false);
+  const [todayWellness, setTodayWellness] = useState<{
+    sleepHours?: number;
+    waterIntakeMl?: number;
+    mood?: "great" | "good" | "okay" | "tired" | "stressed";
+  } | null>(null);
+  const [wellnessHistory, setWellnessHistory] = useState<any[]>([]);
+  const past7Days = useMemo(() => getPastNDays(7), []);
+
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -150,12 +248,44 @@ export default function Progress() {
 
       const memberId = m?._id || user?._id;
       if (memberId) {
-        const [wRes, compRes, photoRes, _summaryRes] = await Promise.all([
+        const [wRes, compRes, photoRes, _summaryRes, wellnessRes] = await Promise.all([
           progressApi.getHistory(memberId).catch(() => null),
           workoutApi.getCompletionStats(memberId).catch(() => null),
           progressApi.getPhotos(memberId).catch(() => null),
           progressApi.getSummary().catch(() => null),
+          progressApi.getWellnessHistory().catch(() => null),
         ]);
+
+        // Process today's wellness history
+        const wList = Array.isArray(wellnessRes) ? wellnessRes : wellnessRes?.history || [];
+        setWellnessHistory(wList);
+        const dateKey = getLocalDateKey();
+        const todayEntry = wList.find((w: any) => w.dayKey === dateKey);
+        if (todayEntry) {
+          setTodayWellness({
+            sleepHours: todayEntry.sleepHours,
+            waterIntakeMl: todayEntry.waterIntakeMl,
+            mood: todayEntry.mood,
+          });
+          if (todayEntry.sleepHours !== undefined) {
+            setSleepHours(String(todayEntry.sleepHours));
+          }
+          if (todayEntry.waterIntakeMl !== undefined) {
+            setWaterLiters((todayEntry.waterIntakeMl / 1000).toFixed(1));
+          }
+          if (todayEntry.mood) {
+            setMood(todayEntry.mood);
+          }
+        } else {
+          // Brand new day: No wellness logged yet for today! Reset cleanly!
+          setTodayWellness(null);
+          setSleepHours("8");
+          setWaterLiters("0");
+          setMood("good");
+          localStorage.setItem("gymai_water_glasses", "0");
+          localStorage.setItem("gymai_water_glasses_date", dateKey);
+          localStorage.setItem("gymai_water_liters", "0.00");
+        }
 
         const rawPhotos = Array.isArray(photoRes)
           ? photoRes
@@ -214,6 +344,47 @@ export default function Progress() {
 
   useEffect(() => {
     loadProgressData();
+
+    const handleWellnessEvent = (e: any) => {
+      if (e?.detail) {
+        const eventDayKey = e.detail.dayKey || getLocalDateKey();
+        const isToday = eventDayKey === getLocalDateKey();
+
+        if (isToday) {
+          setTodayWellness((prev) => ({
+            ...prev,
+            waterIntakeMl: e.detail.waterMl ?? prev?.waterIntakeMl,
+            sleepHours: e.detail.sleepHours ?? prev?.sleepHours,
+            mood: e.detail.mood ?? prev?.mood,
+          }));
+          if (e.detail.waterMl !== undefined) {
+            setWaterLiters((e.detail.waterMl / 1000).toFixed(1));
+          }
+        }
+
+        setWellnessHistory((prev) => {
+          const filtered = prev.filter((item) => item.dayKey !== eventDayKey);
+          const existing = prev.find((item) => item.dayKey === eventDayKey);
+          return [
+            {
+              dayKey: eventDayKey,
+              sleepHours: e.detail.sleepHours ?? existing?.sleepHours,
+              waterIntakeMl: e.detail.waterMl ?? existing?.waterIntakeMl,
+              mood: e.detail.mood ?? existing?.mood,
+              createdAt: existing?.createdAt || new Date().toISOString(),
+            },
+            ...filtered,
+          ];
+        });
+      } else {
+        loadProgressData();
+      }
+    };
+
+    window.addEventListener("gymai:wellness-updated", handleWellnessEvent);
+    return () => {
+      window.removeEventListener("gymai:wellness-updated", handleWellnessEvent);
+    };
   }, []);
 
   const latestPhoto = photos[0];
@@ -258,6 +429,102 @@ export default function Progress() {
       loadProgressData();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to log weight. Please try again.");
+    }
+  };
+
+  const openWellnessModal = (dayKeyToEdit?: string) => {
+    const targetKey = dayKeyToEdit || getLocalDateKey();
+    setEditingDayKey(targetKey);
+    const existing = wellnessHistory.find((w: any) => w.dayKey === targetKey);
+    if (existing) {
+      setSleepHours(existing.sleepHours !== undefined ? String(existing.sleepHours) : "8");
+      setWaterLiters(existing.waterIntakeMl !== undefined ? (existing.waterIntakeMl / 1000).toFixed(1) : "2.5");
+      setMood(existing.mood || "good");
+    } else if (targetKey === getLocalDateKey() && todayWellness) {
+      setSleepHours(todayWellness.sleepHours !== undefined ? String(todayWellness.sleepHours) : "8");
+      setWaterLiters(todayWellness.waterIntakeMl !== undefined ? (todayWellness.waterIntakeMl / 1000).toFixed(1) : "2.5");
+      setMood(todayWellness.mood || "good");
+    } else {
+      setSleepHours("8");
+      setWaterLiters("2.5");
+      setMood("good");
+    }
+    setShowWellnessModal(true);
+  };
+
+  const handleSaveWellness = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const sleep = parseFloat(sleepHours);
+    const water = parseFloat(waterLiters);
+    if (isNaN(sleep) || sleep < 0 || sleep > 24) {
+      toast.error("Please enter a valid sleep duration (0-24 hours)");
+      return;
+    }
+
+    setSavingWellness(true);
+    const targetKey = editingDayKey || getLocalDateKey();
+    const isToday = targetKey === getLocalDateKey();
+
+    try {
+      const waterMl = !isNaN(water) && water >= 0 ? Math.round(water * 1000) : undefined;
+      await progressApi.logWellness({
+        sleepHours: sleep,
+        waterIntakeMl: waterMl,
+        mood,
+        dayKey: targetKey,
+      });
+
+      if (isToday) {
+        if (waterMl !== undefined) {
+          const glasses = Math.min(12, Math.round(waterMl / 375));
+          localStorage.setItem("gymai_water_glasses", String(glasses));
+          localStorage.setItem("gymai_water_glasses_date", targetKey);
+          localStorage.setItem("gymai_water_liters", (waterMl / 1000).toFixed(2));
+        }
+
+        setTodayWellness({
+          sleepHours: sleep,
+          waterIntakeMl: waterMl,
+          mood,
+        });
+      }
+
+      setWellnessHistory((prev) => {
+        const filtered = prev.filter((item) => item.dayKey !== targetKey);
+        const existing = prev.find((item) => item.dayKey === targetKey);
+        return [
+          {
+            dayKey: targetKey,
+            sleepHours: sleep,
+            waterIntakeMl: waterMl,
+            mood,
+            createdAt: existing?.createdAt || new Date().toISOString(),
+          },
+          ...filtered,
+        ];
+      });
+
+      const dayTitle = isToday ? "Today's" : formatWellnessDate(targetKey);
+      toast.success(`${dayTitle} wellness saved! (${sleep}h sleep, ${(waterMl ? waterMl / 1000 : 0).toFixed(1)}L water)`);
+      setShowWellnessModal(false);
+
+      window.dispatchEvent(
+        new CustomEvent("gymai:wellness-updated", {
+          detail: {
+            waterGlasses: waterMl ? Math.min(12, Math.round(waterMl / 375)) : 0,
+            waterMl,
+            sleepHours: sleep,
+            mood,
+            dayKey: targetKey,
+          },
+        })
+      );
+      window.dispatchEvent(new Event("gymai:workout-updated"));
+      loadProgressData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to log wellness.");
+    } finally {
+      setSavingWellness(false);
     }
   };
 
@@ -338,12 +605,20 @@ export default function Progress() {
         subtitle="Track weight changes, strength progression & body transformation timeline"
         backTo="/member"
         action={
-          <button
-            onClick={() => setShowLogModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-4 py-2 hover:opacity-90 transition-all shadow-md"
-          >
-            <Plus size={14} /> Log Weight
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowWellnessModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 transition-all shadow-sm cursor-pointer"
+            >
+              <Moon size={14} /> Log Sleep & Wellness
+            </button>
+            <button
+              onClick={() => setShowLogModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-3.5 py-2 hover:opacity-90 transition-all shadow-sm cursor-pointer"
+            >
+              <Plus size={14} /> Log Weight
+            </button>
+          </div>
         }
       />
 
@@ -400,6 +675,55 @@ export default function Progress() {
         </Card>
       </div>
 
+      {/* Today's Live Wellness & Hydration Tracker Bar */}
+      <div className="bg-white dark:bg-(--color-surface) p-4 sm:p-5 rounded-2xl border border-(--color-border) shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="h-11 w-11 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+            <Droplets size={22} className="fill-sky-500/20" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-extrabold text-(--color-text)">Today's Wellness & Recovery</span>
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold uppercase tracking-wider">
+                {todayWellness?.mood ? todayWellness.mood : "Active Day"}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs mt-1.5 text-(--color-text-muted)">
+              <span className="flex items-center gap-1.5">
+                <Droplets size={14} className="text-sky-500" />
+                <strong className="text-(--color-text) font-bold">
+                  {todayWellness?.waterIntakeMl !== undefined
+                    ? `${(todayWellness.waterIntakeMl / 1000).toFixed(2)}L`
+                    : "0.00L"}
+                </strong>
+                <span className="text-[11px] text-(--color-text-faint)">
+                  / 3.0L Hydration (
+                  {todayWellness?.waterIntakeMl !== undefined
+                    ? Math.round(todayWellness.waterIntakeMl / 375)
+                    : 0}{" "}
+                  glasses)
+                </span>
+              </span>
+              <span className="text-(--color-border)">•</span>
+              <span className="flex items-center gap-1.5">
+                <Moon size={14} className="text-indigo-500" />
+                <strong className="text-(--color-text) font-bold">
+                  {todayWellness?.sleepHours !== undefined ? `${todayWellness.sleepHours}h` : "--"}
+                </strong>
+                <span className="text-[11px] text-(--color-text-faint)">/ 8h Sleep Target</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => openWellnessModal(getLocalDateKey())}
+          className="self-start sm:self-auto px-4 py-2 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) border border-(--color-border) text-xs font-bold text-(--color-text) hover:text-(--color-accent-text) transition-all cursor-pointer shadow-2xs shrink-0"
+        >
+          {todayWellness?.sleepHours !== undefined || todayWellness?.waterIntakeMl !== undefined ? "✏️ Update Today's Wellness" : "+ Log Today's Wellness"}
+        </button>
+      </div>
+
       {/* Analytics Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
@@ -425,6 +749,246 @@ export default function Progress() {
           )}
         </Card>
       </div>
+
+      {/* Workout Completion & Consistency Chart */}
+      <Card className="p-5">
+        <WorkoutConsistencyChart memberId={user?._id} />
+      </Card>
+
+      {/* 7-Day Sleep, Hydration & Wellness Comparison Tracker */}
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+              <Moon size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-display text-sm sm:text-base font-bold text-(--color-text)">
+                  Weekly Sleep & Recovery Tracker
+                </h3>
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold uppercase tracking-wider">
+                  Past 7 Days
+                </span>
+              </div>
+              <p className="text-xs text-(--color-text-muted) mt-0.5">
+                Track your daily rest, water intake, and readiness day by day
+              </p>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => openWellnessModal(getLocalDateKey())}
+            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+          >
+            <Plus size={14} />
+            <span>Log Wellness</span>
+          </button>
+        </div>
+
+        {/* 7-Day Day-by-Day Comparison Cards Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-6">
+          {past7Days.map((day) => {
+            const entry = wellnessHistory.find((w: any) => w.dayKey === day.dayKey);
+            const hasData = !!entry && (entry.sleepHours !== undefined || entry.waterIntakeMl !== undefined);
+            const moodMeta = entry?.mood ? MOOD_META[entry.mood] : null;
+            const recovery = calculateQuickRecoveryScore(entry?.sleepHours, entry?.waterIntakeMl);
+
+            return (
+              <div
+                key={day.dayKey}
+                onClick={() => openWellnessModal(day.dayKey)}
+                className={`p-3 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between relative group ${
+                  day.isToday
+                    ? "bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-700 shadow-xs ring-2 ring-indigo-500/20"
+                    : day.isYesterday
+                    ? "bg-(--color-surface-2)/60 border-(--color-border) hover:border-indigo-300"
+                    : "bg-(--color-surface) border-(--color-border) hover:border-(--color-border-strong)"
+                }`}
+              >
+                {/* Header: Day & Date */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-[11px] font-extrabold uppercase tracking-wider ${
+                      day.isToday ? "text-indigo-600 dark:text-indigo-400" : day.isYesterday ? "text-(--color-text)" : "text-(--color-text-muted)"
+                    }`}>
+                      {day.label}
+                    </span>
+                    {day.isToday && (
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="Active Day" />
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-(--color-text-faint)">{day.subLabel}</p>
+                </div>
+
+                {/* Metrics */}
+                <div className="my-2.5 space-y-1.5">
+                  {/* Sleep */}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 text-(--color-text-muted)">
+                      <Moon size={11} className="text-indigo-500" />
+                      <span className="text-[10px]">Sleep</span>
+                    </span>
+                    <span className="font-mono font-bold text-(--color-text) text-[11px]">
+                      {entry?.sleepHours !== undefined ? `${entry.sleepHours}h` : "--"}
+                    </span>
+                  </div>
+
+                  {/* Water */}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 text-(--color-text-muted)">
+                      <Droplets size={11} className="text-sky-500" />
+                      <span className="text-[10px]">Water</span>
+                    </span>
+                    <span className="font-mono font-bold text-(--color-text) text-[11px]">
+                      {entry?.waterIntakeMl !== undefined ? `${(entry.waterIntakeMl / 1000).toFixed(1)}L` : "--"}
+                    </span>
+                  </div>
+
+                  {/* Mood */}
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <span className="text-[10px] text-(--color-text-muted)">Mood</span>
+                    <span className="text-xs" title={moodMeta?.label || "Not logged"}>
+                      {moodMeta ? moodMeta.emoji : "--"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Status / Action */}
+                <div className="pt-1.5 border-t border-(--color-border)/60 flex items-center justify-between">
+                  {hasData ? (
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${recovery.color}`}>
+                      {recovery.label}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-(--color-text-faint) font-medium">
+                      No log
+                    </span>
+                  )}
+                  <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline">
+                    {hasData ? "Edit" : "+ Log"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Detailed 7-Day & Historical Table */}
+        <div className="border-t border-(--color-border) pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-(--color-text-muted)">
+              Complete Daily Log History
+            </h4>
+            <span className="text-[11px] text-(--color-text-faint)">
+              Showing recent logs ({wellnessHistory.length} recorded)
+            </span>
+          </div>
+
+          {wellnessHistory.length === 0 ? (
+            <div className="w-full py-8 flex flex-col items-center justify-center text-center p-4 bg-(--color-surface-2)/30 rounded-xl border border-dashed border-(--color-border)">
+              <Moon className="w-8 h-8 text-(--color-text-faint) mb-2" />
+              <p className="text-xs font-semibold text-(--color-text-muted)">No sleep & wellness history recorded yet</p>
+              <p className="text-[11px] text-(--color-text-faint) mt-0.5">
+                Click "+ Log Wellness" above to record your sleep, water, and mood.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-(--color-border)">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-(--color-surface-2)/60 border-b border-(--color-border) text-(--color-text-muted) font-semibold uppercase tracking-wider text-[10px]">
+                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Sleep Duration</th>
+                    <th className="py-2.5 px-3">Hydration</th>
+                    <th className="py-2.5 px-3">Energy & Mood</th>
+                    <th className="py-2.5 px-3">Recovery Status</th>
+                    <th className="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--color-border-soft)">
+                  {wellnessHistory.slice(0, 14).map((entry, idx) => {
+                    const moodInfo = entry.mood ? MOOD_META[entry.mood] || { label: entry.mood, emoji: "✨", badgeClass: "bg-gray-100 text-gray-700 border-gray-300" } : null;
+                    const sleepVal = typeof entry.sleepHours === "number" ? entry.sleepHours : undefined;
+                    const recScore = calculateQuickRecoveryScore(entry.sleepHours, entry.waterIntakeMl);
+
+                    return (
+                      <tr key={entry._id || entry.dayKey || idx} className="hover:bg-(--color-surface-2)/50 transition-colors">
+                        <td className="py-3 px-3 font-semibold text-(--color-text)">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar size={13} className="text-(--color-text-faint)" />
+                            <span>{formatWellnessDate(entry.dayKey, entry.createdAt)}</span>
+                            <span className="text-[10px] font-mono text-(--color-text-faint)">({entry.dayKey})</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold font-mono text-(--color-text) text-xs">
+                              {sleepVal !== undefined ? `${sleepVal} hrs` : "--"}
+                            </span>
+                            {sleepVal !== undefined && (
+                              sleepVal >= 7.5 ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                  Optimal (8h)
+                                </span>
+                              ) : sleepVal >= 6.5 ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                                  Adequate
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                  Sleep Deficit
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-1.5 text-(--color-text-muted)">
+                            <Droplets size={13} className="text-sky-500 shrink-0" />
+                            <span className="font-mono font-bold text-(--color-text)">
+                              {entry.waterIntakeMl !== undefined ? `${(entry.waterIntakeMl / 1000).toFixed(2)}L` : "--"}
+                            </span>
+                            {entry.waterIntakeMl !== undefined && (
+                              <span className="text-[10px] text-(--color-text-faint)">
+                                ({Math.round(entry.waterIntakeMl / 375)} glasses)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          {moodInfo ? (
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${moodInfo.badgeClass}`}>
+                              <span>{moodInfo.emoji}</span>
+                              <span>{moodInfo.label}</span>
+                            </span>
+                          ) : (
+                            <span className="text-(--color-text-faint)">--</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${recScore.color}`}>
+                            {recScore.label}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => openWellnessModal(entry.dayKey)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer flex items-center gap-1 ml-auto"
+                          >
+                            <Edit3 size={12} />
+                            <span>Edit</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Transformation Highlight: Before vs After */}
       {baselinePhoto && currentPhoto && (
@@ -595,6 +1159,145 @@ export default function Progress() {
               </button>
               <button type="submit" className="px-6 py-2.5 rounded-full text-xs font-bold bg-(--color-accent) text-white shadow-md">
                 Save Weight
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Log Sleep & Wellness Modal */}
+      {showWellnessModal && (
+        <Modal
+          onClose={() => setShowWellnessModal(false)}
+          maxWidth="md"
+          title={
+            editingDayKey === getLocalDateKey()
+              ? "Log Today's Sleep & Wellness"
+              : `Log Wellness for ${formatWellnessDate(editingDayKey)} (${editingDayKey})`
+          }
+        >
+          <form onSubmit={handleSaveWellness} className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-(--color-text) flex items-center gap-1.5">
+                  <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Sleep Duration (Hours)</span>
+                </label>
+                <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                  {sleepHours} hrs
+                </span>
+              </div>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="24"
+                required
+                value={sleepHours}
+                onChange={(e) => setSleepHours(e.target.value)}
+                className="w-full p-3 rounded-2xl bg-(--color-surface-2) border border-(--color-border) text-base font-bold text-(--color-text) outline-none focus:border-indigo-500 font-mono"
+              />
+              <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
+                {["6", "6.5", "7", "7.5", "8", "8.5", "9"].map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setSleepHours(h)}
+                    className={`px-3 py-1 text-xs rounded-full border transition-all cursor-pointer ${
+                      sleepHours === h
+                        ? "bg-indigo-600 text-white border-indigo-600 font-bold"
+                        : "bg-(--color-surface) text-(--color-text-muted) border-(--color-border) hover:border-indigo-400"
+                    }`}
+                  >
+                    {h}h
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-(--color-text) flex items-center gap-1.5">
+                  <Droplets className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Today's Water Intake (Liters)</span>
+                </label>
+                <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                  {waterLiters} L
+                </span>
+              </div>
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                max="10"
+                value={waterLiters}
+                onChange={(e) => setWaterLiters(e.target.value)}
+                className="w-full p-3 rounded-2xl bg-(--color-surface-2) border border-(--color-border) text-base font-bold text-(--color-text) outline-none focus:border-cyan-500 font-mono"
+              />
+              <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
+                {["1.5", "2.0", "2.5", "3.0", "3.5", "4.0"].map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setWaterLiters(l)}
+                    className={`px-3 py-1 text-xs rounded-full border transition-all cursor-pointer ${
+                      waterLiters === l
+                        ? "bg-cyan-600 text-white border-cyan-600 font-bold"
+                        : "bg-(--color-surface) text-(--color-text-muted) border-(--color-border) hover:border-cyan-400"
+                    }`}
+                  >
+                    {l}L
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-(--color-text) block mb-1.5">
+                Energy & Readiness Mood
+              </label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {(
+                  [
+                    { key: "great", label: "Great", emoji: "😃" },
+                    { key: "good", label: "Good", emoji: "🙂" },
+                    { key: "okay", label: "Okay", emoji: "😐" },
+                    { key: "tired", label: "Tired", emoji: "🥱" },
+                    { key: "stressed", label: "Stressed", emoji: "😫" },
+                  ] as const
+                ).map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setMood(m.key)}
+                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      mood === m.key
+                        ? "bg-amber-500/15 border-amber-500 text-(--color-text) font-bold scale-102"
+                        : "bg-(--color-surface) border-(--color-border) text-(--color-text-muted) hover:border-amber-400/50"
+                    }`}
+                  >
+                    <span className="text-lg">{m.emoji}</span>
+                    <span className="text-[10px] capitalize">{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowWellnessModal(false)}
+                className="px-4 py-2 rounded-full text-xs font-semibold text-(--color-text-muted) hover:bg-(--color-surface-2) cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingWellness}
+                className="px-5 py-2 rounded-full text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              >
+                {savingWellness && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Save Wellness</span>
               </button>
             </div>
           </form>

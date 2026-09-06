@@ -194,9 +194,12 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
 
       setIsCompleted(true);
       toast.success("Workout logged & completed successfully! +100 XP Earned 🎉");
+      window.dispatchEvent(new CustomEvent("gymai:workout-updated"));
       onWorkoutComplete?.();
-    } catch {
-      toast.error("Failed to log workout session.");
+    } catch (err: any) {
+      console.error("Failed to log workout session:", err);
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to log workout session.";
+      toast.error(`Error: ${errMsg}`);
     } finally {
       setSubmitting(false);
     }

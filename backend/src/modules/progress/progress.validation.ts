@@ -32,6 +32,7 @@ export const logWellnessSchema = z.object({
   waterIntakeMl: z.number().int().nonnegative().optional(),
   sleepHours: z.number().min(0).max(24).optional(),
   mood: z.enum(['great', 'good', 'okay', 'tired', 'stressed']).optional(),
+  dayKey: z.string().optional(),
 });
 
 export const logMealSchema = z.object({

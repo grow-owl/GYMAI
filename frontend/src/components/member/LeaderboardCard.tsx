@@ -10,9 +10,13 @@ interface LeaderboardCardProps {
 
 interface LeaderboardEntry {
   _id?: string;
+  memberId?: string;
   rank?: number;
   fullName?: string;
   name?: string;
+  score?: number;
+  xp?: number;
+  points?: number;
   totalXp?: number;
   level?: number;
   currentStreakDays?: number;
@@ -23,32 +27,47 @@ interface LeaderboardEntry {
 export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"xp" | "streak" | "score">("xp");
+  const [filter, setFilter] = useState<"xp" | "streak">("xp");
 
-  useEffect(() => {
+  const fetchLeaderboard = () => {
     setLoading(true);
     gamificationApi
-      .getLeaderboard(gymId)
+      .getLeaderboard(gymId, filter)
       .then((res) => {
-        const list = Array.isArray(res) ? res : res?.leaderboard || [];
-        const enriched = list.map((item: any) => ({
-          ...item,
-          isCurrentUser:
-            item.isCurrentUser ||
-            Boolean(
-              currentUserId &&
-                (item._id === currentUserId ||
-                  item.memberId === currentUserId ||
-                  item.userId === currentUserId)
-            ),
-        }));
+        const list = Array.isArray(res) ? res : (res as any)?.leaderboard || [];
+        const enriched = list.map((item: any) => {
+          const xpVal = item.score ?? item.xp ?? item.points ?? item.totalXp ?? 0;
+          return {
+            ...item,
+            totalXp: xpVal,
+            isCurrentUser:
+              item.isCurrentUser ||
+              Boolean(
+                currentUserId &&
+                  (item._id === currentUserId ||
+                    item.memberId === currentUserId ||
+                    item.userId === currentUserId)
+              ),
+          };
+        });
         setLeaderboard(enriched);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to load leaderboard card:", err);
         setLeaderboard([]);
       })
       .finally(() => setLoading(false));
-  }, [gymId, currentUserId]);
+  };
+
+  useEffect(() => {
+    fetchLeaderboard();
+
+    const handleUpdate = () => {
+      fetchLeaderboard();
+    };
+    window.addEventListener("gymai:workout-updated", handleUpdate);
+    return () => window.removeEventListener("gymai:workout-updated", handleUpdate);
+  }, [gymId, currentUserId, filter]);
 
 
   return (
@@ -103,7 +122,7 @@ export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCar
           {leaderboard.slice(0, 6).map((user, idx) => {
             const rank = user.rank || idx + 1;
             const name = user.fullName || user.name || "Gym Member";
-            const xp = user.totalXp ?? 0;
+            const xp = user.totalXp ?? (user as any).score ?? (user as any).xp ?? (user as any).points ?? 0;
             const streak = user.currentStreakDays ?? 0;
             const level = user.level ?? 1;
 
@@ -114,7 +133,7 @@ export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCar
 
             return (
               <div
-                key={idx}
+                key={user.memberId || user._id || idx}
                 className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                   user.isCurrentUser
                     ? "bg-gradient-to-r from-accent/20 to-purple-600/20 border-accent/40 shadow-md"
@@ -151,9 +170,11 @@ export default function LeaderboardCard({ gymId, currentUserId }: LeaderboardCar
                 {/* Right: Stats */}
                 <div className="flex items-center gap-4 text-right">
                   <div>
-                    <p className="text-xs font-extrabold text-(--color-text) font-mono">{xp.toLocaleString()} XP</p>
+                    <p className="text-xs font-extrabold text-(--color-text) font-mono">
+                      {filter === "streak" ? `${streak}d streak` : `${xp.toLocaleString()} XP`}
+                    </p>
                     <p className="text-[10px] text-amber-400 font-semibold flex items-center justify-end gap-0.5">
-                      <Flame className="h-3 w-3" /> {streak}d streak
+                      <Flame className="h-3 w-3" /> {filter === "streak" ? `${xp.toLocaleString()} XP` : `${streak}d streak`}
                     </p>
                   </div>
                 </div>

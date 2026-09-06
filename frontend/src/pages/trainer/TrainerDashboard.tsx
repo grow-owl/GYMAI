@@ -7,6 +7,7 @@ import Badge from "@/components/ui/Badge";
 import DonutChart from "@/components/ui/DonutChart";
 import { trainerApi, attendanceApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 const quickAccess = [
   { label: "My Clients", path: "/trainer/clients", icon: "Users" },
@@ -47,8 +48,10 @@ export default function TrainerDashboard() {
 
       const aList = Array.isArray(attRes) ? attRes : attRes?.attendance || [];
       setTodayAttendance(aList);
-    } catch {
-      setError("Failed to load trainer dashboard.");
+    } catch (err: any) {
+      const msg = formatApiError(err, "Failed to load trainer dashboard.");
+      setError(msg);
+      showApiErrorToast(err, "Failed to load trainer dashboard");
     } finally {
       setLoading(false);
     }

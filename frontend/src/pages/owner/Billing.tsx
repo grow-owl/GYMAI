@@ -8,6 +8,7 @@ import { gymApi, paymentApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
+import { showApiErrorToast } from "@/lib/api";
 
 import { plans, CARD_ID_TO_GYM_PLAN, GYM_PLAN_TO_CARD_ID } from "@/data/pricing";
 
@@ -85,8 +86,8 @@ export default function Billing() {
       } else {
         toast.success(`Upgrade request for ${selectedPlanForUpgrade.name} submitted! Super Admin will process your tier change.`);
       }
-    } catch {
-      toast.error("Failed to submit plan change request. Please try again.");
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to submit plan change request. Please try again.");
     } finally {
       setSubmitting(false);
       setSelectedPlanForUpgrade(null);

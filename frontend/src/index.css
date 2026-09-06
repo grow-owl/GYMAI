@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   /* Base surfaces — clean neutral gray/white, per brand palette */
   --color-base: #E5E5E5;

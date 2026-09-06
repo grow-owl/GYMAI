@@ -309,6 +309,17 @@ export const workoutApi = {
     api.get<{ logs: any[]; meta?: any }>(`/members/${memberId}/workout-logs?page=${page}&limit=${limit}`),
 
   getCompletionStats: (memberId: string) => api.get<any>(`/members/${memberId}/workout-stats`),
+
+  getTodayWorkout: (memberId?: string) =>
+    api.get<{ today: any }>(`/workout-logs/today${memberId ? `?memberId=${memberId}` : ""}`),
+
+  toggleExerciseToday: (exerciseId: string) =>
+    api.patch<{ today: any }>("/workout-logs/today", { exerciseId }),
+
+  getProgressAnalytics: (days = 7, memberId?: string) =>
+    api.get<{ data: Array<{ date: string; completionPercentage: number }> }>(
+      `/workout-logs/analytics/progress?days=${days}${memberId ? `&memberId=${memberId}` : ""}`
+    ),
 };
 
 export const dietApi = {
@@ -343,8 +354,15 @@ export const progressApi = {
 
   deletePhoto: (photoId: string) => api.delete<any>(`/progress/photos/${photoId}`),
 
-  logWellness: (data: { energyRating?: number; sleepHours?: number; stressLevel?: string; sorenessNotes?: string }) =>
-    api.patch<any>("/progress/wellness", data),
+  logWellness: (data: {
+    waterIntakeMl?: number;
+    sleepHours?: number;
+    mood?: "great" | "good" | "okay" | "tired" | "stressed";
+    energyRating?: number;
+    stressLevel?: string;
+    sorenessNotes?: string;
+    dayKey?: string;
+  }) => api.patch<any>("/progress/wellness", data),
 
   getWellnessHistory: () => api.get<any[]>("/progress/wellness/history"),
 
@@ -361,7 +379,13 @@ export const gamificationApi = {
 
   updateRestDays: (restDays: string[]) => api.put<any>("/gamification/me/rest-days", { restDays }),
 
-  getLeaderboard: (gymId?: string) => api.get<any>(`/gamification/leaderboard${gymId ? `?gymId=${gymId}` : ""}`),
+  getLeaderboard: (gymId?: string, type?: string) => {
+    const params = new URLSearchParams();
+    if (gymId) params.append("gymId", gymId);
+    if (type) params.append("type", type);
+    const q = params.toString();
+    return api.get<any>(`/gamification/leaderboard${q ? `?${q}` : ""}`);
+  },
 
   listChallenges: (gymId?: string) => api.get<any[]>(`/gamification/challenges${gymId ? `?gymId=${gymId}` : ""}`),
 
@@ -431,10 +455,17 @@ export const aiApi = {
   getGoalPrediction: (memberId: string) => api.get<any>(`/ai/members/${memberId}/goal-prediction`),
 
   startConversation: (firstMessage: string) =>
-    api.post<{ conversation: { _id: string; title: string }; replyMessage: { content: string } }>("/ai/chat/conversations", { firstMessage }),
+    api.post<{
+      conversation: { _id: string; title: string };
+      replyMessage: { content: string };
+      quota?: { isExceeded: boolean; todayCount: number; limit: number; remaining: number };
+    }>("/ai/chat/conversations", { firstMessage }),
 
   sendMessage: (conversationId: string, content: string) =>
-    api.post<{ replyMessage: { content: string; role: string } }>(`/ai/chat/conversations/${conversationId}/messages`, { content }),
+    api.post<{
+      replyMessage: { content: string; role: string };
+      quota?: { isExceeded: boolean; todayCount: number; limit: number; remaining: number };
+    }>(`/ai/chat/conversations/${conversationId}/messages`, { content }),
 
   getHistory: (conversationId: string) =>
     api.get<{ messages: { _id: string; role: string; content: string; createdAt: string }[] }>(`/ai/chat/conversations/${conversationId}/messages`),
@@ -447,6 +478,12 @@ export const aiApi = {
 
   getUpsellRecommendation: (memberId?: string) =>
     api.get<any>(`/ai/members/${memberId || "me"}/upsell-recommendation`),
+
+  getRecoveryStatus: (memberId?: string) =>
+    api.get<any>(`/ai/members/${memberId || "me"}/recovery-status`),
+
+  getChatDailyLimit: () =>
+    api.get<{ isExceeded: boolean; todayCount: number; limit: number; remaining: number }>("/ai/chat/daily-limit"),
 };
 
 export const productApi = {

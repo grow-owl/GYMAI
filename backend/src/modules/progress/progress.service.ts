@@ -35,8 +35,8 @@ export class ProgressService {
       throw AppError.notFound('Member profile not found');
     }
 
-    const branch = await Branch.findOne({ _id: member.branchId, isDeleted: false });
-    const timezone = branch?.timezone || 'UTC';
+    const branch = member.branchId ? await Branch.findOne({ _id: member.branchId, isDeleted: false }) : null;
+    const timezone = (branch?.timezone && branch.timezone !== 'UTC') ? branch.timezone : 'Asia/Kolkata';
     const dayKey = getDayKeyForBranch(date, timezone);
 
     const weightEntry = await WeightEntry.findOneAndUpdate(
@@ -119,8 +119,8 @@ export class ProgressService {
       throw AppError.notFound('Member profile not found');
     }
 
-    const branch = await Branch.findOne({ _id: member.branchId, isDeleted: false });
-    const timezone = branch?.timezone || 'UTC';
+    const branch = member.branchId ? await Branch.findOne({ _id: member.branchId, isDeleted: false }) : null;
+    const timezone = (branch?.timezone && branch.timezone !== 'UTC') ? branch.timezone : 'Asia/Kolkata';
     const dayKey = getDayKeyForBranch(new Date(), timezone);
 
     let finalImageUrl = imageSource;
@@ -255,7 +255,7 @@ export class ProgressService {
    */
   public static async logWellness(
     memberId: string,
-    input: { waterIntakeMl?: number; sleepHours?: number; mood?: 'great' | 'good' | 'okay' | 'tired' | 'stressed' }
+    input: { waterIntakeMl?: number; sleepHours?: number; mood?: 'great' | 'good' | 'okay' | 'tired' | 'stressed'; dayKey?: string }
   ): Promise<IDailyWellness> {
     const member = await Member.findOne({
       $or: [
@@ -269,9 +269,9 @@ export class ProgressService {
       throw AppError.notFound('Member profile not found');
     }
 
-    const branch = await Branch.findOne({ _id: member.branchId, isDeleted: false });
-    const timezone = branch?.timezone || 'UTC';
-    const dayKey = getDayKeyForBranch(new Date(), timezone);
+    const branch = member.branchId ? await Branch.findOne({ _id: member.branchId, isDeleted: false }) : null;
+    const timezone = (branch?.timezone && branch.timezone !== 'UTC') ? branch.timezone : 'Asia/Kolkata';
+    const dayKey = input.dayKey || getDayKeyForBranch(new Date(), timezone);
 
     const updateFields: Record<string, unknown> = {
       gymId: member.gymId,
@@ -313,7 +313,7 @@ export class ProgressService {
     const filter = { memberId: member._id };
 
     const [history, totalItems] = await Promise.all([
-      DailyWellness.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+      DailyWellness.find(filter).skip(skip).limit(limit).sort({ dayKey: -1, createdAt: -1 }),
       DailyWellness.countDocuments(filter),
     ]);
 
@@ -341,8 +341,8 @@ export class ProgressService {
       throw AppError.notFound('Member profile not found');
     }
 
-    const branch = await Branch.findOne({ _id: member.branchId, isDeleted: false });
-    const timezone = branch?.timezone || 'UTC';
+    const branch = member.branchId ? await Branch.findOne({ _id: member.branchId, isDeleted: false }) : null;
+    const timezone = (branch?.timezone && branch.timezone !== 'UTC') ? branch.timezone : 'Asia/Kolkata';
     const targetDayKey = input.dayKey || getDayKeyForBranch(new Date(), timezone);
 
     const mealItem = {

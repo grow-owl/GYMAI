@@ -32,6 +32,7 @@ Rules & Directives:
 5. MANDATORY SAFETY DISCLAIMER: Never provide medical diagnoses or drug dosages. Advise consulting a physician or certified personal trainer for injury symptoms.
 6. If user asks general fitness/health questions (e.g. routines, form, macros, sleep, hydration), answer thoroughly with actionable, science-backed guidance.
 7. PROGRESS PHOTO & VISUAL TRACKING AWARENESS: You have direct visibility into the member's progress photo check-in history. If they ask about body composition, aesthetic changes, toning, or muscle definition, reference their uploaded photo history and notes. If they have logged notes on photos (e.g., "waist looking tighter"), acknowledge and validate their progress. If they haven't uploaded photos recently, encourage taking front/side/back check-in photos every 2-4 weeks in their Progress tab!
+8. DAILY SLEEP, HYDRATION & RECOVERY LOG ACCURACY: You have direct visibility into the member's daily sleep hours, water intake, and mood for each day over the past 7 days (including today and yesterday). When the member asks about their hydration ('aaj kitna paani piya?', 'kal kitna piya tha?'), sleep duration ('kal kitni neend li?'), or recovery trends, quote their exact logged metrics from the context. If they ask how their recovery is going, compare yesterday vs today or recent days and provide motivating advice.
 `;
 
 const SYSTEM_OWNER_CHAT_PROMPT = (ownerName: string, gymName: string, metricsSummary: string) => `
@@ -141,6 +142,19 @@ export class AIChatbotService {
         ? `Total Uploaded: ${context.progressPhotos.totalCount} (Angles: ${context.progressPhotos.anglesLogged.join(', ')}). Latest Check-in: ${context.progressPhotos.latestDate} (${context.progressPhotos.daysSinceLastPhoto} days ago). Recent notes: ${context.progressPhotos.recentPhotos.map((p: any) => `${p.date} [${p.angle}]: ${p.notes || 'No note'}`).join('; ')}`
         : 'No progress photos logged yet.';
 
+    const wellnessTimeline = (context.recentWellnessLogs && context.recentWellnessLogs.length > 0)
+      ? context.recentWellnessLogs.map((w: any) => {
+          const sleep = w.sleepHours !== undefined ? `${w.sleepHours} hrs sleep` : 'sleep not logged';
+          const water = w.waterIntakeMl !== undefined ? `${(w.waterIntakeMl / 1000).toFixed(2)}L water (${Math.round(w.waterIntakeMl / 375)} glasses)` : 'water not logged';
+          const mood = w.mood ? `[Mood: ${w.mood}]` : '';
+          return `${w.dayKey}: ${sleep}, ${water} ${mood}`.trim();
+        }).join(' | ')
+      : 'No daily wellness history logged yet';
+
+    const todayStatus = context.todayWellness
+      ? `Today (${context.todayWellness.dayKey}): Sleep = ${context.todayWellness.sleepHours !== undefined ? `${context.todayWellness.sleepHours} hrs` : 'Not logged yet'}, Hydration = ${context.todayWellness.waterIntakeMl !== undefined ? `${(context.todayWellness.waterIntakeMl / 1000).toFixed(1)}L logged` : '0.0L'}, Mood = ${context.todayWellness.mood || 'Not logged'}`
+      : 'Today: No wellness logged yet today';
+
     return `
 - Member Name: ${context.fullName}
 - Primary Fitness Goals: ${context.fitnessGoals?.join(', ') || 'General Fitness & Well-being'}
@@ -149,8 +163,10 @@ export class AIChatbotService {
 - Total Gym Visits / Attendance: ${context.attendanceStats.totalVisits} sessions
 - Workout Completion Rate: ${context.workoutStats.completionRatePercent}%
 - Current Recovery Status: ${context.recoveryCategory || 'Good to Train'} (Readiness Score: ${context.recoveryScore || 75}/100)
-- Average Sleep: ${context.wellnessAverages.avgSleepHours ? `${context.wellnessAverages.avgSleepHours} hrs/night` : 'Not logged'}
-- Average Daily Water: ${context.wellnessAverages.avgWaterMl ? `${context.wellnessAverages.avgWaterMl} ml` : 'Not logged'}
+- Today's Live Wellness: ${todayStatus}
+- Historical Average Sleep: ${context.wellnessAverages.avgSleepHours ? `${context.wellnessAverages.avgSleepHours} hrs/night` : 'Not logged'}
+- Historical Average Daily Water: ${context.wellnessAverages.avgWaterMl ? `${context.wellnessAverages.avgWaterMl} ml` : 'Not logged'}
+- Recent 7-Day Sleep, Hydration & Mood Logs: ${wellnessTimeline}
 - Member Progress Photos / Visual Tracking: ${photosSummary}
 ${context.injuries?.length ? `- Documented Physical Injuries/Limitations: ${context.injuries.join(', ')} (SAFETY CRITICAL: Do not prescribe exercises that stress these injured areas!)` : '- No documented injuries'}
     `.trim();
@@ -191,21 +207,34 @@ ${context.injuries?.length ? `- Documented Physical Injuries/Limitations: ${cont
    */
   public static async checkUserDailyLimit(
     userId: string
-  ): Promise<{ isExceeded: boolean; todayCount: number; limit: number }> {
+  ): Promise<{ isExceeded: boolean; todayCount: number; limit: number; remaining: number }> {
     const limit = env.AI_DAILY_USER_MESSAGE_LIMIT || 5;
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
+    const userConditions: any[] = [{ userId: new mongoose.Types.ObjectId(userId) }];
+    try {
+      const member = await Member.findOne({ userId: new mongoose.Types.ObjectId(userId) }).select('_id');
+      if (member) {
+        userConditions.push({ memberId: member._id });
+      }
+    } catch {
+      // Ignore if lookup fails
+    }
+
     const todayCount = await AIChatMessage.countDocuments({
-      userId: new mongoose.Types.ObjectId(userId),
+      $or: userConditions,
       role: 'user',
       createdAt: { $gte: startOfToday },
     });
+
+    const remaining = Math.max(0, limit - todayCount);
 
     return {
       isExceeded: todayCount >= limit,
       todayCount,
       limit,
+      remaining,
     };
   }
 

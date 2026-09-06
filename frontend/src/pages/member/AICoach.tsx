@@ -1,9 +1,23 @@
-import { useState, useEffect } from "react";
-import { Sparkles, Send, ShoppingBag, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import {
+  Sparkles,
+  Send,
+  ShoppingBag,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Activity,
+  Moon,
+  Droplets,
+  Target,
+  Utensils,
+} from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
-import Card from "@/components/ui/Card";
 import { aiApi } from "@/lib/endpoints";
 import { toast } from "sonner";
+import MarkdownRenderer from "@/components/common/MarkdownRenderer";
 
 const quickPrompts = [
   "Which supplement should I take for muscle gain?",
@@ -27,213 +41,544 @@ export default function AICoach() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+
+  // Daily Chat Quota State (Live counter)
+  const [quota, setQuota] = useState<{
+    isExceeded: boolean;
+    todayCount: number;
+    limit: number;
+    remaining: number;
+  }>({
+    isExceeded: false,
+    todayCount: 0,
+    limit: 5,
+    remaining: 5,
+  });
+
   const [upsellData, setUpsellData] = useState<any>(null);
   const [goalPrediction, setGoalPrediction] = useState<any>(null);
   const [dietRec, setDietRec] = useState<any>(null);
 
+  const [recoveryData, setRecoveryData] = useState<any>(null);
+  const [recoveryLoading, setRecoveryLoading] = useState<boolean>(true);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+  // Toggle to expand detailed AI insights & recovery cards without pushing chat off-screen
+  const [showInsights, setShowInsights] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    // Fetch initial AI recommendation & conversation history
-    const loadAiData = async () => {
-      try {
-        const [upsellRes, convsRes, goalRes, dietRes] = await Promise.allSettled([
+    scrollToBottom();
+  }, [messages, loading]);
+
+  const loadAiData = async () => {
+    setRecoveryLoading(true);
+    try {
+      const [upsellRes, convsRes, goalRes, dietRes, recoveryRes, quotaRes] =
+        await Promise.allSettled([
           aiApi.getUpsellRecommendation(),
           aiApi.listConversations(),
           aiApi.getGoalPrediction("me"),
           aiApi.getDietRecommendation("me"),
+          aiApi.getRecoveryStatus("me"),
+          aiApi.getChatDailyLimit(),
         ]);
 
-        if (upsellRes.status === "fulfilled" && upsellRes.value) {
-          setUpsellData(upsellRes.value);
-        }
-        if (goalRes.status === "fulfilled" && goalRes.value) {
-          setGoalPrediction(goalRes.value);
-        }
-        if (dietRes.status === "fulfilled" && dietRes.value) {
-          setDietRec(dietRes.value);
-        }
-
-        if (convsRes.status === "fulfilled" && convsRes.value?.conversations?.length) {
-          const latestConv = convsRes.value.conversations[0];
-          setConversationId(latestConv._id);
-          const historyRes = await aiApi.getHistory(latestConv._id);
-          if (historyRes?.messages?.length) {
-            setMessages(
-              historyRes.messages.map((m) => ({
-                from: m.role === "user" ? "user" : "ai",
-                text: m.content,
-              }))
-            );
-          }
-        }
-      } catch {
-        // Fallback to initial state
+      if (quotaRes.status === "fulfilled" && quotaRes.value) {
+        setQuota(quotaRes.value);
       }
-    };
+
+      if (upsellRes.status === "fulfilled" && upsellRes.value) {
+        setUpsellData(upsellRes.value);
+      }
+      if (goalRes.status === "fulfilled" && goalRes.value) {
+        setGoalPrediction(goalRes.value);
+      }
+      if (dietRes.status === "fulfilled" && dietRes.value) {
+        setDietRec(dietRes.value);
+      }
+
+      if (recoveryRes.status === "fulfilled" && recoveryRes.value) {
+        setRecoveryData(recoveryRes.value);
+        setRecoveryError(null);
+      } else if (recoveryRes.status === "rejected") {
+        const err: any = recoveryRes.reason;
+        console.error("Failed to load recovery status:", err);
+        setRecoveryError(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Unable to fetch recovery status from AI server."
+        );
+      }
+
+      if (convsRes.status === "fulfilled" && convsRes.value?.conversations?.length) {
+        const latestConv = convsRes.value.conversations[0];
+        setConversationId(latestConv._id);
+        const historyRes = await aiApi.getHistory(latestConv._id);
+        if (historyRes?.messages?.length) {
+          setMessages(
+            historyRes.messages.map((m: any) => ({
+              from: m.role === "user" ? "user" : "ai",
+              text: m.content,
+            }))
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error("Unexpected error in loadAiData:", err);
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadAiData();
+
+    const handleWellnessEvent = (e?: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail) {
+        setRecoveryData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (detail.waterIntakeMl !== undefined) {
+            updated.todayWaterMl = detail.waterIntakeMl;
+            updated.todayHydrationFormatted = `${(detail.waterIntakeMl / 1000).toFixed(1)}L`;
+          }
+          if (detail.sleepHours !== undefined) {
+            updated.todaySleepHours = detail.sleepHours;
+            updated.todaySleepFormatted = `${detail.sleepHours}h 00m`;
+          }
+          if (detail.mood !== undefined) {
+            updated.todayMood = detail.mood;
+          }
+          return updated;
+        });
+      }
+      loadAiData();
+    };
+
+    window.addEventListener("gymai:wellness-updated", handleWellnessEvent);
+    window.addEventListener("gymai:workout-updated", handleWellnessEvent);
+    return () => {
+      window.removeEventListener("gymai:wellness-updated", handleWellnessEvent);
+      window.removeEventListener("gymai:workout-updated", handleWellnessEvent);
+    };
   }, []);
 
   const send = async (text: string) => {
     if (!text.trim() || loading) return;
+
+    if (quota.remaining <= 0 || quota.isExceeded) {
+      toast.error("Daily free AI chat limit reached (5/5). Resets at midnight.");
+      return;
+    }
+
     const userText = text.trim();
     setInput("");
     setMessages((m) => [...m, { from: "user", text: userText }]);
     setLoading(true);
 
+    // Optimistically decrement live counter immediately
+    setQuota((prev) => ({
+      ...prev,
+      todayCount: prev.todayCount + 1,
+      remaining: Math.max(0, prev.remaining - 1),
+      isExceeded: prev.remaining - 1 <= 0,
+    }));
+
     try {
       let replyText = "";
+      let returnedQuota = null;
+
       if (!conversationId) {
         const res = await aiApi.startConversation(userText);
         setConversationId(res.conversation._id);
         replyText = res.replyMessage.content;
+        returnedQuota = res.quota;
       } else {
         const res = await aiApi.sendMessage(conversationId, userText);
         replyText = res.replyMessage.content;
+        returnedQuota = res.quota;
+      }
+
+      if (returnedQuota) {
+        setQuota(returnedQuota);
       }
 
       setMessages((m) => [...m, { from: "ai", text: replyText }]);
-    } catch {
-      toast.error("Failed to get AI response. Please try again.");
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to get AI response.";
+      toast.error(errMsg);
       setMessages((m) => [
         ...m,
         {
           from: "ai",
-          text: "I am having trouble reaching the server right now. If you're looking for supplements like Whey Protein or Creatine, please ask our Gym Front Desk staff for genuine stock!",
+          text: `Error connecting to AI service: ${errMsg}. If you're looking for genuine supplements or routine adjustments, please speak directly to your gym desk staff!`,
         },
       ]);
+      // Refetch live quota from server if failed
+      try {
+        const freshQuota = await aiApi.getChatDailyLimit();
+        if (freshQuota) setQuota(freshQuota);
+      } catch {}
     } finally {
       setLoading(false);
     }
   };
 
+  // Safe extraction helper to prevent React child object crash
+  const goalText = typeof goalPrediction?.prediction === "string"
+    ? goalPrediction.prediction
+    : goalPrediction?.prediction?.explanation ||
+      goalPrediction?.explanation ||
+      goalPrediction?.message ||
+      null;
+
+  const dietText = typeof dietRec?.recommendation === "string"
+    ? dietRec.recommendation
+    : dietRec?.recommendation?.summary ||
+      (Array.isArray(dietRec?.suggestions) && dietRec.suggestions.length > 0 ? dietRec.suggestions[0] : null) ||
+      dietRec?.message ||
+      null;
+
   return (
-    <div className="flex flex-col h-[calc(100dvh-56px-6rem)] md:h-[calc(100dvh-56px)]">
-      <PageHeader title="AI Fitness Coach" backTo="/member" />
-
-      <Card sweep className="mb-4 border-(--color-accent)/25">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-(--color-text-faint) uppercase tracking-wide mb-1">AI Training & Recovery Status</p>
-            <p className="font-display text-4xl font-semibold text-(--color-text) tabular-nums">85</p>
-            <p className="text-xs font-medium text-(--color-good) mt-0.5">OPTIMAL RECOVERY</p>
-          </div>
-          <div className="text-right space-y-1">
-            <p className="text-xs text-(--color-text-muted)">
-              Sleep Target <span className="font-mono text-(--color-text)">8h 00m</span>
-            </p>
-            <p className="text-xs text-(--color-text-muted)">
-              Hydration <span className="font-mono text-(--color-text)">3.0L</span>
-            </p>
-            <p className="text-xs text-(--color-text-muted)">
-              Training Status <span className="text-(--color-good)">Ready</span>
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Gym Supplement Upsell Alert Card if Eligible */}
-      {upsellData?.eligible && upsellData?.supplementRecommendation && (
-        <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2.5">
-          <ShoppingBag className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold text-amber-300 mb-0.5">
-              {upsellData.supplementRecommendation.title}
-            </p>
-            <p className="text-amber-200/90 leading-snug">
-              {upsellData.supplementRecommendation.explanation}
-            </p>
-            <button
-              onClick={() => send("Tell me more about gym supplements and protein gap")}
-              className="mt-2 text-[11px] font-medium underline text-amber-300 hover:text-amber-100 cursor-pointer"
-            >
-              Ask AI Coach about Supplement Store &rarr;
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Goal Prediction & AI Diet Recommendation Cards */}
-      {(goalPrediction || dietRec) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-xs">
-          {goalPrediction && (
-            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200">
-              <p className="font-semibold text-indigo-300 mb-0.5">🎯 Target Goal Prediction</p>
-              <p className="text-indigo-200/90 leading-snug">{goalPrediction.prediction || goalPrediction.message || "Target weight projected within 6 weeks based on consistency."}</p>
-            </div>
-          )}
-          {dietRec && (
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">
-              <p className="font-semibold text-emerald-300 mb-0.5">🥗 Daily Macro AI Recommendation</p>
-              <p className="text-emerald-200/90 leading-snug">{dietRec.recommendation || dietRec.message || "Aim for 140g protein daily with balanced carb timing around workouts."}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-1">
-        {messages.map((m, i) => (
-          <div key={i} className={m.from === "user" ? "flex justify-end" : "flex justify-start"}>
-            {m.from === "ai" && (
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--color-accent-soft) text-(--color-accent-text) mr-2">
-                <Sparkles size={13} />
-              </span>
-            )}
+    <div className="flex flex-col h-[calc(100vh-135px)] md:h-[calc(100vh-115px)] max-w-5xl mx-auto w-full">
+      {/* Top Header with Live Daily Chat Quota Counter */}
+      <PageHeader
+        title="AI Fitness Coach"
+        backTo="/member"
+        action={
+          <div className="flex items-center gap-2">
             <div
-              className={
-                m.from === "user"
-                  ? "max-w-[80%] rounded-2xl rounded-tr-sm bg-(--color-accent) text-white text-sm px-4 py-2.5"
-                  : "max-w-[80%] rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text) text-sm px-4 py-2.5 leading-relaxed"
-              }
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-white border shadow-xs transition-all ${
+                quota.remaining > 2
+                  ? "border-(--color-border) text-(--color-text)"
+                  : quota.remaining > 0
+                  ? "border-amber-300 text-amber-900 bg-amber-50/50"
+                  : "border-rose-300 text-rose-900 bg-rose-50/50"
+              }`}
+              title="Daily free AI queries limit (resets every midnight)"
             >
-              {m.text}
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="tabular-nums font-mono font-extrabold text-amber-600">
+                {quota.remaining} / {quota.limit}
+              </span>
+              <span className="hidden sm:inline font-semibold text-(--color-text-muted)">Daily Chats Left</span>
+              <span className="sm:hidden font-semibold text-(--color-text-muted)">Left</span>
             </div>
           </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start items-center gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--color-accent-soft) text-(--color-accent-text) mr-2">
-              <Sparkles size={13} className="animate-spin" />
-            </span>
-            <div className="rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text-muted) text-xs px-4 py-2 flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>AI Coach is thinking...</span>
+        }
+      />
+
+      {/* Compact / Collapsible AI Insights & Recovery Bar */}
+      <div className="mb-2 shrink-0">
+        <div className="p-3 px-4 rounded-2xl bg-white border border-(--color-border) flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto text-xs py-0.5 scrollbar-none min-w-0">
+            {recoveryLoading ? (
+              <div className="flex items-center gap-2 text-xs text-(--color-text-muted)">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-(--color-accent)" />
+                <span>Syncing recovery & readiness baseline...</span>
+              </div>
+            ) : recoveryError ? (
+              <div className="flex items-center gap-1.5 text-xs text-(--color-danger)">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Recovery unavailable</span>
+              </div>
+            ) : (
+              <>
+                {/* Recovery Score */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-(--color-text-faint) uppercase text-[10px] font-extrabold tracking-wider">
+                    Recovery:
+                  </span>
+                  <span className="font-bold text-(--color-text) tabular-nums">
+                    {recoveryData?.recoveryScore !== null && recoveryData?.recoveryScore !== undefined
+                      ? `${recoveryData.recoveryScore}/100`
+                      : "--"}
+                  </span>
+                  <span
+                    className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shadow-2xs tracking-wide ${
+                      recoveryData?.recoveryCategory === "OPTIMAL" ||
+                      recoveryData?.recoveryCategory === "OPTIMAL RECOVERY"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                        : recoveryData?.recoveryCategory === "FATIGUED" ||
+                          recoveryData?.recoveryCategory === "RECOVERY NEEDED"
+                        ? "bg-rose-50 text-rose-800 border-rose-300"
+                        : "bg-amber-100 text-amber-900 border-amber-300"
+                    }`}
+                  >
+                    {recoveryData?.recoveryCategory || "GOOD TO TRAIN"}
+                  </span>
+                </div>
+
+                <span className="text-(--color-border) text-xs hidden sm:inline">|</span>
+
+                {/* Sleep */}
+                <div className="flex items-center gap-1 text-[11px] text-(--color-text-muted) shrink-0">
+                  <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                  <span className="font-medium">
+                    {(() => {
+                      if (recoveryData?.todaySleepFormatted) {
+                        return recoveryData.todaySleepFormatted;
+                      }
+                      if (recoveryData?.todaySleepHours !== undefined && recoveryData?.todaySleepHours !== null) {
+                        const h = recoveryData.todaySleepHours;
+                        const wholeHours = Math.floor(h);
+                        const mins = Math.round((h - wholeHours) * 60);
+                        return `${wholeHours}h ${mins.toString().padStart(2, "0")}m`;
+                      }
+                      if (recoveryData?.avgSleepFormatted && recoveryData.avgSleepFormatted !== "--") {
+                        return `${recoveryData.avgSleepFormatted} (avg)`;
+                      }
+                      return "-- (8h target)";
+                    })()}
+                  </span>
+                </div>
+
+                <span className="text-(--color-border) text-xs hidden sm:inline">|</span>
+
+                {/* Hydration */}
+                <div className="flex items-center gap-1.5 text-[11px] text-(--color-text-muted) shrink-0">
+                  <Droplets className="w-3.5 h-3.5 text-sky-500 fill-sky-500/20" />
+                  <span className="font-semibold text-(--color-text)">
+                    {(() => {
+                      if (recoveryData?.todayWaterMl !== undefined && recoveryData?.todayWaterMl !== null) {
+                        return `${(recoveryData.todayWaterMl / 1000).toFixed(1)}L logged`;
+                      }
+                      if (recoveryData?.todayHydrationFormatted) {
+                        return `${recoveryData.todayHydrationFormatted} logged`;
+                      }
+                      if (recoveryData?.avgWaterMl && recoveryData.avgWaterMl > 0) {
+                        return `${(recoveryData.avgWaterMl / 1000).toFixed(1)}L (avg)`;
+                      }
+                      return "0.0L logged";
+                    })()}
+                  </span>
+                  <span className="text-[10px] text-(--color-text-faint) hidden md:inline">(3.0L target)</span>
+                </div>
+
+                <span className="text-(--color-border) text-xs hidden sm:inline">|</span>
+
+                {/* Training Status */}
+                <div className="flex items-center gap-1 text-[11px] text-(--color-text-muted) shrink-0">
+                  <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="font-bold text-(--color-text)">
+                    {recoveryData?.trainingStatus || "Ready"}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowInsights(!showInsights)}
+            className="shrink-0 flex items-center gap-1 text-xs font-bold text-(--color-text) hover:text-(--color-accent-text) bg-(--color-surface-2) hover:bg-(--color-surface-3) px-3 py-1.5 rounded-xl border border-(--color-border) transition-all cursor-pointer shadow-2xs"
+          >
+            <span>{showInsights ? "Hide Insights" : "AI Insights"}</span>
+            {showInsights ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+        </div>
+
+        {/* Expanded Insights Section (Smoothly visible when toggled) */}
+        {showInsights && (
+          <div className="mt-2.5 space-y-2.5 animate-fade-in">
+            {/* Supplement Recommendation if eligible */}
+            {upsellData?.eligible && upsellData?.supplementRecommendation && (
+              <div className="p-4 rounded-2xl bg-white border border-amber-300/80 shadow-xs flex items-start gap-3">
+                <div className="h-8 w-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="font-bold text-(--color-text) text-xs">
+                      {upsellData.supplementRecommendation.title}
+                    </p>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                      Gym Store
+                    </span>
+                  </div>
+                  <p className="text-xs text-(--color-text-muted) leading-relaxed">
+                    {upsellData.supplementRecommendation.explanation}
+                  </p>
+                  <button
+                    onClick={() => send("Tell me more about gym supplements and protein gap")}
+                    className="mt-2 text-xs font-bold text-(--color-accent-text) hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>Ask AI Coach about Supplement Store</span> &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Goal Prediction & Macro Advice */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              {goalText && (
+                <div className="p-4 rounded-2xl bg-white border border-(--color-border) shadow-xs hover:border-indigo-300 transition-all space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
+                      <Target className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-bold text-(--color-text)">Target Goal Projection</span>
+                  </div>
+                  <p className="text-xs text-(--color-text-muted) leading-relaxed font-normal pl-8">
+                    {goalText}
+                  </p>
+                </div>
+              )}
+
+              {dietText && (
+                <div className="p-4 rounded-2xl bg-white border border-(--color-border) shadow-xs hover:border-emerald-300 transition-all space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
+                      <Utensils className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-bold text-(--color-text)">Daily Macro AI Advice</span>
+                  </div>
+                  <p className="text-xs text-(--color-text-muted) leading-relaxed font-normal pl-8">
+                    {dietText}
+                  </p>
+                </div>
+              )}
             </div>
+
+            {recoveryData?.insufficientData && (
+              <div className="p-3 rounded-xl bg-white border border-(--color-border) flex items-center justify-between text-[11px] text-(--color-text-muted) shadow-2xs">
+                <span>📊 Baseline is building. Log daily sleep & water in Progress tab to refine score.</span>
+                <Link
+                  to="/member/progress"
+                  className="text-(--color-accent-text) font-bold hover:underline"
+                >
+                  Log Wellness &rarr;
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
-        {quickPrompts.map((p) => (
-          <button
-            key={p}
-            onClick={() => send(p)}
-            className="shrink-0 rounded-full border border-(--color-border) text-(--color-text-muted) text-xs font-medium px-3.5 py-2 hover:border-(--color-accent)/50 hover:text-(--color-text)"
-          >
-            {p}
-          </button>
-        ))}
-      </div>
+      {/* Main Interactive Chat Window */}
+      <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-(--color-border-soft) bg-(--color-surface)/70 backdrop-blur-sm overflow-hidden shadow-sm">
+        {/* Messages List Area */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
+          {messages.map((m, i) => (
+            <div key={i} className={m.from === "user" ? "flex justify-end" : "flex justify-start"}>
+              {m.from === "ai" && (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--color-accent-soft) text-(--color-accent-text) mr-2 mt-0.5">
+                  <Sparkles size={13} />
+                </span>
+              )}
+              <div
+                className={
+                  m.from === "user"
+                    ? "max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-sm bg-(--color-accent) text-white text-sm px-4 py-2.5 shadow-xs"
+                    : "max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text) text-sm px-4 py-2.5 leading-relaxed border border-(--color-border-soft) shadow-xs"
+                }
+              >
+                {m.from === "user" ? (
+                  m.text
+                ) : (
+                  <MarkdownRenderer content={m.text} isUser={false} />
+                )}
+              </div>
+            </div>
+          ))}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          send(input);
-        }}
-        className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-2 py-1.5"
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask your AI Coach..."
-          className="flex-1 bg-transparent text-sm px-2 py-1.5 outline-none placeholder:text-(--color-text-faint)"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--color-accent) text-white disabled:opacity-50"
-        >
-          <Send size={14} />
-        </button>
-      </form>
+          {loading && (
+            <div className="flex justify-start items-center gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--color-accent-soft) text-(--color-accent-text) mr-2">
+                <Sparkles size={13} className="animate-spin" />
+              </span>
+              <div className="rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text-muted) text-xs px-4 py-2.5 flex items-center gap-2 border border-(--color-border-soft)">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-(--color-accent)" />
+                <span>AI Coach is thinking...</span>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Footer Area: Limit Reached Warning + Quick Chips + Pinned Input Bar */}
+        <div className="p-3 bg-(--color-surface-2)/60 border-t border-(--color-border-soft) shrink-0">
+          {/* Daily Quota Exhausted Banner */}
+          {(quota.remaining === 0 || quota.isExceeded) && (
+            <div className="mb-2.5 p-2.5 px-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-300 flex items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span className="truncate sm:whitespace-normal">
+                  <strong>Daily chat quota reached (5/5).</strong> Resets at 12:00 AM midnight.
+                </span>
+              </div>
+              <span className="font-mono text-[10px] bg-rose-500/20 px-2 py-0.5 rounded text-rose-200 shrink-0">
+                Resets @ 00:00
+              </span>
+            </div>
+          )}
+
+          {/* Quick Prompts */}
+          <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+            {quickPrompts.map((p) => (
+              <button
+                key={p}
+                onClick={() => {
+                  if (quota.remaining === 0 || quota.isExceeded) {
+                    toast.error("Daily free AI chat limit reached (5/5). Resets at midnight.");
+                    return;
+                  }
+                  send(p);
+                }}
+                disabled={loading || quota.remaining === 0 || quota.isExceeded}
+                className="shrink-0 rounded-full border border-(--color-border) text-(--color-text-muted) text-xs font-medium px-3 py-1.5 hover:border-(--color-accent)/50 hover:text-(--color-text) disabled:opacity-40 disabled:cursor-not-allowed transition-colors bg-(--color-surface)/80"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          {/* Input Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
+            className="flex items-center gap-2 rounded-full border border-(--color-border) bg-(--color-surface) px-2 py-1.5 focus-within:border-(--color-accent) transition-all shadow-xs"
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={loading || quota.remaining === 0 || quota.isExceeded}
+              placeholder={
+                quota.remaining === 0 || quota.isExceeded
+                  ? "Daily free AI chat limit reached (0/5). Resets at midnight 🌙"
+                  : "Ask your AI Coach anything..."
+              }
+              className="flex-1 bg-transparent text-sm px-3 py-1 outline-none placeholder:text-(--color-text-faint) disabled:opacity-60 disabled:cursor-not-allowed text-(--color-text)"
+            />
+            <button
+              type="submit"
+              disabled={
+                loading ||
+                quota.remaining === 0 ||
+                quota.isExceeded ||
+                !input.trim()
+              }
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--color-accent) text-white disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-all cursor-pointer shadow-xs"
+              title={
+                quota.remaining === 0 || quota.isExceeded
+                  ? "Daily chat limit reached"
+                  : "Send message"
+              }
+            >
+              <Send size={14} />
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

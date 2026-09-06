@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Shield, AlertCircle } from "lucide-react";
 import { memberApi, progressApi, attendanceApi, paymentApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { showApiErrorToast } from "@/lib/api";
 import PerformanceCharts from "@/components/member/PerformanceCharts";
 import ConsistencyProgressTracker from "@/components/member/ConsistencyProgressTracker";
 import LeaderboardCard from "@/components/member/LeaderboardCard";
@@ -76,8 +77,9 @@ export default function MemberHome() {
         }
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Dashboard fetch error:", err);
+      showApiErrorToast(err, "Failed to refresh dashboard data");
     } finally {
       setLoading(false);
     }
@@ -114,49 +116,72 @@ export default function MemberHome() {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Welcome Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-(--color-surface) p-4 sm:p-5 rounded-2xl border border-(--color-border) shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center gap-3.5 w-full">
-          <div className="flex items-center gap-3.5">
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-accent to-purple-600 font-display text-xl font-bold text-white shadow-lg shrink-0">
-              {memberName.charAt(0)}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-(--color-border) shadow-xs transition-all hover:border-(--color-border-soft)">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Member Info Left */}
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 font-display text-xl font-extrabold text-white shadow-sm ring-2 ring-amber-400/30 shrink-0">
+              {memberName.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                <h1 className="font-display text-lg sm:text-xl font-extrabold text-(--color-text)">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-display text-base sm:text-lg font-extrabold text-(--color-text) truncate">
                   Welcome Back, {memberName}! 👋
                 </h1>
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
                   ACTIVE MEMBER
                 </span>
                 {branchName && (
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                  <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                     📍 {branchName}
                   </span>
                 )}
               </div>
-              <p className="text-xs font-semibold mt-1.5 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
                 {activePlanName ? (
-                  <span className="px-2.5 py-0.5 rounded-full bg-accent/20 text-accent-text border border-accent/30 font-bold">
-                    🎯 Today's Focus: {activePlanName}
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-bold text-[11px] flex items-center gap-1">
+                    🎯 Today's Focus: <span className="font-semibold text-amber-950">{activePlanName}</span>
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-(--color-surface-3) text-(--color-text-muted) border border-(--color-border) font-bold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium text-[11px]">
                     🛋️ Rest & Recovery Day
                   </span>
                 )}
-              </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Header Actions (Check-In & Alerts) */}
-        <div className="flex items-center gap-2 w-full md:w-auto shrink-0 border-t md:border-t-0 border-(--color-border-soft) pt-3 md:pt-0">
-          <Link
-            to="/member/attendance"
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-navbar font-bold text-xs hover:brightness-110 shadow-md transition-all cursor-pointer"
-          >
-            <Shield className="h-4 w-4" /> Check-In
-          </Link>
+          {/* Quick Stats & Action Right */}
+          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 border-t lg:border-t-0 border-(--color-border-soft) pt-3 lg:pt-0">
+            <div className="flex items-center gap-2.5 sm:gap-3 bg-(--color-surface-2) p-1.5 px-3 rounded-xl border border-(--color-border-soft)">
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-sm">🔥</span>
+                <div>
+                  <span className="text-[9px] text-(--color-text-faint) block uppercase font-bold leading-none">Streak</span>
+                  <span className="font-mono text-xs font-bold text-(--color-text)">
+                    {attendanceStats?.currentStreak ?? memberProfile?.currentStreakDays ?? 0}d
+                  </span>
+                </div>
+              </div>
+              <span className="text-(--color-border) text-xs">|</span>
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-sm">⭐</span>
+                <div>
+                  <span className="text-[9px] text-(--color-text-faint) block uppercase font-bold leading-none">Rank</span>
+                  <span className="font-mono text-xs font-bold text-amber-600">
+                    Lvl {memberProfile?.gamificationLevel ?? 1}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <Link
+              to="/member/attendance"
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-(--color-accent) hover:brightness-105 text-white font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
+            >
+              <Shield className="h-4 w-4" /> Check-In
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -165,6 +190,7 @@ export default function MemberHome() {
 
       {/* SECTION 2: Performance & Progress Charts */}
       <PerformanceCharts
+        memberId={memberId}
         weightLogs={weightLogs}
         targetWeightKg={memberProfile?.healthInfo?.targetWeight_kg || memberProfile?.targetWeightKg}
         attendanceStats={attendanceStats}

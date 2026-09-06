@@ -8,11 +8,14 @@ import { memberApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import WorkoutTracking from "./WorkoutTracking";
 import WorkoutHistory from "./WorkoutHistory";
+import TodayWorkoutChecklist from "@/components/member/TodayWorkoutChecklist";
+import clsx from "clsx";
 
 export default function WorkoutPlan() {
   const user = useAuthStore((s) => s.user);
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "plan"; // "plan", "tracking", "history"
+  const rawTab = searchParams.get("tab");
+  const activeTab = rawTab || "today"; // "today", "tracking", "routine", "history"
   
   const [loading, setLoading] = useState(true);
   const [activePlan, setActivePlan] = useState<any | null>(null);
@@ -66,24 +69,50 @@ export default function WorkoutPlan() {
   };
 
   const renderTabs = () => (
-    <div className="flex bg-(--color-surface-2) p-1 rounded-xl mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 bg-(--color-surface-2) p-1.5 rounded-2xl gap-1.5 mb-5 border border-(--color-border)">
       <button 
-        onClick={() => setSearchParams({ tab: "plan" })}
-        className={`flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === "plan" ? "bg-(--color-surface) text-(--color-text) shadow-sm" : "text-(--color-text-muted) hover:text-(--color-text)"}`}
+        onClick={() => setSearchParams({ tab: "today" })}
+        className={clsx(
+          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate",
+          activeTab === "today"
+            ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
+            : "text-(--color-text-muted) hover:text-(--color-text)"
+        )}
       >
-        My Plan
+        ⚡ Today's Workout
       </button>
       <button 
         onClick={() => setSearchParams({ tab: "tracking" })}
-        className={`flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === "tracking" ? "bg-(--color-surface) text-(--color-text) shadow-sm" : "text-(--color-text-muted) hover:text-(--color-text)"}`}
+        className={clsx(
+          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate",
+          activeTab === "tracking"
+            ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
+            : "text-(--color-text-muted) hover:text-(--color-text)"
+        )}
       >
-        Log Workout
+        🏋️ Detailed Logger
+      </button>
+      <button 
+        onClick={() => setSearchParams({ tab: "routine" })}
+        className={clsx(
+          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate",
+          (activeTab === "routine" || activeTab === "plan")
+            ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
+            : "text-(--color-text-muted) hover:text-(--color-text)"
+        )}
+      >
+        📅 Full Routine
       </button>
       <button 
         onClick={() => setSearchParams({ tab: "history" })}
-        className={`flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === "history" ? "bg-(--color-surface) text-(--color-text) shadow-sm" : "text-(--color-text-muted) hover:text-(--color-text)"}`}
+        className={clsx(
+          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate",
+          activeTab === "history"
+            ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
+            : "text-(--color-text-muted) hover:text-(--color-text)"
+        )}
       >
-        History
+        📜 History
       </button>
     </div>
   );
@@ -103,19 +132,38 @@ export default function WorkoutPlan() {
   return (
     <div className="space-y-4 max-w-3xl mx-auto w-full pb-12">
       <PageHeader
-        title={activeTab === "plan" ? "Workout Plan" : activeTab === "tracking" ? "Workout Tracker" : "Workout History"}
+        title={
+          activeTab === "today"
+            ? "Today's Workout"
+            : activeTab === "tracking"
+            ? "Detailed Workout Logger"
+            : (activeTab === "routine" || activeTab === "plan")
+            ? "Assigned Workout Routine"
+            : "Workout History"
+        }
         subtitle={
-          activeTab === "plan" ? (activePlan ? `Goal: ${activePlan.goal || "Fitness & Strength"}` : "Your active workout routine")
-          : activeTab === "tracking" ? "Log your sets & weights"
-          : "Review your past completed training sessions"
+          activeTab === "today"
+            ? "One-tap checklist with real-time streak tracking"
+            : activeTab === "tracking"
+            ? "Record exact weights, reps & personal records"
+            : (activeTab === "routine" || activeTab === "plan")
+            ? (activePlan ? `Goal: ${activePlan.goal || "Fitness & Strength"}` : "Your active workout routine")
+            : "Review your past completed training sessions"
         }
         backTo="/member"
       />
       
       {renderTabs()}
 
-      {/* Plan Tab Content */}
-      {activeTab === "plan" && (
+      {/* Today's Workout Tab */}
+      {activeTab === "today" && (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <TodayWorkoutChecklist onOpenDetailedTracker={() => setSearchParams({ tab: "tracking" })} />
+        </div>
+      )}
+
+      {/* Plan / Routine Tab Content */}
+      {(activeTab === "routine" || activeTab === "plan") && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           {!activePlan || !activePlan.days || activePlan.days.length === 0 ? (
             <Card className="text-center py-12 text-(--color-text-muted) space-y-3">

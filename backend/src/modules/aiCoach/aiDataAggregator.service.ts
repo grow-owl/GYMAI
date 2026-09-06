@@ -1,10 +1,12 @@
 import mongoose from 'mongoose';
 import { Member } from '../member/member.model';
+import { Branch } from '../gym/branch.model';
 import { AttendanceService } from '../attendance/attendance.service';
 import { WorkoutLogService } from '../workout/workoutLog.service';
 import { ProgressService } from '../progress/progress.service';
 import { ProgressPhoto } from '../progress/progressPhoto.model';
 import { AppError } from '../../common/utils/AppError';
+import { getDayKeyForBranch } from '../../common/utils/timezone';
 
 export interface MemberAggregatedContext {
   memberId: string;
@@ -28,6 +30,18 @@ export interface MemberAggregatedContext {
     avgWaterMl?: number;
     avgSleepHours?: number;
   };
+  todayWellness?: {
+    dayKey: string;
+    sleepHours?: number;
+    waterIntakeMl?: number;
+    mood?: string;
+  } | null;
+  recentWellnessLogs?: {
+    dayKey: string;
+    sleepHours?: number;
+    waterIntakeMl?: number;
+    mood?: string;
+  }[];
   recoveryScore?: number;
   recoveryCategory?: string;
   recoveryAdvice?: string;
@@ -133,9 +147,31 @@ export class AIDataAggregatorService {
     const avgWaterMl = waterDays > 0 ? Math.round(totalWater / waterDays) : undefined;
     const avgSleepHours = sleepDays > 0 ? Math.round((totalSleep / sleepDays) * 10) / 10 : undefined;
 
+    // Resolve today's key in gym/branch timezone
+    const branch = member.branchId ? await Branch.findOne({ _id: member.branchId, isDeleted: false }) : null;
+    const timezone = (branch?.timezone && branch.timezone !== 'UTC') ? branch.timezone : 'Asia/Kolkata';
+    const todayKey = getDayKeyForBranch(new Date(), timezone);
+
+    // Locate today's specific wellness entry
+    const todayEntry = wellnessHistoryRes.history.find((w) => w.dayKey === todayKey);
+    const todayWellness = todayEntry
+      ? {
+          dayKey: todayEntry.dayKey,
+          sleepHours: todayEntry.sleepHours,
+          waterIntakeMl: todayEntry.waterIntakeMl,
+          mood: todayEntry.mood,
+        }
+      : null;
+
+    // Evaluate live recovery: prioritize today's logged sleep and water if available, falling back to recent averages
+    const effectiveSleep = todayWellness?.sleepHours ?? avgSleepHours;
+    const effectiveWater = (todayWellness?.waterIntakeMl !== undefined && todayWellness.waterIntakeMl > 0)
+      ? todayWellness.waterIntakeMl
+      : avgWaterMl;
+
     const recoveryData = AIDataAggregatorService.calculateRecoveryScore(
-      avgSleepHours,
-      avgWaterMl,
+      effectiveSleep,
+      effectiveWater,
       workoutStats.completionRatePercent,
       attendanceStats.totalVisits
     );
@@ -169,6 +205,13 @@ export class AIDataAggregatorService {
         avgWaterMl,
         avgSleepHours,
       },
+      todayWellness,
+      recentWellnessLogs: wellnessHistoryRes.history.slice(0, 7).map((w) => ({
+        dayKey: w.dayKey,
+        sleepHours: w.sleepHours,
+        waterIntakeMl: w.waterIntakeMl,
+        mood: w.mood,
+      })),
       recoveryScore: recoveryData.recoveryScore,
       recoveryCategory: recoveryData.recoveryCategory,
       recoveryAdvice: recoveryData.advice,

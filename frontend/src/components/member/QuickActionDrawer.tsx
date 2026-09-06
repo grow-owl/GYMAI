@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Scale, MessageSquare, Shield, Share2, X, Loader2, Star, Download, Check, QrCode } from "lucide-react";
 import { progressApi, feedbackApi, privacyApi } from "@/lib/endpoints";
 import { toast } from "sonner";
+import { showApiErrorToast } from "@/lib/api";
 
 interface QuickActionModalProps {
   type: "weight" | "feedback" | "privacy" | "referral" | "checkin" | null;
@@ -48,15 +49,13 @@ export default function QuickActionDrawer({
     try {
       await progressApi.logWeight(val, weightNotes);
       if (weightNotes) {
-        await progressApi.logWellness({ sorenessNotes: weightNotes, energyRating: 8 }).catch(() => null);
+        await progressApi.logWellness({ sorenessNotes: weightNotes }).catch(() => null);
       }
       toast.success(`Logged ${val} kg successfully!`);
       if (onWeightSuccess) onWeightSuccess();
       onClose();
-    } catch {
-      toast.success(`Logged ${val} kg successfully!`);
-      if (onWeightSuccess) onWeightSuccess();
-      onClose();
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to log weight. Please verify connection and retry.");
     } finally {
       setSubmittingWeight(false);
     }
@@ -73,9 +72,8 @@ export default function QuickActionDrawer({
       await feedbackApi.create(memberId, { note: feedbackNote, rating });
       toast.success("Thank you! Your feedback has been recorded.");
       onClose();
-    } catch {
-      toast.success("Feedback submitted successfully!");
-      onClose();
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to submit feedback. Please try again.");
     } finally {
       setSubmittingFeedback(false);
     }

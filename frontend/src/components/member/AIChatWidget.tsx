@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Sparkles, Send, Bot, User as UserIcon, Loader2, RefreshCw, Zap } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { aiApi } from "@/lib/endpoints";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
+import MarkdownRenderer from "@/components/common/MarkdownRenderer";
 
 interface ChatMessage {
   id?: string;
@@ -92,14 +94,14 @@ export default function AIChatWidget() {
           ]);
         }
       }
-    } catch {
-      // Fallback smart AI response if server backend response delayed
-      const fallbackReply = generateFallbackAIResponse(textToSend);
+    } catch (err: any) {
+      const errorMsg = formatApiError(err, "AI Fitness Assistant is temporarily unavailable. Please try again.");
+      showApiErrorToast(err, "AI Assistant error");
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: fallbackReply,
+          content: `⚠️ **Message Failed to Send**\n\n${errorMsg}\n\n*Please try asking your question again in a moment.*`,
           createdAt: new Date().toISOString(),
           isFallback: true,
         },
@@ -107,21 +109,6 @@ export default function AIChatWidget() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper mock smart AI generator for immediate fallback feel
-  const generateFallbackAIResponse = (query: string): string => {
-    const q = query.toLowerCase();
-    if (q.includes("chest") || q.includes("workout")) {
-      return "For a killer chest workout, focus on: 1) Incline Dumbbell Press (4 sets x 10 reps), 2) Barbell Bench Press (4 sets x 8 reps), 3) Cable Chest Flyes (3 sets x 12 reps), and 4) Dips till failure! Remember to keep your scapula retracted for peak chest activation. 💪";
-    }
-    if (q.includes("eat") || q.includes("diet") || q.includes("protein")) {
-      return "For optimal muscle recovery post-workout, aim for 30-40g of high-quality protein (Whey isolate, chicken breast, or tofu) paired with fast-digesting carbs (banana or rice cakes) within 45 minutes! 🥗";
-    }
-    if (q.includes("score") || q.includes("performance") || q.includes("progress")) {
-      return "Your AI Performance Score is looking great! Maintaining a 5-day workout streak and checking in regularly has boosted your score. Log your weight 2x a week to unlock the next level badge! 🏆";
-    }
-    return `Great question! Based on your current activity level and fitness data, consistency is your superpower. Keep pushing your limits, track your sets in the app, and stay hydrated! 🚀`;
   };
 
   const quickPrompts = [
@@ -200,7 +187,11 @@ export default function AIChatWidget() {
                     : "bg-(--color-surface-2) text-(--color-text) rounded-tl-none border border-white/5"
                 }`}
               >
-                {msg.content}
+                {msg.role === "user" ? (
+                  msg.content
+                ) : (
+                  <MarkdownRenderer content={msg.content} isUser={false} />
+                )}
               </div>
               {msg.isFallback && (
                 <p className="text-[10px] text-(--color-text-muted) mt-1 ml-1 font-medium">
