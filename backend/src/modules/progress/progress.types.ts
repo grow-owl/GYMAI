@@ -15,7 +15,9 @@ export interface IProgressPhoto {
   memberId: Types.ObjectId;
   gymId: Types.ObjectId;
   imageUrl: string; // Cloudinary
+  cloudinaryPublicId?: string;
   angle: 'front' | 'side' | 'back';
+  notes?: string;
   recordedAt: Date;
   dayKey: string;
   createdAt: Date;

@@ -65,6 +65,30 @@ export default function Settings() {
   const [waLogs, setWaLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Member Trial Pass duration setting
+  const [trialPassDays, setTrialPassDays] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem("gymai.trial_pass_days");
+      if (stored) return Number(stored) || 2;
+    } catch {}
+    return 2;
+  });
+
+  const handleSaveTrialPassDays = async () => {
+    const activeGymId = user?.gymId || "";
+    try {
+      localStorage.setItem("gymai.trial_pass_days", String(trialPassDays));
+      if (activeGymId) {
+        await gymApi.updateGym(activeGymId, {
+          settings: { defaultTrialPassDays: trialPassDays },
+        });
+      }
+      toast.success(`Member Free Trial Pass set to ${trialPassDays} days!`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to save pass settings");
+    }
+  };
+
   // Change password state
   const [passForm, setPassForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [changingPass, setChangingPass] = useState(false);
@@ -174,6 +198,10 @@ export default function Settings() {
 
       if (gRes?.gym) {
         setGymInfo(gRes.gym);
+        if (gRes.gym.settings?.defaultTrialPassDays) {
+          setTrialPassDays(gRes.gym.settings.defaultTrialPassDays);
+          localStorage.setItem("gymai.trial_pass_days", String(gRes.gym.settings.defaultTrialPassDays));
+        }
         localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(gRes.gym));
       }
 
@@ -371,6 +399,46 @@ export default function Settings() {
                   ))}
                 </div>
               )}
+
+              {/* Member Free Trial Pass Duration Settings */}
+              <div className="pt-4 border-t border-(--color-border-soft) space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-(--color-text)">
+                    Member Free Trial Pass Settings
+                  </h4>
+                  <p className="text-xs text-(--color-text-muted)">
+                    Configure the duration of the free workout pass offered to prospects via your public invitation link (<span className="font-mono text-amber-400">/join/:branchId</span>).
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-(--color-surface-2) border border-(--color-border)">
+                  <div className="space-y-0.5">
+                    <label className="text-xs font-semibold text-(--color-text)">
+                      Free Pass Duration (Days)
+                    </label>
+                    <p className="text-[11px] text-(--color-text-faint)">
+                      e.g., 1 day pass, 2 days pass, or 7 days workout trial.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={trialPassDays}
+                      onChange={(e) => setTrialPassDays(Math.max(1, Math.min(30, Number(e.target.value) || 1)))}
+                      className="w-20 px-3 py-2.5 sm:py-2 text-center text-sm font-bold rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) outline-none focus:border-(--color-accent)"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveTrialPassDays}
+                      className="flex-1 sm:flex-initial px-4 py-2.5 sm:py-2 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:opacity-90 transition-all shadow-sm text-center"
+                    >
+                      Save Pass Duration
+                    </button>
+                  </div>
+                </div>
+              </div>
             </Card>
           )}
 

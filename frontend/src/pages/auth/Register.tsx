@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Building2, Phone, Mail, User, CheckCircle2, Loader2, MessageSquare } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 
+import { saasInquiryApi } from "@/lib/endpoints";
+
 interface InquiryForm {
   ownerName: string;
   gymName: string;
@@ -40,11 +42,17 @@ export default function Register() {
 
     setSubmitting(true);
     try {
-      // Fire inquiry to the contact endpoint (or simply simulate sending for now)
-      await new Promise((res) => setTimeout(res, 900)); // simulated network call
+      await saasInquiryApi.create({
+        ownerName: form.ownerName.trim(),
+        gymName: form.gymName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        city: form.city.trim() || "Unspecified",
+        message: form.message.trim() || undefined,
+      });
       setSubmitted(true);
-    } catch {
-      setError("Something went wrong. Please try again or email us directly.");
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || "Something went wrong. Please try again or email us directly.");
     } finally {
       setSubmitting(false);
     }
@@ -132,8 +140,8 @@ export default function Register() {
           </div>
         </div>
 
-        {/* Email + Phone — two columns */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Email + Phone — single column on mobile, two columns on tablet/desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label htmlFor="reg-email" className="block text-xs font-semibold text-(--color-text-muted) tracking-wide uppercase">
               Email <span className="text-rose-400">*</span>
@@ -149,7 +157,7 @@ export default function Register() {
                 onChange={handleChange}
                 placeholder="you@example.com"
                 required
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-(--color-text) text-sm placeholder:text-(--color-text-faint) focus:outline-none focus:ring-2 focus:ring-(--color-accent)/40 focus:border-(--color-accent) transition-colors"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-(--color-text) text-base sm:text-sm placeholder:text-(--color-text-faint) focus:outline-none focus:ring-2 focus:ring-(--color-accent)/40 focus:border-(--color-accent) transition-colors"
               />
             </div>
           </div>
@@ -168,7 +176,7 @@ export default function Register() {
                 onChange={handleChange}
                 placeholder="+91 98765 43210"
                 required
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-(--color-text) text-sm placeholder:text-(--color-text-faint) focus:outline-none focus:ring-2 focus:ring-(--color-accent)/40 focus:border-(--color-accent) transition-colors"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-(--color-border) bg-(--color-surface) text-(--color-text) text-base sm:text-sm placeholder:text-(--color-text-faint) focus:outline-none focus:ring-2 focus:ring-(--color-accent)/40 focus:border-(--color-accent) transition-colors"
               />
             </div>
           </div>

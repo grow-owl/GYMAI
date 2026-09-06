@@ -35,6 +35,8 @@ import leadRouter from './modules/lead/lead.routes';
 import productRouter from './modules/product/product.routes';
 import privacyRouter from './modules/user/privacy.routes';
 import jobRoutes from './jobs/job.routes';
+import { publicSaasInquiryRouter, adminSaasInquiryRouter } from './modules/saasInquiry/saasInquiry.routes';
+import { publicLeadRouter } from './modules/lead/publicLead.routes';
 
 const app: Express = express();
 
@@ -118,6 +120,9 @@ app.get('/health', (req: Request, res: Response) => {
 
 // 10. Module Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/public/saas-inquiry', publicSaasInquiryRouter);
+app.use('/api/v1/public', publicLeadRouter);
+app.use('/api/v1/admin/saas-inquiries', adminSaasInquiryRouter);
 app.use('/api/v1/gyms', gymRoutes);
 app.use('/api/v1/gyms', jobRoutes);
 app.use('/api/v1/gyms', gymMemberRouter);

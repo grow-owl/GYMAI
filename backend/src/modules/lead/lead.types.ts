@@ -11,7 +11,7 @@ export enum LeadStatus {
 
 export interface ILeadNote {
   note: string;
-  addedByUserId: Types.ObjectId;
+  addedByUserId?: Types.ObjectId;
   addedAt: Date;
 }
 

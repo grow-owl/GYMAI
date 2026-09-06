@@ -47,6 +47,14 @@ const gymSchema = new Schema<IGym>(
       type: Boolean,
       default: false,
     },
+    settings: {
+      defaultTrialPassDays: {
+        type: Number,
+        default: 2,
+        min: 1,
+        max: 30,
+      },
+    },
     isDeleted: {
       type: Boolean,
       default: false,

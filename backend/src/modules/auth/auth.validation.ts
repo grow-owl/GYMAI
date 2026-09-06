@@ -51,6 +51,7 @@ export const registerOwnerSchema = z.object({
   gymName: z.string().min(2, 'Gym name must be at least 2 characters').trim(),
   branchName: z.string().trim().optional(),
   plan: z.enum(['TRIAL', 'BASIC', 'PRO', 'ENTERPRISE']).optional(),
+  trialDays: z.number().min(1).max(90).optional(),
 });
 
 export const adminResetPasswordSchema = z.object({

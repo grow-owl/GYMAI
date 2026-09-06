@@ -4,12 +4,27 @@ import { WorkoutPlan } from './workoutPlan.model';
 import { Member } from '../member/member.model';
 import { Branch } from '../gym/branch.model';
 import { GamificationService } from '../gamification/gamification.service';
-import { IWorkoutLog, WorkoutCompletionStats } from './workoutLog.types';
+import { IWorkoutLog, WorkoutCompletionStats, TodayWorkoutResponse, ChartDataPoint } from './workoutLog.types';
 import { AppError } from '../../common/utils/AppError';
 import { validateMemberAccess, ActingUser } from '../../common/utils/authorization';
 import { getDayKeyForBranch } from '../../common/utils/timezone';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 import { logger } from '../../config/logger';
+
+/**
+ * Spec Section 4 — Server-side daily completion percentage calculation.
+ * Keeps the graph data normalized to 0–100 regardless of exercises per day.
+ * @param totalAssigned - exercises in the Blueprint for that day
+ * @param totalCompleted - exercises the member actually checked off
+ */
+export const calculateDailyPercentage = (
+  totalAssigned: number,
+  totalCompleted: number
+): number => {
+  if (totalAssigned === 0) return 0; // prevent division by zero
+  const rawPercentage = (totalCompleted / totalAssigned) * 100;
+  return Math.round(rawPercentage);
+};
 
 export interface StartWorkoutLogInput {
   workoutPlanId?: string;
@@ -445,5 +460,265 @@ export class WorkoutLogService {
       exerciseStats,
       weeklyVolumeLogs,
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPEC STEP B — GET /api/v1/workout-logs/today
+  // Merges the active WorkoutPlan (Blueprint) with today's WorkoutLog (State)
+  // ═══════════════════════════════════════════════════════════════════════════
+  public static async getTodayWorkout(
+    memberId: string,
+    gymId?: string
+  ): Promise<TodayWorkoutResponse | null> {
+    // 1. Resolve member
+    const memberFilter: any = {
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+        { userId: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+      ],
+      isDeleted: false,
+    };
+    if (gymId) memberFilter.gymId = new mongoose.Types.ObjectId(gymId);
+    const member = await Member.findOne(memberFilter);
+    if (!member) throw AppError.notFound('Member profile not found');
+
+    // 2. Fetch active plan with exercises populated
+    const plan = await WorkoutPlan.findOne({
+      memberId: member._id,
+      ...(gymId ? { gymId: new mongoose.Types.ObjectId(gymId) } : {}),
+      isActive: true,
+      isDeleted: false,
+    }).populate('days.exercises.exerciseId');
+
+    if (!plan || !plan.days || plan.days.length === 0) return null;
+
+    // 3. Determine dayIndex using cycling: completedSessions % totalPlanDays
+    //    This ensures Day1 → Day2 → … → DayN → Day1 cycle
+    const completedSessionsCount = await WorkoutLog.countDocuments({
+      memberId: member._id,
+      workoutPlanId: plan._id,
+      completedAt: { $exists: true, $ne: null },
+    });
+    const dayIndex = completedSessionsCount % plan.days.length;
+    const planDay = plan.days[dayIndex];
+
+    // 4. Get branch timezone for accurate day key
+    const branch = await Branch.findOne({ _id: member.branchId, isDeleted: false });
+    const timezone = branch?.timezone || 'UTC';
+    const dayKey = getDayKeyForBranch(new Date(), timezone);
+
+    // 5. Fetch today's log (may not exist yet — that's fine)
+    const todayLog = await WorkoutLog.findOne({
+      memberId: member._id,
+      workoutPlanId: plan._id,
+      dayKey,
+    });
+
+    // 6. Build completedExerciseIds from log exercises that have completedAt set
+    const completedExerciseIds: string[] = todayLog
+      ? todayLog.exercises
+          .filter((ex) => ex.completedAt != null)
+          .map((ex) => ex.exerciseId.toString())
+      : [];
+
+    // 7. Merge Blueprint tasks with Log state
+    const exercises = (planDay.exercises || []).map((task: any, idx: number) => {
+      const exDoc = task.exerciseId; // populated
+      const exIdStr = (exDoc?._id || task.exerciseId)?.toString() || '';
+      return {
+        exerciseId: exIdStr,
+        name: exDoc?.name || 'Exercise',
+        muscleGroup: exDoc?.muscleGroup || '',
+        equipment: exDoc?.equipment || '',
+        targetSets: task.targetSets || 1,
+        targetReps: task.targetReps || 1,
+        restSeconds: task.restSeconds || 60,
+        order: task.order ?? idx + 1,
+        isCompleted: completedExerciseIds.includes(exIdStr),
+      };
+    });
+
+    const dayLabel = (planDay as any).dayLabel || (planDay as any).dayName || `Day ${dayIndex + 1}`;
+
+    return {
+      logId: todayLog ? todayLog._id.toString() : null,
+      planId: plan._id.toString(),
+      planTitle: plan.title,
+      dayIndex,
+      dayLabel,
+      totalExercises: exercises.length,
+      completedExerciseIds,
+      exercises,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPEC STEP C — PATCH /api/v1/workout-logs/today
+  // Toggle a single exercise as completed/uncompleted in today's log.
+  // Creates the log automatically if it doesn't exist yet (upsert pattern).
+  // ═══════════════════════════════════════════════════════════════════════════
+  public static async toggleExerciseCompleteToday(
+    memberId: string,
+    exerciseId: string,
+    gymId?: string
+  ): Promise<TodayWorkoutResponse> {
+    // 1. Resolve member
+    const memberFilter: any = {
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+        { userId: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+      ],
+      isDeleted: false,
+    };
+    if (gymId) memberFilter.gymId = new mongoose.Types.ObjectId(gymId);
+    const member = await Member.findOne(memberFilter);
+    if (!member) throw AppError.notFound('Member profile not found');
+
+    // 2. Get active plan
+    const plan = await WorkoutPlan.findOne({
+      memberId: member._id,
+      ...(gymId ? { gymId: new mongoose.Types.ObjectId(gymId) } : {}),
+      isActive: true,
+      isDeleted: false,
+    });
+    if (!plan) throw AppError.notFound('No active workout plan found for this member');
+
+    // 3. Determine dayIndex and dayKey
+    const completedSessionsCount = await WorkoutLog.countDocuments({
+      memberId: member._id,
+      workoutPlanId: plan._id,
+      completedAt: { $exists: true, $ne: null },
+    });
+    const dayIndex = completedSessionsCount % plan.days.length;
+    const planDay = plan.days[dayIndex];
+    const dayLabel = (planDay as any).dayLabel || (planDay as any).dayName || `Day ${dayIndex + 1}`;
+
+    const branch = await Branch.findOne({ _id: member.branchId, isDeleted: false });
+    const timezone = branch?.timezone || 'UTC';
+    const dayKey = getDayKeyForBranch(new Date(), timezone);
+
+    // 4. Get-or-create today's log
+    let log = await WorkoutLog.findOne({
+      memberId: member._id,
+      workoutPlanId: plan._id,
+      dayKey,
+    });
+
+    if (!log) {
+      log = new WorkoutLog({
+        gymId: member.gymId,
+        memberId: member._id,
+        workoutPlanId: plan._id,
+        dayIndex,
+        dayLabel,
+        dayKey,
+        exercises: [],
+        startedAt: new Date(),
+      });
+      await log.save();
+      logger.info(`📋 Today's WorkoutLog auto-created: [Member: ${member._id}] [DayIndex: ${dayIndex}]`);
+    }
+
+    // 5. Toggle exercise: find it in log.exercises
+    const exerciseObjectId = new mongoose.Types.ObjectId(exerciseId);
+    const existingEx = log.exercises.find((ex) => ex.exerciseId.equals(exerciseObjectId));
+
+    if (!existingEx) {
+      // Not in log at all → add it and mark completed (toggle ON)
+      log.exercises.push({
+        exerciseId: exerciseObjectId,
+        sets: [],
+        completedAt: new Date(),
+      });
+    } else if (existingEx.completedAt) {
+      // Already completed → unmark (toggle OFF)
+      existingEx.completedAt = undefined;
+    } else {
+      // In log but not completed → mark completed (toggle ON)
+      existingEx.completedAt = new Date();
+    }
+
+    await log.save();
+
+    // 6. Return fresh merged view (reuse getTodayWorkout)
+    const todayView = await this.getTodayWorkout(memberId, gymId);
+    return todayView!;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPEC STEP D — GET /api/v1/workout-logs/analytics/progress?days=7
+  // Returns ChartDataPoint[] with daily completion % for the last N days.
+  // Missing days are filled with completionPercentage: 0 (rest/missed days).
+  // ═══════════════════════════════════════════════════════════════════════════
+  public static async getProgressAnalytics(
+    memberId: string,
+    days: number = 7,
+    gymId?: string
+  ): Promise<ChartDataPoint[]> {
+    // 1. Resolve member
+    const memberFilter: any = {
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+        { userId: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+      ],
+      isDeleted: false,
+    };
+    if (gymId) memberFilter.gymId = new mongoose.Types.ObjectId(gymId);
+    const member = await Member.findOne(memberFilter);
+    if (!member) throw AppError.notFound('Member profile not found');
+
+    // 2. Get active plan (for totalAssigned per day)
+    const plan = await WorkoutPlan.findOne({
+      memberId: member._id,
+      ...(gymId ? { gymId: new mongoose.Types.ObjectId(gymId) } : {}),
+      isActive: true,
+      isDeleted: false,
+    });
+
+    // 3. Build date range for last N days
+    const branch = await Branch.findOne({ _id: member.branchId, isDeleted: false });
+    const timezone = branch?.timezone || 'UTC';
+
+    // Generate all date keys in range (oldest → newest)
+    const dateKeys: string[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() - i);
+      dateKeys.push(getDayKeyForBranch(d, timezone));
+    }
+
+    // 4. Fetch logs for the date range
+    const logs = await WorkoutLog.find({
+      memberId: member._id,
+      dayKey: { $in: dateKeys },
+    });
+
+    // Build a map: dayKey → log
+    const logMap = new Map(logs.map((l) => [l.dayKey, l]));
+
+    // 5. Calculate completion % for each date
+    const result: ChartDataPoint[] = dateKeys.map((dateKey) => {
+      const log = logMap.get(dateKey);
+
+      if (!log || !plan) {
+        return { date: dateKey, completionPercentage: 0 };
+      }
+
+      // totalAssigned = exercises in the plan day this log was for
+      const planDayIdx = log.dayIndex ?? 0;
+      const planDay = plan.days[planDayIdx];
+      const totalAssigned = planDay?.exercises?.length ?? 0;
+
+      // totalCompleted = exercises that have completedAt set in this log
+      const totalCompleted = log.exercises.filter((ex) => ex.completedAt != null).length;
+
+      return {
+        date: dateKey,
+        completionPercentage: calculateDailyPercentage(totalAssigned, totalCompleted),
+      };
+    });
+
+    logger.info(`📊 Progress analytics fetched: [Member: ${member._id}] [Days: ${days}]`);
+    return result;
   }
 }

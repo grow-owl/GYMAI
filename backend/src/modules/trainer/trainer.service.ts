@@ -183,7 +183,10 @@ export class TrainerService {
   }
 
   /**
-   * Soft-delete Trainer
+   * Soft-delete Trainer with full cascade:
+   * 1. Mark Trainer as deleted
+   * 2. Deactivate linked User (prevents login)
+   * 3. Unset assignedTrainerId on all linked Members
    */
   public static async deleteTrainer(trainerId: string, gymId?: string): Promise<void> {
     const filter: any = { _id: trainerId, isDeleted: false };
@@ -193,6 +196,21 @@ export class TrainerService {
     if (!trainer) {
       throw AppError.notFound('Trainer not found');
     }
+
+    // Run cascade operations in parallel
+    await Promise.all([
+      // Deactivate linked User account so deleted trainer cannot log in
+      User.findByIdAndUpdate(trainer.userId, { isActive: false }),
+      // Remove trainer reference from all assigned Member records
+      Member.updateMany(
+        { assignedTrainerId: trainer._id, isDeleted: false },
+        { $unset: { assignedTrainerId: 1 } }
+      ),
+    ]);
+
+    logger.info(
+      `🗑️ Trainer cascade delete: [Trainer: ${trainer._id}] [User deactivated: ${trainer.userId}] [Members unassigned]`
+    );
   }
 
   public static async softDeleteTrainer(trainerId: string, _force?: boolean, gymId?: string): Promise<void> {

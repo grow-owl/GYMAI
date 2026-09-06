@@ -37,7 +37,7 @@ export class DietPlanService {
       throw AppError.notFound('Member profile not found');
     }
 
-    let trainerDocId: mongoose.Types.ObjectId = new mongoose.Types.ObjectId(actingUserId);
+    let trainerDocId: mongoose.Types.ObjectId | undefined;
 
     // Authorization Check: Trainer assigned to member or staff
     if (actingUserRole === Role.TRAINER) {
@@ -51,6 +51,8 @@ export class DietPlanService {
         throw AppError.forbidden('Trainers can only create diet plans for their assigned members');
       }
     }
+    // For GYM_OWNER / BRANCH_MANAGER: trainerDocId remains undefined.
+    // Storing a User._id in a Trainer-ref field would break .populate('createdByTrainerId').
 
     // Archive previous active diet plans for member
     await DietPlan.updateMany(
@@ -61,7 +63,7 @@ export class DietPlanService {
     const dietPlan = new DietPlan({
       gymId: member.gymId,
       memberId: member._id,
-      createdByTrainerId: trainerDocId,
+      ...(trainerDocId && { createdByTrainerId: trainerDocId }),
       title: input.title,
       dailyCalorieTarget: input.dailyCalorieTarget,
       dailyProteinTarget_g: input.dailyProteinTarget_g,

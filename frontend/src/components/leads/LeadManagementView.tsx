@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Target, Loader2, RefreshCw, UserCheck, MessageSquarePlus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Target, Loader2, RefreshCw, UserCheck, MessageSquarePlus, Pencil, Trash2, Share2, QrCode, Copy, Check, ExternalLink } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
@@ -54,6 +54,20 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
   const [noteLeadId, setNoteLeadId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [submittingNote, setSubmittingNote] = useState(false);
+
+  // Shareable Link & QR Modal State
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const publicJoinUrl = branchId ? `${window.location.origin}/join/${branchId}` : "";
+
+  const handleCopyPublicLink = () => {
+    if (!publicJoinUrl) return;
+    navigator.clipboard.writeText(publicJoinUrl);
+    setCopiedLink(true);
+    toast.success("Branded Member Trial Pass link copied to clipboard!");
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   const [newLead, setNewLead] = useState({
     fullName: "",
@@ -210,6 +224,57 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
           </div>
         }
       />
+
+      {/* Public Trial Pass Shareable Banner */}
+      {branchId && (
+        <Card className="border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.04] via-transparent to-emerald-500/[0.02]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Share2 size={16} />
+                </div>
+                <h3 className="text-sm font-bold text-(--color-text)">
+                  Shareable Member Free Trial Pass Link
+                </h3>
+              </div>
+              <p className="text-xs text-(--color-text-muted)">
+                Share this link on Instagram, WhatsApp, or print the QR code for your reception counter. Prospective members can claim their free pass directly!
+              </p>
+              <p className="text-[11px] font-mono text-emerald-400 bg-black/30 px-2.5 py-1 rounded-lg border border-white/5 inline-block break-all max-w-full">
+                {publicJoinUrl}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto pt-1 sm:pt-0">
+              <button
+                onClick={handleCopyPublicLink}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-xs font-semibold text-(--color-text) hover:bg-(--color-surface-3)"
+              >
+                {copiedLink ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                {copiedLink ? "Copied!" : "Copy Link"}
+              </button>
+
+              <button
+                onClick={() => setShowQrModal(true)}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20"
+              >
+                <QrCode size={13} /> Show QR Code
+              </button>
+
+              <a
+                href={publicJoinUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-xs font-semibold text-(--color-text-muted) hover:text-(--color-text)"
+                title="Preview Page"
+              >
+                <ExternalLink size={13} />
+              </a>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {resolvingBranch || loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -480,6 +545,42 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* QR Code Modal for Counter Printing / Scanning */}
+      {showQrModal && (
+        <Modal
+          onClose={() => setShowQrModal(false)}
+          title="Branch QR Code for Member Free Trial Pass"
+          subtitle="Print this QR code or display it on your gym reception counter for prospective walk-ins to scan and claim their pass."
+        >
+          <div className="text-center py-4 space-y-4">
+            <div className="p-4 bg-white rounded-2xl inline-block shadow-lg mx-auto max-w-[240px] w-full">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicJoinUrl)}`}
+                alt="Gym Pass QR Code"
+                className="w-full h-auto aspect-square mx-auto object-contain"
+              />
+            </div>
+            <p className="text-xs text-(--color-text-muted) max-w-sm mx-auto break-all">
+              Scan with any mobile camera to open your gym's branded pass claim page (<span className="font-mono text-emerald-400">{publicJoinUrl}</span>).
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-2 pt-2">
+              <button
+                onClick={handleCopyPublicLink}
+                className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-xs font-semibold rounded-xl bg-(--color-accent) text-white"
+              >
+                {copiedLink ? "Link Copied!" : "Copy Pass Link"}
+              </button>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-xs font-medium rounded-xl bg-(--color-surface-2) text-(--color-text-muted)"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

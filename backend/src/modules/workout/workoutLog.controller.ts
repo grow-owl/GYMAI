@@ -59,4 +59,44 @@ export class WorkoutLogController {
     const stats = await WorkoutLogService.getWorkoutCompletionStats(validatedMember._id.toString());
     return sendSuccess(res, { stats }, 'Workout completion statistics retrieved successfully');
   });
+
+  // ── Spec Step B ─────────────────────────────────────────────────────────────
+  // GET /api/v1/workout-logs/today
+  // Returns merged Blueprint + Log state for today's workout session
+  public static getTodayWorkout = asyncHandler(async (req: Request, res: Response) => {
+    const memberId = req.user!.role === Role.MEMBER ? req.user!.id : (req.query.memberId as string);
+    const gymId = req.user?.gymId?.toString();
+    const today = await WorkoutLogService.getTodayWorkout(memberId, gymId);
+    if (!today) {
+      return sendSuccess(res, { today: null }, 'No active workout plan found for today');
+    }
+    return sendSuccess(res, { today }, "Today's workout fetched successfully");
+  });
+
+  // ── Spec Step C ─────────────────────────────────────────────────────────────
+  // PATCH /api/v1/workout-logs/today
+  // Body: { exerciseId: string }
+  // Toggles an exercise as completed/uncompleted — creates log if needed
+  public static toggleExerciseToday = asyncHandler(async (req: Request, res: Response) => {
+    const memberId = req.user!.role === Role.MEMBER ? req.user!.id : (req.body.memberId as string);
+    const { exerciseId } = req.body;
+    if (!exerciseId) {
+      return sendSuccess(res, null, 'exerciseId is required', 400);
+    }
+    const gymId = req.user?.gymId?.toString();
+    const today = await WorkoutLogService.toggleExerciseCompleteToday(memberId, exerciseId, gymId);
+    return sendSuccess(res, { today }, 'Exercise completion toggled successfully');
+  });
+
+  // ── Spec Step D ─────────────────────────────────────────────────────────────
+  // GET /api/v1/workout-logs/analytics/progress?days=7
+  // Returns ChartDataPoint[] for the progress line graph
+  public static getProgressChart = asyncHandler(async (req: Request, res: Response) => {
+    const requestedMemberId = req.params.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const gymId = req.user?.gymId?.toString();
+    const days = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 90);
+    const data = await WorkoutLogService.getProgressAnalytics(validatedMember._id.toString(), days, gymId);
+    return sendSuccess(res, { data }, 'Progress analytics retrieved successfully');
+  });
 }

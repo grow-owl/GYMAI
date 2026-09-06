@@ -63,6 +63,10 @@ const workoutLogSchema = new Schema<IWorkoutLog>(
       type: String,
       trim: true,
     },
+    // 0-based index into WorkoutPlan.days[] for this session (spec Section 2.3)
+    dayIndex: {
+      type: Number,
+    },
     exercises: [loggedExerciseSchema],
     startedAt: {
       type: Date,

@@ -15,10 +15,18 @@ export const logWeightSchema = z.object({
     .transform((val) => (val ? new Date(val) : undefined)),
 });
 
-export const uploadProgressPhotoSchema = z.object({
-  angle: z.enum(['front', 'side', 'back']),
-  imageUrl: z.string().url('Valid image URL is required'),
-});
+export const uploadProgressPhotoSchema = z
+  .object({
+    image: z.string().min(1, 'Image data is required').optional(),
+    imageUrl: z.string().min(1).optional(),
+    photoUrl: z.string().min(1).optional(),
+    angle: z.enum(['front', 'side', 'back']).optional().default('front'),
+    notes: z.string().max(500).optional(),
+  })
+  .refine((data) => Boolean(data.image || data.imageUrl || data.photoUrl), {
+    message: 'Either image (base64/data URI) or imageUrl must be provided',
+    path: ['image'],
+  });
 
 export const logWellnessSchema = z.object({
   waterIntakeMl: z.number().int().nonnegative().optional(),

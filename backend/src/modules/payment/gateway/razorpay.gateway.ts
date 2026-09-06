@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
 import {
   IPaymentGateway,
   CreateOrderParams,
@@ -9,6 +10,22 @@ import {
 } from './paymentGateway.interface';
 import { env } from '../../../config/env';
 import { logger } from '../../../config/logger';
+
+const isProduction = (): boolean =>
+  process.env.NODE_ENV === 'production' || env.NODE_ENV === 'production';
+
+/**
+ * Lazily creates a Razorpay SDK instance only when real credentials are configured.
+ * This avoids crashing the app in dev/test when credentials are absent.
+ */
+function getRazorpayInstance(): Razorpay | null {
+  const keyId = env.RAZORPAY_KEY_ID;
+  const keySecret = env.RAZORPAY_KEY_SECRET;
+  if (keyId && keySecret) {
+    return new Razorpay({ key_id: keyId, key_secret: keySecret });
+  }
+  return null;
+}
 
 export class RazorpayGateway implements IPaymentGateway {
   public readonly name = 'RAZORPAY';
@@ -22,9 +39,33 @@ export class RazorpayGateway implements IPaymentGateway {
     const currency = typeof amountOrParams === 'number' ? currencyArg : amountOrParams.currency;
     const receipt = typeof amountOrParams === 'number' ? receiptArg : amountOrParams.receipt;
 
-    const orderId = `order_rzp_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    // --- PRODUCTION: Use real Razorpay SDK ---
+    if (isProduction()) {
+      const razorpay = getRazorpayInstance();
+      if (!razorpay) {
+        throw new Error('Razorpay credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are not configured for production');
+      }
+      // Razorpay expects amount in paise (smallest currency unit)
+      const order = await razorpay.orders.create({
+        amount: Math.round(amount * 100),
+        currency: currency || 'INR',
+        receipt: receipt || `rcpt_${Date.now()}`,
+      });
 
-    logger.info(`💳 Gateway createOrder called: [ID: ${orderId}] [Amount: ${amount} ${currency}]`);
+      logger.info(`💳 [LIVE] Razorpay order created: [ID: ${order.id}] [Amount: ${amount} ${currency}]`);
+
+      return {
+        orderId: order.id,
+        amount,
+        currency: order.currency,
+        receipt: (order as any).receipt,
+        status: order.status,
+      };
+    }
+
+    // --- DEV / TEST: Mock order ---
+    const orderId = `order_rzp_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    logger.info(`💳 [MOCK] Gateway createOrder: [ID: ${orderId}] [Amount: ${amount} ${currency}]`);
 
     return {
       orderId,
@@ -48,9 +89,8 @@ export class RazorpayGateway implements IPaymentGateway {
       .digest('hex');
 
     const isMatch = generatedSignature === params.signature;
-    const isProduction = process.env.NODE_ENV === 'production' || env.NODE_ENV === 'production';
 
-    if (isProduction) {
+    if (isProduction()) {
       return isMatch;
     }
 
@@ -71,9 +111,8 @@ export class RazorpayGateway implements IPaymentGateway {
       .digest('hex');
 
     const isMatch = expectedSignature === signature;
-    const isProduction = process.env.NODE_ENV === 'production' || env.NODE_ENV === 'production';
 
-    if (isProduction) {
+    if (isProduction()) {
       return isMatch;
     }
 
@@ -98,9 +137,27 @@ export class RazorpayGateway implements IPaymentGateway {
     const paymentId = typeof paramsOrPaymentId === 'string' ? paramsOrPaymentId : paramsOrPaymentId.paymentId;
     const amount = typeof paramsOrPaymentId === 'string' ? amountArg || 0 : paramsOrPaymentId.amount || 0;
 
-    const refundId = `rfnd_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    // --- PRODUCTION: Use real Razorpay SDK ---
+    if (isProduction()) {
+      const razorpay = getRazorpayInstance();
+      if (!razorpay) {
+        throw new Error('Razorpay credentials are not configured for production refunds');
+      }
+      const refund = await (razorpay.payments as any).refund(paymentId, {
+        amount: Math.round(amount * 100),
+      });
+      logger.info(`💸 [LIVE] Razorpay refund created: [RefundID: ${refund.id}] [PaymentID: ${paymentId}]`);
+      return {
+        refundId: refund.id,
+        paymentId,
+        amount,
+        status: refund.status || 'processed',
+      };
+    }
 
-    logger.info(`💸 Gateway refundPayment called: [RefundID: ${refundId}] [PaymentID: ${paymentId}]`);
+    // --- DEV / TEST: Mock refund ---
+    const refundId = `rfnd_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    logger.info(`💸 [MOCK] Gateway refundPayment: [RefundID: ${refundId}] [PaymentID: ${paymentId}]`);
 
     return {
       refundId,

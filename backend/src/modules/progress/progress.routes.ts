@@ -34,6 +34,11 @@ router.get(
   authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN, Role.KIOSK),
   ProgressController.getProgressPhotos
 );
+router.delete(
+  '/photos/:photoId',
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  ProgressController.deleteProgressPhoto
+);
 
 router.patch(
   '/wellness',

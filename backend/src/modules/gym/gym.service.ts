@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import { Gym } from './gym.model';
 import { Branch } from './branch.model';
 import { User } from '../user/user.model';
+import { Member } from '../member/member.model';
+import { Trainer } from '../trainer/trainer.model';
 import { IGym, GymPlan, GymStatus, IBranch } from './gym.types';
 import { Role } from '../../common/constants/roles.enum';
 import { AppError } from '../../common/utils/AppError';
@@ -19,6 +21,7 @@ export class GymService {
       logoUrl?: string;
       isMultiBranch?: boolean;
       plan?: GymPlan;
+      trialDays?: number;
       branchName?: string;
       address?: { line1: string; city: string; state: string; pincode: string; country: string };
       contactPhone?: string;
@@ -29,8 +32,9 @@ export class GymService {
       throw AppError.forbidden('Only a verified GYM_OWNER account can register a new Gym');
     }
 
+    const trialDays = gymData.trialDays && gymData.trialDays > 0 ? gymData.trialDays : 14;
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
     const gym = new Gym({
       name: gymData.name,
@@ -72,9 +76,21 @@ export class GymService {
     return gym;
   }
 
-  public static async updateGym(gymId: string, updateData: Partial<IGym>): Promise<IGym> {
-    const gym = await Gym.findOneAndUpdate({ _id: gymId, isDeleted: false }, updateData, { new: true });
+  public static async updateGym(gymId: string, updateData: Partial<IGym> & { settings?: { defaultTrialPassDays?: number } }): Promise<IGym> {
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false });
     if (!gym) throw AppError.notFound('Gym organization not found');
+
+    if (updateData.name) gym.name = updateData.name;
+    if (updateData.billingEmail) gym.billingEmail = updateData.billingEmail;
+    if (updateData.logoUrl !== undefined) gym.logoUrl = updateData.logoUrl;
+    if (updateData.settings) {
+      gym.settings = {
+        ...gym.settings,
+        ...updateData.settings,
+      };
+    }
+
+    await gym.save();
     return gym;
   }
 
@@ -90,7 +106,7 @@ export class GymService {
     // Downgrade validation: check if current branch count would exceed the new plan limit
     const PLAN_BRANCH_LIMITS: Partial<Record<GymPlan, number>> = {
       [GymPlan.BASIC]: 1,
-      [GymPlan.TRIAL]: 1,
+      [GymPlan.TRIAL]: 2,
     };
     const newPlanLimit = PLAN_BRANCH_LIMITS[plan];
     if (newPlanLimit !== undefined) {
@@ -122,7 +138,7 @@ export class GymService {
 
     const PLAN_BRANCH_LIMITS: Partial<Record<GymPlan, number>> = {
       [GymPlan.BASIC]: 1,
-      [GymPlan.TRIAL]: 1,
+      [GymPlan.TRIAL]: 2,
     };
     const planLimit = PLAN_BRANCH_LIMITS[gym.plan];
     if (planLimit !== undefined) {
@@ -184,12 +200,51 @@ export class GymService {
     return branch;
   }
 
+  /**
+   * Soft-delete a non-primary Branch with cascade migration:
+   * - Migrates all active Members and Trainers to the gym's primary branch
+   * - Prevents orphan records after branch deletion
+   */
   public static async softDeleteBranch(branchId: string, _force?: boolean): Promise<void> {
     const branch = await Branch.findOne({ _id: branchId, isDeleted: false });
     if (!branch) throw AppError.notFound('Branch location not found');
     if (branch.isPrimary) {
       throw AppError.badRequest('Cannot delete the primary branch location of a gym');
     }
+
+    // Find the gym's primary branch to migrate records into
+    const primaryBranch = await Branch.findOne({
+      gymId: branch.gymId,
+      isPrimary: true,
+      isDeleted: false,
+    });
+
+    if (primaryBranch) {
+      const primaryBranchId = primaryBranch._id;
+      // Migrate Members and Trainers to primary branch in parallel
+      await Promise.all([
+        Member.updateMany(
+          { branchId: branch._id, isDeleted: false },
+          { $set: { branchId: primaryBranchId } }
+        ),
+        Trainer.updateMany(
+          { branchId: branch._id, isDeleted: false },
+          { $set: { branchId: primaryBranchId } }
+        ),
+        User.updateMany(
+          { branchId: branch._id, isDeleted: false },
+          { $set: { branchId: primaryBranchId } }
+        ),
+      ]);
+      logger.info(
+        `🏠 Branch cascade delete: [Branch: ${branchId}] → Members/Trainers/Users migrated to primary branch [${primaryBranchId}]`
+      );
+    } else {
+      logger.warn(
+        `⚠️ Branch delete: No primary branch found for gym [${branch.gymId}]. Records in branch [${branchId}] may be stranded.`
+      );
+    }
+
     await Branch.findByIdAndUpdate(branchId, { isDeleted: true });
   }
 

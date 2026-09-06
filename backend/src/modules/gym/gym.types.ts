@@ -14,6 +14,10 @@ export enum GymStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export interface IGymSettings {
+  defaultTrialPassDays?: number;
+}
+
 export interface IGym {
   _id: Types.ObjectId;
   name: string;
@@ -25,6 +29,7 @@ export interface IGym {
   subscriptionExpiresAt?: Date;
   billingEmail: string;
   isMultiBranch: boolean; // derived/settable flag for UI convenience
+  settings?: IGymSettings;
   isDeleted: boolean;
   deletedAt?: Date;
   createdAt: Date;

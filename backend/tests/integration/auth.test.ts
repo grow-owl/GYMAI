@@ -35,7 +35,7 @@ describe('Auth & User Module Integration Tests', () => {
   });
 
   describe('POST /api/v1/auth/register', () => {
-    it('should register a new MEMBER user successfully and never expose password', async () => {
+    it('should reject public self-registration with 403 Forbidden to prevent orphan users', async () => {
       const payload = {
         fullName: 'John Member',
         email: 'member@example.com',
@@ -46,49 +46,9 @@ describe('Auth & User Module Integration Tests', () => {
 
       const res = await request(app).post('/api/v1/auth/register').send(payload);
 
-      expect(res.status).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.user.email).toBe('member@example.com');
-      expect(res.body.data.user.role).toBe(Role.MEMBER);
-      expect(res.body.data.user.password).toBeUndefined();
-    });
-
-    it('should reject self-registration for TRAINER role', async () => {
-      const payload = {
-        fullName: 'Trainer Bob',
-        email: 'trainer@example.com',
-        phone: '9876543210',
-        password: 'Password123',
-        role: Role.TRAINER,
-      };
-
-      const res = await request(app).post('/api/v1/auth/register').send(payload);
-
-      expect(res.status).toBe(400); // Caught by Zod role validation enum
+      expect(res.status).toBe(403);
       expect(res.body.success).toBe(false);
-    });
-
-    it('should reject registration if email is already taken', async () => {
-      await User.create({
-        fullName: 'John Member',
-        email: 'member@example.com',
-        phone: '1234567890',
-        password: 'Password123',
-        role: Role.MEMBER,
-      });
-
-      const payload = {
-        fullName: 'Another Member',
-        email: 'member@example.com',
-        phone: '1112223333',
-        password: 'Password123',
-        role: Role.MEMBER,
-      };
-
-      const res = await request(app).post('/api/v1/auth/register').send(payload);
-
-      expect(res.status).toBe(409);
-      expect(res.body.error.code).toBe('DUPLICATE_RESOURCE');
+      expect(res.body.error.message).toContain('Public self-registration is disabled');
     });
   });
 
@@ -152,8 +112,8 @@ describe('Auth & User Module Integration Tests', () => {
 
   describe('POST /api/v1/auth/refresh-token & Theft Detection', () => {
     it('should rotate refresh token and revoke old token on reuse', async () => {
-      // 1. Register & Login
-      await request(app).post('/api/v1/auth/register').send({
+      // 1. Create User & Login
+      await User.create({
         fullName: 'John Member',
         email: 'member@example.com',
         phone: '1234567890',
@@ -189,7 +149,7 @@ describe('Auth & User Module Integration Tests', () => {
 
   describe('GET /api/v1/auth/me', () => {
     it('should return user profile when authenticated with Bearer token', async () => {
-      await request(app).post('/api/v1/auth/register').send({
+      await User.create({
         fullName: 'John Member',
         email: 'member@example.com',
         phone: '1234567890',

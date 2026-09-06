@@ -56,7 +56,8 @@ export class MemberPaymentService {
       renewMonths = paymentDataArg?.renewMonths || 1;
     }
 
-    let member = await Member.findOne({
+    // Strictly scoped to gymId — no cross-tenant fallback allowed
+    const member = await Member.findOne({
       $or: [
         { _id: mongoose.Types.ObjectId.isValid(memberId) ? new mongoose.Types.ObjectId(memberId) : undefined },
         { userId: mongoose.Types.ObjectId.isValid(memberId) ? new mongoose.Types.ObjectId(memberId) : undefined },
@@ -64,16 +65,6 @@ export class MemberPaymentService {
       gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined,
       isDeleted: false,
     });
-
-    if (!member) {
-      member = await Member.findOne({
-        $or: [
-          { _id: mongoose.Types.ObjectId.isValid(memberId) ? new mongoose.Types.ObjectId(memberId) : undefined },
-          { userId: mongoose.Types.ObjectId.isValid(memberId) ? new mongoose.Types.ObjectId(memberId) : undefined },
-        ],
-        isDeleted: false,
-      });
-    }
 
     if (!member) {
       throw AppError.notFound('Member profile not found in your gym');

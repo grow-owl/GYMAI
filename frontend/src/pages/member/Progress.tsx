@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Modal from "@/components/ui/Modal";
-import { Camera, Upload, Clock3, Plus, Scale, Target, Activity, TrendingDown } from "lucide-react";
+import { Camera, Upload, Clock3, Plus, Scale, Target, Activity, TrendingDown, Trash2, Sparkles, Loader2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import BarChart, { type BarDatum } from "@/components/ui/BarChart";
@@ -12,9 +12,10 @@ interface ProgressPhoto {
   id: string;
   capturedAt: string;
   src: string;
+  angle?: string;
+  notes?: string;
 }
 
-const PHOTO_STORAGE_KEY = "member-progress-photos-v1";
 const UPLOAD_GAP_DAYS = 5;
 
 function daysBetween(a: Date, b: Date) {
@@ -23,7 +24,49 @@ function daysBetween(a: Date, b: Date) {
 }
 
 function formatShortDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+  return new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+}
+
+/**
+ * Client-side Canvas Image Compression
+ * Shrinks 8-15MB camera images to ~150-250KB JPEG (1200px max dimension, 0.8 quality)
+ */
+function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(event.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressedDataUrl);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
 }
 
 function WeightLineChart({ data }: { data: Array<{ label: string; value: number }> }) {
@@ -94,16 +137,9 @@ export default function Progress() {
   const [showLogModal, setShowLogModal] = useState(false);
   const [newWeight, setNewWeight] = useState("70.0");
 
-  const [photos, setPhotos] = useState<ProgressPhoto[]>(() => {
-    try {
-      const raw = localStorage.getItem(PHOTO_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as ProgressPhoto[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadProgressData = async () => {
     setLoading(true);
@@ -117,17 +153,30 @@ export default function Progress() {
         const [wRes, compRes, photoRes, _summaryRes] = await Promise.all([
           progressApi.getHistory(memberId).catch(() => null),
           workoutApi.getCompletionStats(memberId).catch(() => null),
-          progressApi.getPhotos().catch(() => []),
+          progressApi.getPhotos(memberId).catch(() => null),
           progressApi.getSummary().catch(() => null),
         ]);
 
-        if (photoRes && Array.isArray(photoRes) && photoRes.length > 0) {
-          const remotePhotos = photoRes.map((p: any) => ({
+        const rawPhotos = Array.isArray(photoRes)
+          ? photoRes
+          : Array.isArray(photoRes?.photos)
+          ? photoRes.photos
+          : [];
+
+        if (rawPhotos.length > 0) {
+          const remotePhotos: ProgressPhoto[] = rawPhotos.map((p: any) => ({
             id: p._id || p.id,
-            capturedAt: p.createdAt || p.capturedAt || new Date().toISOString(),
-            src: p.photoUrl || p.url,
+            capturedAt: p.recordedAt || p.createdAt || p.capturedAt || new Date().toISOString(),
+            src: p.imageUrl || p.photoUrl || p.src,
+            angle: p.angle || "front",
+            notes: p.notes,
           }));
+          remotePhotos.sort(
+            (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime()
+          );
           setPhotos(remotePhotos);
+        } else {
+          setPhotos([]);
         }
 
         if (wRes) {
@@ -173,6 +222,20 @@ export default function Progress() {
   const canUploadNow = daysSinceLatest >= UPLOAD_GAP_DAYS;
   const remainingDays = Math.max(0, UPLOAD_GAP_DAYS - daysSinceLatest);
 
+  // Before & After visual comparison calculation
+  const sortedAscending = useMemo(() => {
+    return [...photos].sort(
+      (a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime()
+    );
+  }, [photos]);
+
+  const baselinePhoto = sortedAscending.length >= 2 ? sortedAscending[0] : null;
+  const currentPhoto = sortedAscending.length >= 2 ? sortedAscending[sortedAscending.length - 1] : null;
+  const daysTransformed =
+    baselinePhoto && currentPhoto
+      ? daysBetween(new Date(currentPhoto.capturedAt), new Date(baselinePhoto.capturedAt))
+      : 0;
+
   const latestWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].value : null;
   const initialWeight = weightLogs.length > 0 ? weightLogs[0].value : null;
   const totalChange = latestWeight !== null && initialWeight !== null ? (latestWeight - initialWeight).toFixed(1) : null;
@@ -198,42 +261,67 @@ export default function Progress() {
     }
   };
 
-  function persist(next: ProgressPhoto[]) {
-    setPhotos(next);
-    localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(next));
-  }
-
   function handlePickPhoto() {
-    if (!canUploadNow) return;
+    if (!canUploadNow || uploading) return;
     fileInputRef.current?.click();
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const src = String(reader.result ?? "");
-      if (!src) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose a valid image file");
+      e.target.value = "";
+      return;
+    }
 
-      try {
-        await progressApi.uploadPhoto({ photoUrl: src, notes: "Member Progress Photo" });
-      } catch (err) {
-        console.warn("Backend photo upload warning:", err);
-      }
+    setUploading(true);
+    const toastId = toast.loading("Compressing & uploading photo to Cloudinary...");
+    try {
+      const compressedBase64 = await compressImage(file, 1200, 0.8);
+      await progressApi.uploadPhoto({
+        image: compressedBase64,
+        angle: "front",
+        notes: "Member Progress Check-in",
+      });
+      toast.success("Progress photo uploaded & synced!", { id: toastId });
+      await loadProgressData();
+    } catch (err: any) {
+      console.error("Progress photo upload error:", err);
+      toast.error(
+        err.response?.data?.message || err.message || "Failed to upload photo. Please try again.",
+        { id: toastId }
+      );
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
 
-      const next: ProgressPhoto[] = [
-        { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), src },
-        ...photos,
-      ].slice(0, 18);
-      persist(next);
-      toast.success("Progress photo saved successfully!");
-    };
-    reader.readAsDataURL(file);
+  async function handleDeletePhoto(photoId: string) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this progress photo? It will be permanently removed from Cloudinary and your timeline."
+      )
+    ) {
+      return;
+    }
 
-    e.target.value = "";
-  };
+    setDeletingId(photoId);
+    try {
+      await progressApi.deletePhoto(photoId);
+      toast.success("Progress photo deleted successfully!");
+      setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    } catch (err: any) {
+      console.error("Photo delete error:", err);
+      toast.error(
+        err.response?.data?.message || err.message || "Failed to delete progress photo."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -338,11 +426,67 @@ export default function Progress() {
         </Card>
       </div>
 
+      {/* Transformation Highlight: Before vs After */}
+      {baselinePhoto && currentPhoto && (
+        <Card className="p-5 border border-amber-500/30 bg-linear-to-r from-amber-500/5 via-transparent to-orange-500/5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500">
+                <Sparkles size={16} />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-(--color-text)">Transformation Highlight</h3>
+                <p className="text-xs text-(--color-text-muted)">
+                  Visual comparison from your initial Day 1 baseline to your latest check-in
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-500 border border-amber-500/30">
+              🔥 {daysTransformed} Days of Progress
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Baseline / Day 1 */}
+            <div className="relative overflow-hidden rounded-2xl border border-(--color-border) bg-(--color-surface-2)">
+              <div className="absolute top-3 left-3 z-10 rounded-full bg-black/75 px-3 py-1 text-[11px] font-bold text-white shadow backdrop-blur-xs">
+                BEFORE (Baseline)
+              </div>
+              <div className="absolute bottom-3 left-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] text-zinc-300 backdrop-blur-xs">
+                {formatShortDate(baselinePhoto.capturedAt)}
+              </div>
+              <img
+                src={baselinePhoto.src}
+                alt="Baseline Transformation"
+                className="h-64 sm:h-72 w-full object-cover"
+              />
+            </div>
+
+            {/* Current / Latest */}
+            <div className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-(--color-surface-2) ring-1 ring-amber-500/20">
+              <div className="absolute top-3 left-3 z-10 rounded-full bg-amber-500 px-3 py-1 text-[11px] font-bold text-zinc-950 shadow">
+                AFTER (Latest)
+              </div>
+              <div className="absolute bottom-3 left-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] text-zinc-300 backdrop-blur-xs">
+                {formatShortDate(currentPhoto.capturedAt)}
+              </div>
+              <img
+                src={currentPhoto.src}
+                alt="Latest Transformation"
+                className="h-64 sm:h-72 w-full object-cover"
+              />
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Progress Photos Section */}
       <Card className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Progress Photo Timeline</p>
+            <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">
+              Progress Photo Timeline {photos.length > 0 && `(${photos.length} Total)`}
+            </p>
             <p className="text-xs text-(--color-text-muted) mt-1">
               Upload body transformation photos every {UPLOAD_GAP_DAYS} days to visually compare muscle gains and physical changes.
             </p>
@@ -351,10 +495,18 @@ export default function Progress() {
           <button
             type="button"
             onClick={handlePickPhoto}
-            disabled={!canUploadNow}
-            className="rounded-full bg-(--color-accent) text-white text-xs sm:text-sm font-semibold px-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-md"
+            disabled={!canUploadNow || uploading}
+            className="rounded-full bg-(--color-accent) text-white text-xs sm:text-sm font-semibold px-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-md hover:opacity-90 transition-all"
           >
-            <Camera size={14} /> Upload Photo
+            {uploading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Uploading...
+              </>
+            ) : (
+              <>
+                <Camera size={14} /> Upload Photo
+              </>
+            )}
           </button>
         </div>
 
@@ -369,7 +521,7 @@ export default function Progress() {
 
         {!canUploadNow && (
           <div className="mb-4 rounded-xl border border-(--color-border) bg-(--color-surface-2) px-3 py-2 text-xs text-(--color-text-muted) flex items-center gap-1.5">
-            <Clock3 size={13} /> Next photo upload available in {remainingDays} day{remainingDays === 1 ? "" : "s"}.
+            <Clock3 size={13} className="text-amber-400" /> Next photo upload available in {remainingDays} day{remainingDays === 1 ? "" : "s"}.
           </div>
         )}
 
@@ -382,11 +534,36 @@ export default function Progress() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {photos.map((photo, index) => (
-              <div key={photo.id} className="relative overflow-hidden rounded-xl border border-(--color-border) bg-(--color-surface-2)">
-                <img src={photo.src} alt={`Progress ${index + 1}`} className="h-44 w-full object-cover" />
-                <div className="absolute left-2 bottom-2 rounded-full bg-black/70 px-2.5 py-1 text-[10px] text-white font-semibold">
+              <div
+                key={photo.id}
+                className="group relative overflow-hidden rounded-xl border border-(--color-border) bg-(--color-surface-2)"
+              >
+                <img
+                  src={photo.src}
+                  alt={`Progress ${index + 1}`}
+                  className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <div className="absolute left-2 bottom-2 rounded-full bg-black/70 px-2.5 py-1 text-[10px] text-white font-semibold backdrop-blur-xs">
                   {formatShortDate(photo.capturedAt)}
                 </div>
+                {photo.angle && (
+                  <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium text-amber-300 uppercase tracking-wider backdrop-blur-xs">
+                    {photo.angle}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  title="Delete progress photo"
+                  disabled={deletingId === photo.id}
+                  onClick={() => handleDeletePhoto(photo.id)}
+                  className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-red-400 opacity-90 sm:opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                >
+                  {deletingId === photo.id ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={12} />
+                  )}
+                </button>
               </div>
             ))}
           </div>

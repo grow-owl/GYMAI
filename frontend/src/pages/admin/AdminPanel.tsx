@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap, UserPlus, KeyRound, Copy, Check } from "lucide-react";
+import { Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap, UserPlus, KeyRound, Copy, Check, Rocket, PhoneCall, Sparkles, Inbox } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
-import { paymentApi, authApi, gymApi } from "@/lib/endpoints";
+import { paymentApi, authApi, gymApi, saasInquiryApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
 export default function AdminPanel() {
@@ -14,6 +14,9 @@ export default function AdminPanel() {
   const [analytics, setAnalytics] = useState<any | null>(null);
   const [upgradeRequests, setUpgradeRequests] = useState<any[]>([]);
   const [gymsList, setGymsList] = useState<any[]>([]);
+  const [inquiries, setInquiries] = useState<any[]>([]);
+  const [selectedInquiryId, setSelectedInquiryId] = useState<string | null>(null);
+  const [updatingInquiryId, setUpdatingInquiryId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Newly Provisioned Gym Modal State
@@ -55,7 +58,8 @@ function generateStrongPassword(length: number = 14): string {
     password: "",
     gymName: "",
     branchName: "Main Branch",
-    plan: "PRO",
+    plan: "TRIAL",
+    trialDays: 14,
   });
 
   const copyToClipboard = (text: string, label: string) => {
@@ -72,6 +76,15 @@ function generateStrongPassword(length: number = 14): string {
       const res = await authApi.registerOwner(ownerFormData);
       toast.success(`Gym Owner created! Gym ID: ${res.gym?._id || res.gym?.id}`);
       setShowCreateOwnerModal(false);
+
+      if (selectedInquiryId) {
+        await saasInquiryApi.updateStatus(selectedInquiryId, {
+          status: "TRIAL_GIVEN",
+          trialGymId: res.gym?._id || res.gym?.id,
+          note: `Auto-provisioned gym ${ownerFormData.gymName} with ${ownerFormData.plan === "TRIAL" ? `${ownerFormData.trialDays}-day trial` : ownerFormData.plan} plan.`,
+        }).catch(() => null);
+        setSelectedInquiryId(null);
+      }
       
       setCreatedGymDetails({
         gymName: ownerFormData.gymName,
@@ -83,6 +96,7 @@ function generateStrongPassword(length: number = 14): string {
         ownerPhone: ownerFormData.phone,
         password: ownerFormData.password,
         plan: ownerFormData.plan,
+        trialDays: ownerFormData.trialDays,
       });
 
       setOwnerFormData({
@@ -92,7 +106,8 @@ function generateStrongPassword(length: number = 14): string {
         password: "",
         gymName: "",
         branchName: "Main Branch",
-        plan: "PRO",
+        plan: "TRIAL",
+        trialDays: 14,
       });
       fetchData();
     } catch (err: any) {
@@ -102,14 +117,44 @@ function generateStrongPassword(length: number = 14): string {
     }
   };
 
+  const handleProvisionFromInquiry = (inquiry: any) => {
+    const generatedPass = generateStrongPassword(12);
+    setSelectedInquiryId(inquiry._id || inquiry.id);
+    setOwnerFormData({
+      fullName: inquiry.ownerName || "",
+      email: inquiry.email || `${(inquiry.phone || "owner").replace(/[^0-9]/g, "")}@gymsaas.com`,
+      phone: inquiry.phone || "",
+      password: generatedPass,
+      gymName: inquiry.gymName || "",
+      branchName: "Main Branch",
+      plan: "TRIAL",
+      trialDays: 14,
+    });
+    setShowCreateOwnerModal(true);
+  };
+
+  const handleUpdateInquiryStatus = async (inquiryId: string, newStatus: string) => {
+    setUpdatingInquiryId(inquiryId);
+    try {
+      await saasInquiryApi.updateStatus(inquiryId, { status: newStatus });
+      toast.success(`Inquiry status updated to ${newStatus}`);
+      fetchData();
+    } catch {
+      toast.error("Failed to update inquiry status");
+    } finally {
+      setUpdatingInquiryId(null);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [analyticsRes, reqsRes, gymsRes] = await Promise.all([
+      const [analyticsRes, reqsRes, gymsRes, inquiriesRes] = await Promise.all([
         paymentApi.getPlatformAnalyticsOverview().catch(() => null),
         paymentApi.listUpgradeRequests().catch(() => null),
         gymApi.listAllGyms().catch(() => null),
+        saasInquiryApi.list({ limit: 50 }).catch(() => null),
       ]);
       setAnalytics(analyticsRes);
       const reqList = Array.isArray(reqsRes) ? reqsRes : reqsRes?.upgradeRequests || [];
@@ -117,6 +162,9 @@ function generateStrongPassword(length: number = 14): string {
 
       const gList = Array.isArray(gymsRes) ? gymsRes : gymsRes?.gyms || [];
       setGymsList(gList);
+
+      const inqList = Array.isArray(inquiriesRes) ? inquiriesRes : inquiriesRes?.inquiries || [];
+      setInquiries(inqList);
     } catch {
       setError("Failed to load platform analytics overview.");
     } finally {
@@ -259,6 +307,143 @@ function generateStrongPassword(length: number = 14): string {
               </p>
             </Card>
           </div>
+
+          {/* Incoming Gym Inquiries / B2B SaaS Leads */}
+          <Card className="space-y-3 border-amber-500/20 bg-gradient-to-b from-amber-500/[0.03] to-transparent">
+            <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-amber-500/10 text-amber-400">
+                  <Inbox size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-(--color-text)">
+                    Incoming Gym Inquiries & B2B SaaS Leads ({inquiries.length})
+                  </p>
+                  <p className="text-[11px] text-(--color-text-muted)">
+                    Prospective gym owners requesting workspace / demo from <span className="font-mono text-amber-400">/register</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={fetchData}
+                className="text-xs text-(--color-text-muted) hover:text-(--color-text) flex items-center gap-1 bg-(--color-surface-2) px-2.5 py-1 rounded-lg border border-(--color-border)"
+              >
+                <RefreshCw size={12} /> Refresh Leads
+              </button>
+            </div>
+
+            {inquiries.length === 0 ? (
+              <div className="text-center py-8 space-y-2">
+                <Sparkles className="w-8 h-8 mx-auto text-amber-400/40" />
+                <p className="text-xs text-(--color-text-muted)">No incoming gym inquiries yet.</p>
+                <p className="text-[11px] text-(--color-text-faint)">
+                  When gym owners fill the inquiry form on your website (<code className="text-amber-400">/register</code>), their leads will appear here with 1-click trial provisioning.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-(--color-border-soft) text-xs">
+                {inquiries.map((inq: any) => {
+                  const inqId = inq._id || inq.id;
+                  const phoneNum = inq.phone || "";
+                  const isTrialGiven = inq.status === "TRIAL_GIVEN" || inq.status === "CONVERTED";
+
+                  return (
+                    <div key={inqId} className="py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-sm text-(--color-text)">{inq.gymName}</span>
+                          <span className="text-(--color-text-faint)">•</span>
+                          <span className="text-xs font-medium text-(--color-text-muted)">{inq.city}</span>
+                          <Badge
+                            tone={
+                              inq.status === "NEW"
+                                ? "warn"
+                                : inq.status === "TRIAL_GIVEN" || inq.status === "CONVERTED"
+                                ? "good"
+                                : inq.status === "DISQUALIFIED"
+                                ? "danger"
+                                : "accent"
+                            }
+                          >
+                            {inq.status}
+                          </Badge>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-(--color-text-muted)">
+                          <span>
+                            Owner: <strong className="text-(--color-text)">{inq.ownerName}</strong>
+                          </span>
+                          {inq.email && (
+                            <span>
+                              Email: <a href={`mailto:${inq.email}`} className="text-sky-400 hover:underline break-all">{inq.email}</a>
+                            </span>
+                          )}
+                          <div className="flex items-center gap-1 font-mono">
+                            <span>Phone:</span>
+                            <a
+                              href={`tel:${phoneNum}`}
+                              className="text-amber-400 font-semibold hover:underline inline-flex items-center gap-1"
+                            >
+                              <PhoneCall size={11} /> {phoneNum}
+                            </a>
+                            <button
+                              onClick={() => copyToClipboard(phoneNum, "Phone Number")}
+                              className="p-1 hover:text-(--color-accent)"
+                              title="Copy Phone"
+                            >
+                              {copiedId === phoneNum ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {inq.message && (
+                          <p className="text-[11px] text-(--color-text-faint) bg-(--color-surface-2) px-2.5 py-1 rounded-lg border border-white/5 max-w-xl break-words">
+                            💬 "{inq.message}"
+                          </p>
+                        )}
+                        <p className="text-[10px] text-(--color-text-faint)">
+                          Submitted {new Date(inq.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 w-full sm:w-auto pt-1 sm:pt-0">
+                        {/* Status update select */}
+                        <div className="w-full sm:w-36">
+                          <select
+                            disabled={updatingInquiryId === inqId}
+                            value={inq.status}
+                            onChange={(e) => handleUpdateInquiryStatus(inqId, e.target.value)}
+                            className="w-full text-xs py-2 sm:py-1.5 px-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-(--color-text) outline-none"
+                          >
+                            <option value="NEW">NEW</option>
+                            <option value="CONTACTED">CONTACTED</option>
+                            <option value="DEMO_SCHEDULED">DEMO SCHEDULED</option>
+                            <option value="TRIAL_GIVEN">TRIAL GIVEN</option>
+                            <option value="CONVERTED">CONVERTED (PAID)</option>
+                            <option value="DISQUALIFIED">DISQUALIFIED</option>
+                          </select>
+                        </div>
+
+                        {/* 1-Click Provision / Start Trial button */}
+                        {!isTrialGiven ? (
+                          <button
+                            onClick={() => handleProvisionFromInquiry(inq)}
+                            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 text-xs font-semibold rounded-xl bg-gradient-to-r from-(--color-accent) to-indigo-600 text-white hover:opacity-90 shadow-sm w-full sm:w-auto"
+                          >
+                            <Rocket size={13} /> Start Free Trial
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-500/20 flex items-center justify-center gap-1 w-full sm:w-auto">
+                            <Check size={12} /> Workspace Active
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
 
           {/* Registered Gym Organizations & Unique Tenant IDs */}
           <Card className="space-y-3">
@@ -645,12 +830,38 @@ function generateStrongPassword(length: number = 14): string {
               value={ownerFormData.plan}
               onChange={(v) => setOwnerFormData({ ...ownerFormData, plan: v })}
               options={[
-                { value: "TRIAL", label: "TRIAL (14 Days Free)" },
+                { value: "TRIAL", label: "TRIAL (Free Full Pro Trial)" },
                 { value: "BASIC", label: "BASIC (Single Branch)" },
                 { value: "PRO", label: "PRO (Multi Branch)" },
                 { value: "ENTERPRISE", label: "ENTERPRISE (Custom)" },
               ]}
             />
+
+            {ownerFormData.plan === "TRIAL" && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 space-y-1.5">
+                <label className="text-xs font-semibold text-amber-400">
+                  Trial Duration (Days)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  required
+                  value={ownerFormData.trialDays}
+                  onChange={(e) =>
+                    setOwnerFormData({
+                      ...ownerFormData,
+                      trialDays: Math.max(1, Number(e.target.value) || 1),
+                    })
+                  }
+                  placeholder="e.g. 7, 14, 30"
+                  className="w-full p-2.5 rounded-xl bg-(--color-surface-2) border border-amber-500/30 text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
+                />
+                <p className="text-[11px] text-(--color-text-muted)">
+                  ⚡ Full Pro access is granted for {ownerFormData.trialDays} days. Once expired, real-time middleware revokes access until a paid plan is selected.
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4 border-t border-(--color-border-soft)">
               <button

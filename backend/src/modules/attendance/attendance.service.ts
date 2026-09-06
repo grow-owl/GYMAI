@@ -90,7 +90,14 @@ export class AttendanceService {
       throw AppError.notFound('Member profile not found for check-in');
     }
 
-    // 4. Validate Membership Status
+    // 4. Validate Membership Status & Real-time Expiry
+    if (member.membershipEndDate && new Date(member.membershipEndDate) < new Date()) {
+      if (member.membershipStatus !== MembershipStatus.EXPIRED) {
+        member.membershipStatus = MembershipStatus.EXPIRED;
+        await member.save();
+      }
+      throw AppError.forbidden('Check-in rejected: Membership / Trial Pass has EXPIRED. Please renew at the front desk.');
+    }
     if (member.membershipStatus === MembershipStatus.FROZEN) {
       throw AppError.forbidden('Check-in rejected: Member account is currently FROZEN');
     }

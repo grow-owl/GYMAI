@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import { AppError } from '../utils/AppError';
 import { Role } from '../constants/roles.enum';
 import { Gym } from '../../modules/gym/gym.model';
-import { GymStatus } from '../../modules/gym/gym.types';
+import { GymStatus, GymPlan } from '../../modules/gym/gym.types';
 
 /**
  * Middleware: Inject tenant scope into req.tenant based on req.user
@@ -13,18 +13,30 @@ export const injectTenantScope = (req: Request, _res: Response, next: NextFuncti
     return next(AppError.unauthorized('Authentication required before tenant scoping'));
   }
 
-  // Extract gymId and branchId from JWT payload or explicit headers/query
-  const gymId =
-    req.user.gymId ||
-    (req.params?.gymId as string) ||
-    (req.query?.gymId as string) ||
-    (req.headers['x-gym-id'] as string);
+  const isSuperAdmin = req.user.role === Role.SUPER_ADMIN;
 
-  const branchId =
-    req.user.branchId ||
-    (req.params?.branchId as string) ||
-    (req.query?.branchId as string) ||
-    (req.headers['x-branch-id'] as string);
+  let gymId: string | undefined;
+  let branchId: string | undefined;
+
+  if (isSuperAdmin) {
+    // SuperAdmin can target any gym via request params/headers (for admin operations)
+    gymId =
+      req.user.gymId ||
+      (req.params?.gymId as string) ||
+      (req.query?.gymId as string) ||
+      (req.headers['x-gym-id'] as string);
+
+    branchId =
+      req.user.branchId ||
+      (req.params?.branchId as string) ||
+      (req.query?.branchId as string) ||
+      (req.headers['x-branch-id'] as string);
+  } else {
+    // Non-SuperAdmin: tenant scope MUST come from the verified JWT token only.
+    // Client-supplied headers/query/params are IGNORED to prevent tenant bypass attacks.
+    gymId = req.user.gymId;
+    branchId = req.user.branchId;
+  }
 
   req.tenant = {
     gymId,
@@ -33,8 +45,6 @@ export const injectTenantScope = (req: Request, _res: Response, next: NextFuncti
 
   next();
 };
-
-export const tenantScope = injectTenantScope;
 
 /**
  * Helper function for service layer:
@@ -73,26 +83,45 @@ export const checkGymActive = async (req: Request, _res: Response, next: NextFun
     return next();
   }
 
-  const gymId = req.tenant?.gymId;
+  const gymId = req.tenant?.gymId || (req.params?.gymId as string);
   if (!gymId || !Types.ObjectId.isValid(gymId)) {
     return next();
   }
 
   try {
-    const gym = await Gym.findOne({ _id: gymId, isDeleted: false }).select('status');
-    if (gym && (gym.status === GymStatus.SUSPENDED || gym.status === GymStatus.TRIAL_EXPIRED)) {
-      if (req.originalUrl.includes('/billing') || req.originalUrl.includes('/payments')) {
-        return next();
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false }).select('status plan trialEndsAt');
+    if (gym) {
+      // Real-time trial expiry check
+      if (gym.plan === GymPlan.TRIAL && gym.trialEndsAt && new Date(gym.trialEndsAt) < new Date()) {
+        if (gym.status !== GymStatus.TRIAL_EXPIRED) {
+          gym.status = GymStatus.TRIAL_EXPIRED;
+          await gym.save();
+        }
       }
-      return next(
-        AppError.forbidden(
-          `Gym organization subscription status is '${gym.status}'. Please upgrade or renew your plan to continue accessing services.`
-        )
-      );
+
+      if (gym.status === GymStatus.SUSPENDED || gym.status === GymStatus.TRIAL_EXPIRED) {
+        if (req.originalUrl.includes('/billing') || req.originalUrl.includes('/payments')) {
+          return next();
+        }
+        if (gym.status === GymStatus.TRIAL_EXPIRED) {
+          return next(
+            AppError.forbidden(
+              'Your free trial has expired. Please upgrade your subscription plan to restore full access.'
+            )
+          );
+        }
+        return next(
+          AppError.forbidden(
+            `Gym organization subscription status is '${gym.status}'. Please upgrade or renew your plan to continue accessing services.`
+          )
+        );
+      }
     }
   } catch (e) {
-    // Pass error to next or continue
+    return next(e);
   }
 
   next();
 };
+
+export const tenantScope = [injectTenantScope, checkGymActive];

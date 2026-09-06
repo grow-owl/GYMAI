@@ -20,10 +20,19 @@ const progressPhotoSchema = new Schema<IProgressPhoto>(
       required: true,
       trim: true,
     },
+    cloudinaryPublicId: {
+      type: String,
+      trim: true,
+    },
     angle: {
       type: String,
       enum: ['front', 'side', 'back'],
+      default: 'front',
       required: true,
+    },
+    notes: {
+      type: String,
+      trim: true,
     },
     recordedAt: {
       type: Date,

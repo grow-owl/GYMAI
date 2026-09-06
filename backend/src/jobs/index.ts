@@ -4,6 +4,8 @@ import { BirthdayReminderJob } from './birthdayReminder.job';
 import { ChurnPredictionService } from '../modules/aiCoach/churnPrediction.service';
 import { Gym } from '../modules/gym/gym.model';
 import { GymStatus } from '../modules/gym/gym.types';
+import { GymService } from '../modules/gym/gym.service';
+import { MemberService } from '../modules/member/member.service';
 import { logger } from '../config/logger';
 
 export function initCronJobs(): void {
@@ -44,6 +46,18 @@ export function initCronJobs(): void {
       logger.info('✅ Member churn risk assessment cron job completed');
     } catch (error) {
       logger.error(`❌ Member churn risk assessment cron job failed: ${error}`);
+    }
+  });
+
+  // 4. Gym SaaS Trial & Member Expiry Evaluation — Runs daily at midnight
+  cron.schedule('0 0 * * *', async () => {
+    logger.info('⏳ Executing daily trial and membership expiration sweep...');
+    try {
+      await GymService.checkAndUpdateExpiredGyms();
+      await MemberService.checkAndExpireMemberships();
+      logger.info('✅ Trial and membership expiration sweep completed');
+    } catch (error) {
+      logger.error(`❌ Trial/membership expiry sweep failed: ${error}`);
     }
   });
 

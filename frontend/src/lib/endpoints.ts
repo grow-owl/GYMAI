@@ -42,6 +42,7 @@ export const authApi = {
     gymName: string;
     branchName?: string;
     plan?: string;
+    trialDays?: number;
   }) => api.post<{ user: AuthUser; gym: any; primaryBranch: any; tempPassword?: string }>("/auth/register-owner", input),
 
   adminResetPassword: (userId: string, newPassword: string) =>
@@ -335,10 +336,12 @@ export const progressApi = {
     return api.post<any>("/progress/weight", body);
   },
 
-  uploadPhoto: (data: { photoUrl: string; notes?: string; bodyFatPercentage?: number }) =>
+  uploadPhoto: (data: { image?: string; imageUrl?: string; photoUrl?: string; angle?: 'front' | 'side' | 'back'; notes?: string }) =>
     api.post<any>("/progress/photos", data),
 
-  getPhotos: () => api.get<any[]>("/progress/photos"),
+  getPhotos: (memberId?: string) => api.get<any>(memberId ? `/progress/photos/${memberId}` : "/progress/photos"),
+
+  deletePhoto: (photoId: string) => api.delete<any>(`/progress/photos/${photoId}`),
 
   logWellness: (data: { energyRating?: number; sleepHours?: number; stressLevel?: string; sorenessNotes?: string }) =>
     api.patch<any>("/progress/wellness", data),
@@ -580,4 +583,47 @@ export const feedbackApi = {
 
 export const jobApi = {
   runReminders: (gymId: string) => api.post<any>(`/gyms/${gymId}/jobs/run-reminders`),
+};
+
+export const saasInquiryApi = {
+  create: (data: {
+    ownerName: string;
+    gymName: string;
+    phone: string;
+    city: string;
+    email?: string;
+    message?: string;
+  }) => api.post<{ id: string; ownerName: string; gymName: string }>("/public/saas-inquiry", data),
+
+  list: (params?: { status?: string; page?: number; limit?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set("status", params.status);
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.limit) sp.set("limit", String(params.limit));
+    const qs = sp.toString() ? `?${sp.toString()}` : "";
+    return api.get<{ inquiries: any[]; total: number; page: number; totalPages: number }>(`/admin/saas-inquiries${qs}`);
+  },
+
+  updateStatus: (id: string, data: { status: string; note?: string; trialGymId?: string }) =>
+    api.patch<any>(`/admin/saas-inquiries/${id}/status`, data),
+
+  addNote: (id: string, note: string) =>
+    api.post<any>(`/admin/saas-inquiries/${id}/notes`, { note }),
+};
+
+export const publicBranchApi = {
+  getBranchDetails: (branchId: string) =>
+    api.get<{
+      gym: { id: string; name: string; logoUrl?: string; defaultTrialPassDays: number };
+      branch: { id: string; name: string; address: any; contactPhone: string };
+    }>(`/public/branches/${branchId}`),
+
+  submitTrialLead: (data: {
+    branchId: string;
+    fullName: string;
+    phone: string;
+    email?: string;
+    fitnessGoal?: string;
+    preferredTiming?: string;
+  }) => api.post<any>("/public/leads", data),
 };

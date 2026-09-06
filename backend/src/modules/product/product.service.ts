@@ -31,13 +31,10 @@ export class ProductService {
   public static async createProduct(gymId: string, input: CreateProductInput): Promise<IProduct> {
     let targetGymId = mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : null;
     if (!targetGymId && input.branchId && mongoose.Types.ObjectId.isValid(input.branchId)) {
-      let branch = await Branch.findById(input.branchId);
+      const branch = await Branch.findById(input.branchId);
       if (branch) targetGymId = branch.gymId;
     }
-    if (!targetGymId) {
-      let firstBranch = await Branch.findOne({ isDeleted: false });
-      if (firstBranch) targetGymId = firstBranch.gymId;
-    }
+    // NOTE: Removed unscoped Branch.findOne fallback — a missing/invalid gymId must be rejected.
     if (!targetGymId) {
       throw AppError.badRequest('Valid gym identifier is required for creating a product');
     }
@@ -181,8 +178,12 @@ export class ProductService {
     if (memberDoc) {
       validMemberId = memberDoc._id.toString();
     } else {
-      // Fallback: search or create dedicated Walk-in Customer profile
-      let walkInMember = await Member.findOne({ fullName: 'Walk-in Customer', isDeleted: false });
+      // Fallback: search or create dedicated Walk-in Customer profile (scoped to this gym)
+      let walkInMember = await Member.findOne({
+        fullName: 'Walk-in Customer',
+        gymId: updatedProduct.gymId,
+        isDeleted: false,
+      });
       if (!walkInMember) {
         let walkInUser = await User.findOne({ fullName: 'Walk-in Customer', isDeleted: false });
         if (!walkInUser) {
@@ -195,8 +196,23 @@ export class ProductService {
           });
         }
 
+        // Resolve branchId: use product's branchId or fall back to gym's primary branch
+        let walkInBranchId = updatedProduct.branchId;
+        if (!walkInBranchId) {
+          const primaryBranch = await Branch.findOne({
+            gymId: updatedProduct.gymId,
+            isPrimary: true,
+            isDeleted: false,
+          });
+          if (!primaryBranch) {
+            throw AppError.badRequest('Cannot process walk-in purchase: no primary branch configured for this gym');
+          }
+          walkInBranchId = primaryBranch._id;
+        }
+
         walkInMember = await Member.create({
           gymId: updatedProduct.gymId,
+          branchId: walkInBranchId,
           userId: walkInUser._id,
           fullName: 'Walk-in Customer',
           phone: '0000000000',

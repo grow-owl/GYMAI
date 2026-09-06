@@ -9,12 +9,18 @@ export const createGymSchema = z.object({
     .trim(),
   billingEmail: z.string().email('Please enter a valid billing email address').toLowerCase().trim(),
   plan: z.nativeEnum(GymPlan).optional().default(GymPlan.TRIAL),
+  trialDays: z.number().min(1).max(90).optional(),
 });
 
 export const updateGymSchema = z.object({
   name: z.string().min(2).max(100).trim().optional(),
   logoUrl: z.string().url('Invalid logo URL').optional(),
   billingEmail: z.string().email().toLowerCase().trim().optional(),
+  settings: z
+    .object({
+      defaultTrialPassDays: z.number().min(1).max(30).optional(),
+    })
+    .optional(),
 });
 
 export const updateGymPlanSchema = z.object({

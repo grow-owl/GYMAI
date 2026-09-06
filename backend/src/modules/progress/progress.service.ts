@@ -9,6 +9,8 @@ import { AppError } from '../../common/utils/AppError';
 import { getDayKeyForBranch } from '../../common/utils/timezone';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 import { logger } from '../../config/logger';
+import { cloudinaryUpload } from '../../config/cloudinary';
+import { env } from '../../config/env';
 
 export class ProgressService {
   /**
@@ -97,12 +99,13 @@ export class ProgressService {
   }
 
   /**
-   * Upload Progress Photo record
+   * Upload Progress Photo record (with Cloudinary compression & storage)
    */
   public static async uploadProgressPhoto(
     memberId: string,
-    imageUrl: string,
-    angle: 'front' | 'side' | 'back'
+    imageSource: string,
+    angle: 'front' | 'side' | 'back' = 'front',
+    notes?: string
   ): Promise<IProgressPhoto> {
     const member = await Member.findOne({
       $or: [
@@ -120,18 +123,97 @@ export class ProgressService {
     const timezone = branch?.timezone || 'UTC';
     const dayKey = getDayKeyForBranch(new Date(), timezone);
 
+    let finalImageUrl = imageSource;
+    let cloudinaryPublicId: string | undefined = undefined;
+
+    const isCloudinaryConfigured =
+      env.NODE_ENV !== 'test' &&
+      Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET && env.CLOUDINARY_API_KEY !== 'dev_key');
+
+    if (isCloudinaryConfigured) {
+      try {
+        const uploadResult = await cloudinaryUpload.uploader.upload(imageSource, {
+          folder: `gym_saas/gyms/${member.gymId}/members/${member._id}/progress`,
+          resource_type: 'image',
+          transformation: [
+            { width: 1200, height: 1200, crop: 'limit' },
+            { quality: 'auto', fetch_format: 'auto' },
+          ],
+        });
+
+        finalImageUrl = uploadResult.secure_url;
+        cloudinaryPublicId = uploadResult.public_id;
+        logger.info(`☁️ Cloudinary upload successful: [PublicID: ${cloudinaryPublicId}] [URL: ${finalImageUrl}]`);
+      } catch (uploadErr: any) {
+        logger.error(`❌ Cloudinary progress photo upload error: ${uploadErr.message}`);
+        throw AppError.badRequest(`Failed to upload photo to Cloudinary: ${uploadErr.message}`);
+      }
+    } else {
+      logger.warn('☁️ Cloudinary omitted or in test mode; using direct image reference');
+      finalImageUrl = imageSource;
+      cloudinaryPublicId = `mock_progress_${Date.now()}`;
+    }
+
     const photo = new ProgressPhoto({
       memberId: member._id,
       gymId: member.gymId,
-      imageUrl,
+      imageUrl: finalImageUrl,
+      cloudinaryPublicId,
       angle,
+      notes,
       recordedAt: new Date(),
       dayKey,
     });
 
     await photo.save();
-    logger.info(`📸 Progress Photo saved: [Member: ${member._id}] [Angle: ${angle}]`);
+    logger.info(`📸 Progress Photo saved: [Member: ${member._id}] [Angle: ${angle}] [DayKey: ${dayKey}]`);
     return photo;
+  }
+
+  /**
+   * Delete Progress Photo by ID (and purge asset from Cloudinary)
+   */
+  public static async deleteProgressPhoto(
+    memberId: string,
+    photoId: string
+  ): Promise<void> {
+    const member = await Member.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+        { userId: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+      ],
+    });
+
+    if (!member) {
+      throw AppError.notFound('Member not found');
+    }
+
+    const photo = await ProgressPhoto.findOne({
+      _id: photoId,
+      memberId: member._id,
+    });
+
+    if (!photo) {
+      throw AppError.notFound('Progress photo not found or does not belong to member');
+    }
+
+    if (photo.cloudinaryPublicId && !photo.cloudinaryPublicId.startsWith('mock_')) {
+      const isCloudinaryConfigured =
+        env.NODE_ENV !== 'test' &&
+        Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET && env.CLOUDINARY_API_KEY !== 'dev_key');
+
+      if (isCloudinaryConfigured) {
+        try {
+          await cloudinaryUpload.uploader.destroy(photo.cloudinaryPublicId, { resource_type: 'image' });
+          logger.info(`🗑️ Cloudinary photo destroyed: [PublicID: ${photo.cloudinaryPublicId}]`);
+        } catch (err: any) {
+          logger.warn(`Failed to destroy Cloudinary photo (${photo.cloudinaryPublicId}): ${err?.message}`);
+        }
+      }
+    }
+
+    await ProgressPhoto.findByIdAndDelete(photoId);
+    logger.info(`🗑️ Progress photo deleted: [ID: ${photoId}] [Member: ${member._id}]`);
   }
 
   /**

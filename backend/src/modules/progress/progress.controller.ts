@@ -32,8 +32,24 @@ export class ProgressController {
   public static uploadProgressPhoto = asyncHandler(async (req: Request, res: Response) => {
     const requestedMemberId = req.user!.id;
     const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
-    const photo = await ProgressService.uploadProgressPhoto(validatedMember._id.toString(), req.body.imageUrl, req.body.angle);
+    const imageSource = req.body.image || req.body.imageUrl || req.body.photoUrl;
+    const angle = req.body.angle || 'front';
+    const notes = req.body.notes;
+    const photo = await ProgressService.uploadProgressPhoto(
+      validatedMember._id.toString(),
+      imageSource,
+      angle,
+      notes
+    );
     return sendSuccess(res, { photo }, 'Progress photo recorded successfully', 201);
+  });
+
+  public static deleteProgressPhoto = asyncHandler(async (req: Request, res: Response) => {
+    const requestedMemberId = req.user!.role === Role.MEMBER ? req.user!.id : undefined;
+    const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    const { photoId } = req.params;
+    await ProgressService.deleteProgressPhoto(validatedMember._id.toString(), photoId);
+    return sendSuccess(res, null, 'Progress photo deleted successfully', 200);
   });
 
   public static getProgressPhotos = asyncHandler(async (req: Request, res: Response) => {

@@ -13,7 +13,7 @@ const leadNoteSchema = new Schema(
     addedByUserId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
     },
     addedAt: {
       type: Date,

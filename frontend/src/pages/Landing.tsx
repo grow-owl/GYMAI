@@ -22,8 +22,10 @@ import {
   CheckCircle2,
   Menu,
   X,
+  Loader2,
 } from "lucide-react";
 import heroImg from "@/assets/hero-gym.png";
+import { saasInquiryApi } from "@/lib/endpoints";
 
 const steps = [
   {
@@ -133,17 +135,60 @@ const toneBg: Record<string, string> = {
 export default function Landing() {
   const { isAuthenticated, user } = useAuth();
   const dashboardPath = user ? (roleHome[user.role] ?? "/owner") : "/login";
-  const [formData, setFormData] = useState({ name: "", email: "", phone: "", message: "" });
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    gymName: "",
+    city: "",
+    message: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ name: "", email: "", phone: "", message: "" });
-    }, 4000);
+    setFormError(null);
+
+    const name = formData.name.trim();
+    const phone = formData.phone.trim();
+    const gym = formData.gymName.trim() || `${name}'s Gym`;
+
+    if (!name || name.length < 2) {
+      setFormError("Please enter your name (at least 2 characters).");
+      return;
+    }
+    if (!phone || phone.length < 8) {
+      setFormError("Please enter a valid phone number (at least 8 digits).");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await saasInquiryApi.create({
+        ownerName: name,
+        gymName: gym,
+        phone: phone,
+        email: formData.email.trim() || undefined,
+        city: formData.city.trim() || "Unspecified",
+        message: formData.message.trim() || undefined,
+      });
+
+      setSubmittedEmail(formData.email.trim() || formData.phone.trim());
+      setSubmitted(true);
+      setFormData({ name: "", email: "", phone: "", gymName: "", city: "", message: "" });
+    } catch (err: any) {
+      setFormError(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to submit inquiry. Please try again or reach out to us directly."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -524,25 +569,39 @@ export default function Landing() {
             {/* Right Side: Contact Form Card */}
             <div className="lg:col-span-6 rounded-2xl border border-white/15 bg-white/5 p-6 sm:p-8 backdrop-blur-sm shadow-xl">
               <h3 className="font-display text-xl font-bold text-white mb-1 flex items-center gap-2">
-                <MessageSquare size={20} className="text-(--color-accent)" /> Contact Us
+                <MessageSquare size={20} className="text-(--color-accent)" /> Contact Us & Request Demo
               </h3>
-              <p className="text-xs text-white/60 mb-5">Have questions or need a demo? Drop us a message below.</p>
+              <p className="text-xs text-white/60 mb-5">Have questions or want a custom trial workspace? Drop us your details below.</p>
 
               {submitted ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center animate-fade-in">
                   <span className="flex h-12 w-12 items-center justify-center rounded-full bg-(--color-good-soft) text-(--color-good) mb-3">
                     <CheckCircle2 size={28} />
                   </span>
-                  <h4 className="font-display text-lg font-bold text-white">Message Sent Successfully!</h4>
-                  <p className="text-xs text-white/70 mt-1.5 max-w-xs">
-                    Thank you for reaching out. We will get back to you at <span className="font-medium text-white">{formData.email || "your email"}</span> soon.
+                  <h4 className="font-display text-lg font-bold text-white">Inquiry Received Successfully!</h4>
+                  <p className="text-xs text-white/70 mt-1.5 max-w-xs leading-relaxed">
+                    Thank you for reaching out! Our team will contact you at{" "}
+                    <span className="font-semibold text-white">{submittedEmail || "your contact info"}</span> within 1 business day to set up your gym demo & custom trial.
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => setSubmitted(false)}
+                    className="mt-4 text-xs font-semibold text-(--color-accent) hover:underline cursor-pointer"
+                  >
+                    Submit another inquiry
+                  </button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+                  {formError && (
+                    <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-300">
+                      {formError}
+                    </div>
+                  )}
+
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Name</label>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Your Name *</label>
                       <input
                         type="text"
                         required
@@ -556,7 +615,6 @@ export default function Landing() {
                       <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Email</label>
                       <input
                         type="email"
-                        required
                         placeholder="rahul@fitgym.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -567,9 +625,11 @@ export default function Landing() {
 
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Phone</label>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Phone Number *</label>
                       <input
                         type="tel"
+                        required
+                        minLength={8}
                         placeholder="+91 98765 43210"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -577,23 +637,34 @@ export default function Landing() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Gym Name / Subject</label>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Gym Name *</label>
                       <input
                         type="text"
+                        required
                         placeholder="Gold's Fitness"
-                        value={formData.message.slice(0, 25)}
-                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                        value={formData.gymName}
+                        onChange={(e) => setFormData({ ...formData, gymName: e.target.value })}
                         className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Message</label>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">City / Location</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Message / Requirements</label>
                     <textarea
                       rows={3}
-                      required
-                      placeholder="Ask about gym onboarding, trainer plans, or pricing..."
+                      placeholder="Ask about gym onboarding, custom trial, trainer plans, or pricing..."
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                       className="w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder-white/40 focus:border-(--color-accent) focus:bg-white/10 focus:outline-none transition-all resize-none"
@@ -602,9 +673,18 @@ export default function Landing() {
 
                   <button
                     type="submit"
-                    className="btn-press btn-sheen mt-1 flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) text-(--color-navbar) font-semibold text-xs py-2.5 transition-all cursor-pointer shadow-md"
+                    disabled={submitting}
+                    className="btn-press btn-sheen mt-1 flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-strong) disabled:opacity-60 text-(--color-navbar) font-semibold text-xs py-2.5 transition-all cursor-pointer shadow-md"
                   >
-                    Send Message <Send size={14} className="icon-hover-pop" />
+                    {submitting ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" /> Submitting Inquiry...
+                      </>
+                    ) : (
+                      <>
+                        Send Message / Request Demo <Send size={14} className="icon-hover-pop" />
+                      </>
+                    )}
                   </button>
                 </form>
               )}

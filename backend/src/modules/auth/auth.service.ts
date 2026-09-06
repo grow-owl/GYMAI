@@ -10,7 +10,6 @@ import { NotificationType } from '../notification/notification.types';
 import { notificationTemplates } from '../notification/notificationTemplates';
 import { logger } from '../../config/logger';
 
-import { Member } from '../member/member.model';
 import { GymService } from '../gym/gym.service';
 
 import { Gym } from '../gym/gym.model';
@@ -24,68 +23,12 @@ function hashToken(token: string): string {
 
 export class AuthService {
   public static async registerUser(
-    input: Partial<IUser> & { referralCode?: string; ownerInviteCode?: string },
-    ipAddress?: string
+    _input: Partial<IUser> & { referralCode?: string; ownerInviteCode?: string },
+    _ipAddress?: string
   ): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
-    // GYM_OWNER accounts can ONLY be created by Super Admin via /api/v1/auth/register-owner
-    if (input.role === Role.GYM_OWNER) {
-      throw AppError.forbidden('Self-registration for GYM_OWNER is disabled. Gym Owner accounts must be created by Super Admin.');
-    }
-
-    const existing = await User.findOne({ email: input.email?.toLowerCase(), isDeleted: false });
-    if (existing) {
-      throw AppError.conflict('An active user account with this email address already exists');
-    }
-
-    let referredByMemberId: mongoose.Types.ObjectId | undefined;
-    if (input.referralCode) {
-      const referringMember = await Member.findOne({
-        referralCode: input.referralCode.trim(),
-        isDeleted: false,
-      });
-      if (referringMember) {
-        referredByMemberId = referringMember._id;
-        logger.info(`🔗 Registration referred by member [${referredByMemberId}]`);
-      }
-    }
-
-    const user = new User({
-      fullName: input.fullName,
-      email: input.email?.toLowerCase(),
-      phone: input.phone,
-      password: input.password,
-      role: input.role || Role.MEMBER,
-      referredByMemberId,
-      isActive: true,
-    });
-
-    await user.save();
-
-    const tokenPayload: TokenPayload = {
-      id: user._id.toString(),
-      role: user.role,
-      gymId: user.gymId?.toString(),
-      branchId: user.branchId?.toString(),
-    };
-
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
-
-    await RefreshToken.create({
-      userId: user._id,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
-      createdByIp: ipAddress,
-      revoked: false,
-    });
-
-    logger.info(`👤 User registered: [ID: ${user._id}] [Role: ${user.role}] [Email: ${user.email}]`);
-
-    return {
-      user,
-      accessToken,
-      refreshToken,
-    };
+    throw AppError.forbidden(
+      'Public self-registration is disabled. Gym SaaS workspaces are provisioned by our team, and gym members are enrolled directly by their gym.'
+    );
   }
 
   public static async loginUser(
@@ -350,6 +293,7 @@ export class AuthService {
     gymName: string;
     branchName?: string;
     plan?: any;
+    trialDays?: number;
   }): Promise<{ user: IUser; gym: any; primaryBranch: any; tempPassword: string }> {
     const existing = await User.findOne({ email: input.email.toLowerCase(), isDeleted: false });
     if (existing) {
@@ -373,6 +317,7 @@ export class AuthService {
       billingEmail: input.email,
       branchName: input.branchName || 'Main Branch',
       plan: input.plan || 'TRIAL',
+      trialDays: input.trialDays,
       contactPhone: input.phone,
     });
 

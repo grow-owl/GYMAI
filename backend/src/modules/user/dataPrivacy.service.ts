@@ -6,9 +6,12 @@ import { Gym } from '../gym/gym.model';
 import { Attendance } from '../attendance/attendance.model';
 import { WorkoutLog } from '../workout/workoutLog.model';
 import { MemberPayment } from '../payment/memberPayment.model';
+import { ProgressPhoto } from '../progress/progressPhoto.model';
 import { Role } from '../../common/constants/roles.enum';
 import { AppError } from '../../common/utils/AppError';
 import { logger } from '../../config/logger';
+import { cloudinaryUpload } from '../../config/cloudinary';
+import { env } from '../../config/env';
 
 export class DataPrivacyService {
   /**
@@ -135,6 +138,33 @@ export class DataPrivacyService {
     let anonymizedCount = 0;
 
     for (const user of pendingUsers) {
+      // Clean up member progress photos from Cloudinary and DB
+      try {
+        const member = await Member.findOne({ userId: user._id });
+        if (member) {
+          const photos = await ProgressPhoto.find({ memberId: member._id });
+          const publicIds = photos
+            .map((p) => p.cloudinaryPublicId)
+            .filter((id): id is string => Boolean(id && !id.startsWith('mock_')));
+
+          if (
+            publicIds.length > 0 &&
+            env.NODE_ENV !== 'test' &&
+            Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET && env.CLOUDINARY_API_KEY !== 'dev_key')
+          ) {
+            try {
+              await cloudinaryUpload.api.delete_resources(publicIds);
+              logger.info(`🧹 Cloudinary batch progress photos destroyed for member ${member._id}: [Count: ${publicIds.length}]`);
+            } catch (cErr: any) {
+              logger.warn(`Failed to batch destroy Cloudinary photos: ${cErr.message}`);
+            }
+          }
+          await ProgressPhoto.deleteMany({ memberId: member._id });
+        }
+      } catch (err: any) {
+        logger.warn(`Failed to clean up progress photos for user ${user._id}: ${err.message}`);
+      }
+
       user.fullName = 'Anonymized User';
       user.email = `anonymized_${user._id}@deleted.local`;
       user.phone = '0000000000';

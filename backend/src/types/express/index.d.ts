@@ -10,7 +10,7 @@ declare global {
         branchId?: string;
       };
       tenant?: {
-        gymId: string;
+        gymId?: string;
         branchId?: string;
       };
       id?: string; // Request correlation ID

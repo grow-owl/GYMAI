@@ -75,6 +75,7 @@ const PasswordReset = lazy(() => import("@/pages/admin/PasswordReset"));
 const Analytics = lazy(() => import("@/pages/admin/Analytics"));
 const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
+const JoinBranch = lazy(() => import("@/pages/public/JoinBranch"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 function PageLoader() {
@@ -162,6 +163,7 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Landing />} />
+              <Route path="/join/:branchId" element={<JoinBranch />} />
 
               {/* Guest / Public Only Auth Routes */}
               <Route element={<PublicOnlyRoute />}>
