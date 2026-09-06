@@ -14,6 +14,19 @@ import { logger } from '../../config/logger';
 const MEDICAL_DISCLAIMER =
   'IMPORTANT MEDICAL DISCLAIMER: AI fitness recommendations and insights are for educational and motivational purposes only. They do not constitute medical, diagnostic, or prescription advice. Always consult a qualified healthcare professional or certified personal trainer before starting new intensive training or dietary regimens.';
 
+/**
+ * Robust helper to clean and parse JSON responses from AI models that may be enclosed in markdown code fences
+ */
+function parseAIJsonResponse(raw: string): any {
+  let cleaned = raw.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+  return JSON.parse(cleaned.trim());
+}
+
 export class AICoachService {
   public static async generatePersonalizedSuggestions(memberId: string): Promise<{
     insights: string[];
@@ -49,7 +62,7 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
         jsonMode: true,
       });
 
-      const parsedJson = JSON.parse(result);
+      const parsedJson = parseAIJsonResponse(result);
       const validated = aiSuggestionsResponseSchema.parse(parsedJson);
 
       return {
@@ -106,7 +119,7 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
       const { result } = await AIProviderFactory.executeWithFailover(systemPrompt, userPrompt, {
         jsonMode: true,
       });
-      const parsed = JSON.parse(result);
+      const parsed = parseAIJsonResponse(result);
       const suggestions = Array.isArray(parsed) ? parsed : parsed.suggestions || Object.values(parsed);
 
       return {
@@ -153,7 +166,7 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
     let summary = `Over the past ${periodDays} days, you logged ${context.attendanceStats.totalVisits} visit(s) with a ${context.workoutStats.completionRatePercent}% workout completion rate.`;
     let insights = ['Consistent workout logging', 'Good attendance habits'];
     let recommendations = ['Keep pushing towards target goals', 'Maintain sleep hygiene'];
-    let providerUsed = AIProvider.OPENAI;
+    let providerUsed = AIProvider.GEMINI;
 
     try {
       const { result, providerUsed: pUsed } = await AIProviderFactory.executeWithFailover(
@@ -162,7 +175,7 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
         { jsonMode: true }
       );
       providerUsed = pUsed;
-      const parsed = JSON.parse(result);
+      const parsed = parseAIJsonResponse(result);
       if (parsed.summary) summary = parsed.summary;
       if (Array.isArray(parsed.insights)) insights = parsed.insights;
       if (Array.isArray(parsed.recommendations)) recommendations = parsed.recommendations;
@@ -178,14 +191,14 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
       periodEnd: now,
       summary,
       metrics: {
-        attendanceRate: Math.min(100, Math.round((context.attendanceStats.totalVisits / (periodDays * 0.5)) * 100)),
+        attendanceRate: Math.min(100, Math.round((context.attendanceStats.totalVisits / (periodDays * 0.6)) * 100)),
         workoutCompletionRate: context.workoutStats.completionRatePercent,
         avgSleepHours: context.wellnessAverages.avgSleepHours,
         avgWaterIntakeMl: context.wellnessAverages.avgWaterMl,
         weightChangeKg:
           context.weightTrend.length >= 2
             ? Math.round((context.weightTrend[0].weightKg - context.weightTrend[context.weightTrend.length - 1].weightKg) * 10) / 10
-            : 0,
+            : undefined,
         recoveryScore: context.recoveryScore,
         recoveryCategory: context.recoveryCategory,
       },
@@ -193,8 +206,9 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
       recommendations,
       plateauDetected: plateau.plateauDetected,
       injuryRiskFlag: injuryRisk.injuryRiskFlag,
-      injuryRiskReason: injuryRisk.reason || plateau.reason,
+      injuryRiskReason: injuryRisk.reason,
       generatedByProvider: providerUsed,
+      createdAt: now,
     });
 
     await report.save();
@@ -230,27 +244,48 @@ Analyze the provided member fitness context and respond ONLY in STRICT JSON form
     let confidence: 'low' | 'medium' | 'high' = 'low';
     let explanation = 'Insufficient data points to compute an accurate trend date projection.';
 
+    const isWeightGainGoal =
+      targetWeight > currentWeight ||
+      (context.fitnessGoals &&
+        context.fitnessGoals.some((g) => g.toLowerCase().includes('gain') || g.toLowerCase().includes('hypertrophy')));
+
     if (context.weightTrend.length >= 3) {
       const latest = context.weightTrend[0].weightKg;
       const oldest = context.weightTrend[context.weightTrend.length - 1].weightKg;
-      const totalDeltaKg = oldest - latest;
 
       const newestDate = new Date(context.weightTrend[0].date);
       const oldestDate = new Date(context.weightTrend[context.weightTrend.length - 1].date);
       const timeDiffMs = newestDate.getTime() - oldestDate.getTime();
       const actualWeeksElapsed = timeDiffMs / (1000 * 60 * 60 * 24 * 7);
 
-      if (actualWeeksElapsed > 0 && totalDeltaKg > 0) {
-        const weeklyLossRate = totalDeltaKg / actualWeeksElapsed;
-        const remainingKg = Math.abs(latest - targetWeight);
-        const weeksNeeded = remainingKg / Math.max(0.1, weeklyLossRate);
-        predictedDate = new Date(Date.now() + weeksNeeded * 7 * 24 * 60 * 60 * 1000);
-        confidence = context.weightTrend.length > 5 ? 'high' : 'medium';
-        explanation = `Based on a steady weight loss rate of ~${weeklyLossRate.toFixed(1)}kg/week over ${
-          context.weightTrend.length
-        } data points.`;
-      } else if (totalDeltaKg <= 0) {
-        explanation = 'Weight is currently steady or gaining; maintain caloric deficit to trigger target date calculation.';
+      if (isWeightGainGoal) {
+        const totalGainedKg = latest - oldest;
+        if (actualWeeksElapsed > 0 && totalGainedKg > 0) {
+          const weeklyGainRate = totalGainedKg / actualWeeksElapsed;
+          const remainingKg = Math.max(0, targetWeight - latest);
+          const weeksNeeded = remainingKg / Math.max(0.1, weeklyGainRate);
+          predictedDate = new Date(Date.now() + weeksNeeded * 7 * 24 * 60 * 60 * 1000);
+          confidence = context.weightTrend.length > 5 ? 'high' : 'medium';
+          explanation = `Based on a steady muscle/weight gain rate of ~${weeklyGainRate.toFixed(1)}kg/week over ${
+            context.weightTrend.length
+          } data points.`;
+        } else {
+          explanation = 'Weight progress is steady; maintain a progressive caloric surplus and progressive overload to reach your target bulk goal.';
+        }
+      } else {
+        const totalLossKg = oldest - latest;
+        if (actualWeeksElapsed > 0 && totalLossKg > 0) {
+          const weeklyLossRate = totalLossKg / actualWeeksElapsed;
+          const remainingKg = Math.max(0, latest - targetWeight);
+          const weeksNeeded = remainingKg / Math.max(0.1, weeklyLossRate);
+          predictedDate = new Date(Date.now() + weeksNeeded * 7 * 24 * 60 * 60 * 1000);
+          confidence = context.weightTrend.length > 5 ? 'high' : 'medium';
+          explanation = `Based on a steady weight loss rate of ~${weeklyLossRate.toFixed(1)}kg/week over ${
+            context.weightTrend.length
+          } data points.`;
+        } else {
+          explanation = 'Weight is currently steady or gaining; maintain caloric deficit to trigger target date calculation.';
+        }
       }
     }
 

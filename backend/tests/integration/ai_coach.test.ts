@@ -23,6 +23,7 @@ import { generateAccessToken } from '../../src/common/utils/generateTokens';
 import { DietPlan } from '../../src/modules/dietPlan/dietPlan.model';
 import { DailyWellness } from '../../src/modules/progress/dailyWellness.model';
 import { Product } from '../../src/modules/product/product.model';
+import { ProgressPhoto } from '../../src/modules/progress/progressPhoto.model';
 import { PlanStatus } from '../../src/modules/workout/workoutPlan.types';
 
 let mongoServer: MongoMemoryServer;
@@ -65,6 +66,7 @@ describe('AI Fitness Coach Module Integration Tests', () => {
     await DietPlan.deleteMany({});
     await DailyWellness.deleteMany({});
     await Product.deleteMany({});
+    await ProgressPhoto.deleteMany({});
 
     // 1. Create Owner & Gym & Branch
     const owner = await User.create({
@@ -258,6 +260,65 @@ describe('AI Fitness Coach Module Integration Tests', () => {
 
       expect(archiveRes.status).toBe(200);
       expect(archiveRes.body.data.conversation.isArchived).toBe(true);
+    });
+
+    it('should include progress photo context in buildMemberContext', async () => {
+      await ProgressPhoto.create({
+        gymId,
+        memberId: memberDocId,
+        imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+        angle: 'front',
+        notes: 'Feeling leaner around the waist',
+        recordedAt: new Date(),
+        dayKey: '2026-08-01',
+      });
+
+      const context = await AIDataAggregatorService.buildMemberContext(memberDocId);
+      expect(context.progressPhotos).toBeDefined();
+      expect(context.progressPhotos?.totalCount).toBe(1);
+      expect(context.progressPhotos?.anglesLogged).toContain('front');
+      expect(context.progressPhotos?.recentPhotos[0].notes).toBe('Feeling leaner around the waist');
+    });
+
+    it('should enforce per-user daily message limit and inform user when limit is reached', async () => {
+      // Seed 5 user messages today to reach the 5-message daily limit
+      const conv = await AIConversation.create({
+        userId: memberUserId,
+        gymId,
+        title: 'Limit Test',
+        lastMessageAt: new Date(),
+      });
+
+      for (let i = 0; i < 5; i++) {
+        await AIChatMessage.create({
+          userId: memberUserId,
+          gymId,
+          conversationId: conv._id,
+          role: 'user',
+          content: `Question ${i + 1}`,
+          createdAt: new Date(),
+        });
+      }
+
+      // Sending the 6th message should trigger limit notice without calling Gemini
+      const res = await request(app)
+        .post(`/api/v1/ai/chat/conversations/${conv._id}/messages`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ content: 'One more question please!' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.replyMessage.content).toContain('limit poora ho chuka hai');
+    });
+
+    it('should route chat strictly to Gemini and format honest responses', async () => {
+      const result = await AIProviderFactory.executeChatWithGemini(
+        [{ role: 'user', content: 'What is progressive overload?' }],
+        'You are an AI Coach.'
+      );
+
+      expect(result.providerUsed).toBe(AIProvider.GEMINI);
+      expect(result.reply).toBeDefined();
+      expect(typeof result.reply).toBe('string');
     });
   });
 

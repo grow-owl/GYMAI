@@ -17,18 +17,21 @@ import { IAIConversation, IAIChatMessage } from './aiCoach.types';
 import { AppError } from '../../common/utils/AppError';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 import { logger } from '../../config/logger';
+import { env } from '../../config/env';
 
 const SYSTEM_MEMBER_CHAT_PROMPT = (memberName: string, contextSummary: string, productsSummary: string) => `
-You are the AI Fitness & Nutrition Coach for ${memberName} on our Gym SaaS Platform.
+You are the elite AI Fitness & Nutrition Coach for ${memberName} on our Gym SaaS Platform.
 Context Grounding: ${contextSummary}
 Available Gym Store Products & Supplements: ${productsSummary || 'Whey Protein, Creatine Monohydrate, BCAAs, Multivitamins, Personal Training Sessions'}
 
 Rules & Directives:
-1. Provide enthusiastic, scientifically sound fitness, nutrition, workout, and recovery guidance tailored to ${memberName}.
-2. GYM PROMOTION & UPSELLING (BIASED IN FAVOR OF THE GYM): Whenever relevant (e.g. discussing protein gaps, muscle growth, recovery, energy levels, or workout stagnation), actively recommend relevant supplements, gear, or Personal Training sessions available in our gym's store. Highlight how buying directly from the gym ensures authentic quality and faster results!
-3. Encourage consistent gym attendance and long-term membership retention.
-4. MANDATORY SAFETY DISCLAIMER: Never provide medical diagnoses or drug dosages. Advise consulting a physician or certified personal trainer for injury symptoms.
-5. If user asks general fitness/health questions, answer thoroughly with actionable advice.
+1. STRICT DOMAIN GUARDRAILS & OFF-TOPIC REFUSAL: You are EXCLUSIVELY a Fitness, Nutrition, Exercise, and Recovery Coach. If the user asks about unrelated subjects (such as programming/coding, politics, entertainment/movies, math puzzles, homework, non-fitness trivia, etc.), POLITELY REFUSE to answer. Say: "I am your dedicated Gym & Fitness Coach! I only answer questions related to your workouts, nutrition, recovery, and fitness goals. Let's get back to your gains—how can I help with your training today?"
+2. ZERO HALLUCINATION POLICY: Never invent, guess, or hallucinate past workout statistics, weight history, personal records (PRs), or medical diagnoses not present in your context. If specific history is missing, advise the member to log it in their Workout/Progress tab.
+3. GYM PROMOTION & UPSELLING (BIASED IN FAVOR OF THE GYM): Whenever relevant (e.g. discussing protein gaps, muscle growth, recovery, energy levels, or workout stagnation), actively recommend relevant supplements, gear, or Personal Training sessions available in our gym's store. Highlight how buying directly from the gym ensures authentic quality and faster results!
+4. Encourage consistent gym attendance and long-term membership retention.
+5. MANDATORY SAFETY DISCLAIMER: Never provide medical diagnoses or drug dosages. Advise consulting a physician or certified personal trainer for injury symptoms.
+6. If user asks general fitness/health questions (e.g. routines, form, macros, sleep, hydration), answer thoroughly with actionable, science-backed guidance.
+7. PROGRESS PHOTO & VISUAL TRACKING AWARENESS: You have direct visibility into the member's progress photo check-in history. If they ask about body composition, aesthetic changes, toning, or muscle definition, reference their uploaded photo history and notes. If they have logged notes on photos (e.g., "waist looking tighter"), acknowledge and validate their progress. If they haven't uploaded photos recently, encourage taking front/side/back check-in photos every 2-4 weeks in their Progress tab!
 `;
 
 const SYSTEM_OWNER_CHAT_PROMPT = (ownerName: string, gymName: string, metricsSummary: string) => `
@@ -38,10 +41,24 @@ LIVE GYM DATABASE METRICS & CONTEXT:
 ${metricsSummary}
 
 Rules & Directives:
-1. SPECIFIC GYM QUERIES: When asked about revenue, members, churn risk, trainers, expenses, equipment, or leads for this gym, cite the live data given above accurately.
-2. GENERAL QUERIES & ADVICE: If asked for general business strategies, marketing ideas, gym management tips, staff hiring, peak hour management, or supplement sales techniques, provide comprehensive, practical, step-by-step guidance. Never say you don't have information — provide expert industry recommendations.
-3. FORMATTING: Use clean markdown with clear bullet points, numbered lists, and bold headings to make responses easy to read.
-4. BE PROACTIVE: Offer high-value, actionable insights to increase member retention, drive revenue, and streamline operations.
+1. STRICT DOMAIN GUARDRAILS & OFF-TOPIC REFUSAL: You are EXCLUSIVELY a Gym Business, Operations, Revenue, Member Retention, and Staff Management Advisor. If the user asks about unrelated topics (such as code, politics, pop culture, non-business trivia, etc.), politely decline and steer the conversation back to gym revenue, operations, marketing, or member retention.
+2. ZERO FINANCIAL HALLUCINATION: When asked about revenue, members, churn risk, trainers, expenses, equipment, or leads for this gym, cite the live database metrics given above strictly and accurately. Never fabricate or invent financial numbers.
+3. GENERAL BUSINESS ADVICE: If asked for general gym business strategies, marketing campaigns, retention protocols, staff hiring, peak hour management, or supplement retail tactics, provide comprehensive, practical, step-by-step guidance grounded in the fitness industry.
+4. FORMATTING & TONE: Use clean markdown with clear bullet points, numbered lists, and bold headings to make responses executive-ready, direct, and actionable.
+5. BE PROACTIVE: Offer high-value, actionable insights to increase member retention, drive revenue, and streamline operations.
+`;
+
+const SYSTEM_TRAINER_CHAT_PROMPT = (trainerName: string, gymName: string, trainerContext: string) => `
+You are the Master Strength & Conditioning Mentor and AI Head Coach Advisor for ${trainerName} at ${gymName}.
+
+LIVE TRAINER CONTEXT & CLIENT ROSTER:
+${trainerContext}
+
+Rules & Directives:
+1. STRICT DOMAIN GUARDRAILS: You are EXCLUSIVELY an Assistant for Personal Trainers, Strength & Conditioning, Exercise Biomechanics, Client Program Design, and Periodization. If the user asks about unrelated topics (such as coding, politics, pop culture, non-fitness trivia, etc.), POLITELY REFUSE to answer.
+2. PROFESSIONAL COACHING ADVICE: Provide advanced, evidence-based guidance on client workout programming (Push/Pull/Legs, Upper/Lower, Full Body splits), progressive overload models (linear, wave, undulating), managing client fatigue (RPE/RIR), exercise regressions/progressions for injuries, and client retention techniques.
+3. CLIENT SAFETY: When helping with clients who have injuries, always prioritize biomechanical safety and suggest safe exercise alternatives.
+4. FORMATTING & TONE: Use clean markdown with clear bullet points, numbered lists, and bold headings to make responses direct, professional, and actionable.
 `;
 
 export class AIChatbotService {
@@ -116,7 +133,84 @@ export class AIChatbotService {
   }
 
   /**
-   * Start a New AI Chatbot Conversation (Member or Gym Owner)
+   * Helper to format comprehensive, deeply grounded member context
+   */
+  private static formatMemberContextSummary(context: any): string {
+    const photosSummary =
+      context.progressPhotos && context.progressPhotos.totalCount > 0
+        ? `Total Uploaded: ${context.progressPhotos.totalCount} (Angles: ${context.progressPhotos.anglesLogged.join(', ')}). Latest Check-in: ${context.progressPhotos.latestDate} (${context.progressPhotos.daysSinceLastPhoto} days ago). Recent notes: ${context.progressPhotos.recentPhotos.map((p: any) => `${p.date} [${p.angle}]: ${p.notes || 'No note'}`).join('; ')}`
+        : 'No progress photos logged yet.';
+
+    return `
+- Member Name: ${context.fullName}
+- Primary Fitness Goals: ${context.fitnessGoals?.join(', ') || 'General Fitness & Well-being'}
+- Current Weight: ${context.currentWeight_kg ? `${context.currentWeight_kg} kg` : 'Not logged yet'}
+- Target Goal Weight: ${context.targetWeight_kg ? `${context.targetWeight_kg} kg` : 'Not set yet'}
+- Total Gym Visits / Attendance: ${context.attendanceStats.totalVisits} sessions
+- Workout Completion Rate: ${context.workoutStats.completionRatePercent}%
+- Current Recovery Status: ${context.recoveryCategory || 'Good to Train'} (Readiness Score: ${context.recoveryScore || 75}/100)
+- Average Sleep: ${context.wellnessAverages.avgSleepHours ? `${context.wellnessAverages.avgSleepHours} hrs/night` : 'Not logged'}
+- Average Daily Water: ${context.wellnessAverages.avgWaterMl ? `${context.wellnessAverages.avgWaterMl} ml` : 'Not logged'}
+- Member Progress Photos / Visual Tracking: ${photosSummary}
+${context.injuries?.length ? `- Documented Physical Injuries/Limitations: ${context.injuries.join(', ')} (SAFETY CRITICAL: Do not prescribe exercises that stress these injured areas!)` : '- No documented injuries'}
+    `.trim();
+  }
+
+  /**
+   * Helper to format comprehensive context for a Trainer
+   */
+  private static async getTrainerContextSummary(trainerDocId: mongoose.Types.ObjectId): Promise<string> {
+    try {
+      const trainer = await Trainer.findById(trainerDocId).populate('userId', 'fullName email');
+      const assignedMembers = await Member.find({ assignedTrainerId: trainerDocId, isDeleted: false })
+        .populate('userId', 'fullName')
+        .select('fitnessGoals status healthInfo');
+
+      const clientsList = assignedMembers
+        .slice(0, 10)
+        .map((m) => {
+          const name = (m.userId as any)?.fullName || 'Client';
+          const goals = m.fitnessGoals?.join(', ') || 'General Fitness';
+          return `${name} (Goal: ${goals}, Status: ${m.membershipStatus})`;
+        })
+        .join('; ');
+
+      return `
+- Trainer Name: ${(trainer?.userId as any)?.fullName || 'Trainer'}
+- Specializations: ${trainer?.specializations?.join(', ') || 'General Strength & Conditioning'}
+- Total Assigned Clients: ${assignedMembers.length}
+- Client Roster Overview: ${clientsList || 'No clients currently assigned'}
+      `.trim();
+    } catch {
+      return 'Trainer: Personal Trainer, Specializations: Strength & Conditioning';
+    }
+  }
+
+  /**
+   * Check if user has reached their daily question quota
+   */
+  public static async checkUserDailyLimit(
+    userId: string
+  ): Promise<{ isExceeded: boolean; todayCount: number; limit: number }> {
+    const limit = env.AI_DAILY_USER_MESSAGE_LIMIT || 5;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const todayCount = await AIChatMessage.countDocuments({
+      userId: new mongoose.Types.ObjectId(userId),
+      role: 'user',
+      createdAt: { $gte: startOfToday },
+    });
+
+    return {
+      isExceeded: todayCount >= limit,
+      todayCount,
+      limit,
+    };
+  }
+
+  /**
+   * Start a New AI Chatbot Conversation (Member, Trainer, or Gym Owner)
    */
   public static async startConversation(
     userId: string,
@@ -124,10 +218,13 @@ export class AIChatbotService {
     role: string = 'MEMBER'
   ): Promise<{ conversation: IAIConversation; replyMessage: IAIChatMessage }> {
     const isOwnerOrAdmin = ['GYM_OWNER', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(role);
+    const isTrainer = role === 'TRAINER';
 
     let memberIdObj: mongoose.Types.ObjectId | undefined;
+    let trainerIdObj: mongoose.Types.ObjectId | undefined;
     let gymIdObj: mongoose.Types.ObjectId | undefined;
     let userFullName = 'User';
+    let systemPrompt = '';
 
     if (isOwnerOrAdmin) {
       const user = await User.findById(userId);
@@ -136,6 +233,18 @@ export class AIChatbotService {
 
       const gym = await Gym.findOne({ ownerId: user._id, isDeleted: false });
       gymIdObj = gym?._id as mongoose.Types.ObjectId;
+      const metricsSummary = gymIdObj ? await AIChatbotService.getOwnerMetricsSummary(gymIdObj) : '';
+      systemPrompt = SYSTEM_OWNER_CHAT_PROMPT(userFullName, gym?.name || 'Gym', metricsSummary);
+    } else if (isTrainer) {
+      const trainer = await Trainer.findOne({ userId, isDeleted: false }).populate('userId', 'fullName');
+      if (!trainer) throw AppError.notFound('Trainer profile not found');
+      trainerIdObj = trainer._id as mongoose.Types.ObjectId;
+      gymIdObj = trainer.gymId as mongoose.Types.ObjectId;
+      userFullName = (trainer.userId as any)?.fullName || 'Trainer';
+
+      const gym = await Gym.findById(gymIdObj);
+      const trainerContext = await AIChatbotService.getTrainerContextSummary(trainerIdObj);
+      systemPrompt = SYSTEM_TRAINER_CHAT_PROMPT(userFullName, gym?.name || 'Gym', trainerContext);
     } else {
       const member = await Member.findOne({
         $or: [
@@ -149,12 +258,22 @@ export class AIChatbotService {
       memberIdObj = member._id as mongoose.Types.ObjectId;
       gymIdObj = member.gymId as mongoose.Types.ObjectId;
       userFullName = (member.userId as unknown as { fullName?: string })?.fullName || 'Member';
+
+      const context = await AIDataAggregatorService.buildMemberContext(memberIdObj.toString());
+      const contextSummary = AIChatbotService.formatMemberContextSummary(context);
+      const productsSummary = gymIdObj ? await AIChatbotService.getGymProductsSummary(gymIdObj.toString()) : '';
+      systemPrompt = SYSTEM_MEMBER_CHAT_PROMPT(userFullName, contextSummary, productsSummary);
     }
+
+    // 1. Check Per-User Daily Limit (each person gets their own 5 questions/day)
+    const { isExceeded, limit } = await AIChatbotService.checkUserDailyLimit(userId);
 
     const title = firstMessage.length > 30 ? `${firstMessage.substring(0, 30)}...` : firstMessage;
 
     const conversation = new AIConversation({
       memberId: memberIdObj,
+      trainerId: trainerIdObj,
+      userId: new mongoose.Types.ObjectId(userId),
       gymId: gymIdObj,
       title,
       lastMessageAt: new Date(),
@@ -162,9 +281,11 @@ export class AIChatbotService {
 
     await conversation.save();
 
-    // Store User Message
+    // 2. Store User Message
     const userMsg = new AIChatMessage({
       memberId: memberIdObj,
+      trainerId: trainerIdObj,
+      userId: new mongoose.Types.ObjectId(userId),
       gymId: gymIdObj,
       conversationId: conversation._id,
       role: 'user',
@@ -172,31 +293,24 @@ export class AIChatbotService {
     });
     await userMsg.save();
 
-    let systemPrompt = '';
-
-    if (isOwnerOrAdmin && gymIdObj) {
-      const metricsSummary = await AIChatbotService.getOwnerMetricsSummary(gymIdObj);
-      const gym = await Gym.findById(gymIdObj);
-      systemPrompt = SYSTEM_OWNER_CHAT_PROMPT(userFullName, gym?.name || 'Gym', metricsSummary);
-    } else if (memberIdObj && gymIdObj) {
-      const context = await AIDataAggregatorService.buildMemberContext(memberIdObj.toString());
-      const contextSummary = `Goal: ${context.fitnessGoals?.join(', ') || 'General Fitness'}, Target Weight: ${context.targetWeight_kg || 'N/A'}kg, Current Weight: ${context.currentWeight_kg || 'N/A'}kg, Visits: ${context.attendanceStats.totalVisits}`;
-
-      const productsSummary = await AIChatbotService.getGymProductsSummary(gymIdObj.toString());
-      systemPrompt = SYSTEM_MEMBER_CHAT_PROMPT(userFullName, contextSummary, productsSummary);
+    let reply: string;
+    if (isExceeded) {
+      logger.warn(`🛑 User ${userId} exceeded daily AI limit (${limit} msgs/day)`);
+      reply = `⚠️ Aapka daily AI question limit poora ho chuka hai (Limit: ${limit} questions/din). Kripya kal dobara prayas karein.`;
     } else {
-      systemPrompt = `You are an AI Assistant for the Gym SaaS platform. Provide helpful, encouraging fitness & business advice.`;
+      // Call AI Engine strictly with Gemini
+      const aiResult = await AIProviderFactory.executeChatWithGemini(
+        [{ role: 'user', content: firstMessage }],
+        systemPrompt
+      );
+      reply = aiResult.reply;
     }
-
-    // Call AI Engine with failover
-    const { reply } = await AIProviderFactory.executeChatWithFailover(
-      [{ role: 'user', content: firstMessage }],
-      systemPrompt
-    );
 
     // Store Assistant Reply
     const assistantMsg = new AIChatMessage({
       memberId: memberIdObj,
+      trainerId: trainerIdObj,
+      userId: new mongoose.Types.ObjectId(userId),
       gymId: gymIdObj,
       conversationId: conversation._id,
       role: 'assistant',
@@ -204,7 +318,7 @@ export class AIChatbotService {
     });
     await assistantMsg.save();
 
-    logger.info(`💬 AI Conversation started: [ID: ${conversation._id}] [User: ${userId}]`);
+    logger.info(`💬 AI Conversation started: [ID: ${conversation._id}] [User: ${userId}] [Role: ${role}]`);
     return { conversation, replyMessage: assistantMsg };
   }
 
@@ -228,47 +342,79 @@ export class AIChatbotService {
       throw AppError.notFound('Conversation not found or archived');
     }
 
-    // 1. Store User Message
+    // Enforce conversation ownership
+    if (conversation.userId && conversation.userId.toString() !== userId) {
+      throw AppError.forbidden('You do not have permission to send messages to this conversation');
+    }
+
+    // 1. Check Per-User Daily Limit (each person gets their own 5 questions/day)
+    const { isExceeded, limit } = await AIChatbotService.checkUserDailyLimit(userId);
+
+    // 2. Store User Message
     await AIChatMessage.create({
       memberId: conversation.memberId,
+      trainerId: conversation.trainerId,
+      userId: new mongoose.Types.ObjectId(userId),
       gymId: conversation.gymId,
       conversationId: conversation._id,
       role: 'user',
       content,
     });
 
-    // 2. Fetch Recent Message History (last 20 messages)
-    const recentMessages = await AIChatMessage.find({ conversationId: conversation._id })
-      .sort({ createdAt: -1 })
-      .limit(20);
-
-    const history = recentMessages.reverse().map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
-
-    let systemPrompt = '';
-
-    if (isOwnerOrAdmin && conversation.gymId) {
-      const gym = await Gym.findById(conversation.gymId);
-      const user = await User.findById(userId);
-      const metricsSummary = await AIChatbotService.getOwnerMetricsSummary(conversation.gymId as mongoose.Types.ObjectId);
-      systemPrompt = SYSTEM_OWNER_CHAT_PROMPT(user?.fullName || 'Owner', gym?.name || 'Gym', metricsSummary);
-    } else if (conversation.memberId && conversation.gymId) {
-      const context = await AIDataAggregatorService.buildMemberContext(conversation.memberId.toString());
-      const contextSummary = `Goal: ${context.fitnessGoals?.join(', ') || 'Fitness'}, Current Weight: ${context.currentWeight_kg || 'N/A'}kg`;
-      const productsSummary = await AIChatbotService.getGymProductsSummary(conversation.gymId.toString());
-      systemPrompt = SYSTEM_MEMBER_CHAT_PROMPT('Member', contextSummary, productsSummary);
+    let reply: string;
+    if (isExceeded) {
+      logger.warn(`🛑 User ${userId} exceeded daily AI limit (${limit} msgs/day)`);
+      reply = `⚠️ Aapka daily AI question limit poora ho chuka hai (Limit: ${limit} questions/din). Kripya kal dobara prayas karein.`;
     } else {
-      systemPrompt = `You are a helpful AI Assistant for Gym SaaS.`;
+      // 3. Fetch Recent Message History (last 20 messages)
+      const recentMessages = await AIChatMessage.find({ conversationId: conversation._id })
+        .sort({ createdAt: -1 })
+        .limit(20);
+
+      const history = recentMessages.reverse().map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+      let systemPrompt = '';
+
+      if ((isOwnerOrAdmin || (!conversation.memberId && !conversation.trainerId)) && conversation.gymId) {
+        const gym = await Gym.findById(conversation.gymId);
+        const user = await User.findById(userId);
+        const metricsSummary = await AIChatbotService.getOwnerMetricsSummary(
+          conversation.gymId as mongoose.Types.ObjectId
+        );
+        systemPrompt = SYSTEM_OWNER_CHAT_PROMPT(user?.fullName || 'Owner', gym?.name || 'Gym', metricsSummary);
+      } else if (conversation.trainerId) {
+        const trainer = await Trainer.findById(conversation.trainerId).populate('userId', 'fullName');
+        const gym = await Gym.findById(conversation.gymId);
+        const trainerContext = await AIChatbotService.getTrainerContextSummary(
+          conversation.trainerId as mongoose.Types.ObjectId
+        );
+        systemPrompt = SYSTEM_TRAINER_CHAT_PROMPT(
+          (trainer?.userId as any)?.fullName || 'Trainer',
+          gym?.name || 'Gym',
+          trainerContext
+        );
+      } else if (conversation.memberId && conversation.gymId) {
+        const context = await AIDataAggregatorService.buildMemberContext(conversation.memberId.toString());
+        const contextSummary = AIChatbotService.formatMemberContextSummary(context);
+        const productsSummary = await AIChatbotService.getGymProductsSummary(conversation.gymId.toString());
+        systemPrompt = SYSTEM_MEMBER_CHAT_PROMPT(context.fullName || 'Member', contextSummary, productsSummary);
+      } else {
+        systemPrompt = `You are a helpful AI Assistant for Gym SaaS.`;
+      }
+
+      // 4. Call AI Provider strictly with Gemini
+      const aiResult = await AIProviderFactory.executeChatWithGemini(history, systemPrompt);
+      reply = aiResult.reply;
     }
 
-    // 3. Call AI Provider with failover
-    const { reply } = await AIProviderFactory.executeChatWithFailover(history, systemPrompt);
-
-    // 4. Store Assistant Message
+    // 5. Store Assistant Message
     const assistantMsg = new AIChatMessage({
       memberId: conversation.memberId,
+      trainerId: conversation.trainerId,
+      userId: new mongoose.Types.ObjectId(userId),
       gymId: conversation.gymId,
       conversationId: conversation._id,
       role: 'assistant',
@@ -287,7 +433,7 @@ export class AIChatbotService {
    */
   public static async getConversationHistory(
     conversationId: string,
-    _userId: string,
+    userId: string,
     options: { page?: number | string; limit?: number | string } = {}
   ): Promise<{ messages: IAIChatMessage[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { page, limit, skip }: ParsedPagination = getPaginationParams(options);
@@ -298,6 +444,11 @@ export class AIChatbotService {
 
     if (!conversation) {
       throw AppError.notFound('Conversation not found');
+    }
+
+    // Enforce conversation ownership
+    if (conversation.userId && conversation.userId.toString() !== userId) {
+      throw AppError.forbidden('You do not have permission to view this conversation');
     }
 
     const filter = { conversationId: conversation._id };
@@ -313,17 +464,33 @@ export class AIChatbotService {
   }
 
   /**
-   * List AI Conversations for User or Member
+   * List AI Conversations for User, Member, or Trainer
    */
   public static async listConversations(userId: string, role: string = 'MEMBER'): Promise<IAIConversation[]> {
     const isOwnerOrAdmin = ['GYM_OWNER', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(role);
+    const isTrainer = role === 'TRAINER';
 
     if (isOwnerOrAdmin) {
       const user = await User.findById(userId);
       if (!user) return [];
       const gym = await Gym.findOne({ ownerId: user._id, isDeleted: false });
       if (!gym) return [];
-      return AIConversation.find({ gymId: gym._id, memberId: { $exists: false }, isArchived: false }).sort({ lastMessageAt: -1 });
+      return AIConversation.find({
+        $or: [
+          { gymId: gym._id, memberId: { $exists: false }, trainerId: { $exists: false } },
+          { userId: user._id },
+        ],
+        isArchived: false,
+      }).sort({ lastMessageAt: -1 });
+    }
+
+    if (isTrainer) {
+      const trainer = await Trainer.findOne({ userId, isDeleted: false });
+      if (!trainer) return [];
+      return AIConversation.find({
+        $or: [{ trainerId: trainer._id }, { userId: new mongoose.Types.ObjectId(userId) }],
+        isArchived: false,
+      }).sort({ lastMessageAt: -1 });
     }
 
     const member = await Member.findOne({
@@ -333,24 +500,31 @@ export class AIChatbotService {
       ],
     });
 
-    if (!member) return [];
+    const memberFilter = member ? [{ memberId: member._id }] : [];
 
-    return AIConversation.find({ memberId: member._id, isArchived: false }).sort({ lastMessageAt: -1 });
+    return AIConversation.find({
+      $or: [...memberFilter, { userId: new mongoose.Types.ObjectId(userId) }],
+      isArchived: false,
+    }).sort({ lastMessageAt: -1 });
   }
 
   /**
    * Archive AI Conversation
    */
-  public static async archiveConversation(conversationId: string): Promise<IAIConversation> {
-    const conversation = await AIConversation.findOneAndUpdate(
-      { _id: conversationId },
-      { isArchived: true },
-      { new: true }
-    );
+  public static async archiveConversation(conversationId: string, userId?: string): Promise<IAIConversation> {
+    const conversation = await AIConversation.findOne({ _id: conversationId });
 
     if (!conversation) {
       throw AppError.notFound('Conversation not found');
     }
+
+    // Enforce conversation ownership if userId provided
+    if (userId && conversation.userId && conversation.userId.toString() !== userId) {
+      throw AppError.forbidden('You do not have permission to archive this conversation');
+    }
+
+    conversation.isArchived = true;
+    await conversation.save();
 
     return conversation;
   }

@@ -81,7 +81,7 @@ export class AICoachController {
 
   public static archiveConversation = asyncHandler(async (req: Request, res: Response) => {
     const { conversationId } = req.params;
-    const conversation = await AIChatbotService.archiveConversation(conversationId);
+    const conversation = await AIChatbotService.archiveConversation(conversationId, req.user!.id);
     return sendSuccess(res, { conversation }, 'Conversation archived successfully');
   });
 

@@ -6,7 +6,19 @@ const aiChatMessageSchema = new Schema<IAIChatMessage>(
     memberId: {
       type: Schema.Types.ObjectId,
       ref: 'Member',
-      required: true,
+      required: false,
+      index: true,
+    },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,
+      index: true,
+    },
+    trainerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Trainer',
+      required: false,
       index: true,
     },
     gymId: {

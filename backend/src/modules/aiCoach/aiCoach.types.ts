@@ -38,7 +38,9 @@ export interface IAIReport {
 
 export interface IAIChatMessage {
   _id: Types.ObjectId;
-  memberId: Types.ObjectId;
+  memberId?: Types.ObjectId;
+  userId?: Types.ObjectId;
+  trainerId?: Types.ObjectId;
   gymId: Types.ObjectId;
   conversationId: Types.ObjectId;
   role: 'user' | 'assistant';
@@ -48,7 +50,9 @@ export interface IAIChatMessage {
 
 export interface IAIConversation {
   _id: Types.ObjectId;
-  memberId: Types.ObjectId;
+  memberId?: Types.ObjectId;
+  userId?: Types.ObjectId;
+  trainerId?: Types.ObjectId;
   gymId: Types.ObjectId;
   title?: string; // auto-generated from first message
   lastMessageAt: Date;

@@ -3,6 +3,7 @@ import { Member } from '../member/member.model';
 import { AttendanceService } from '../attendance/attendance.service';
 import { WorkoutLogService } from '../workout/workoutLog.service';
 import { ProgressService } from '../progress/progress.service';
+import { ProgressPhoto } from '../progress/progressPhoto.model';
 import { AppError } from '../../common/utils/AppError';
 
 export interface MemberAggregatedContext {
@@ -30,6 +31,18 @@ export interface MemberAggregatedContext {
   recoveryScore?: number;
   recoveryCategory?: string;
   recoveryAdvice?: string;
+  progressPhotos?: {
+    totalCount: number;
+    latestDate?: string;
+    daysSinceLastPhoto?: number;
+    anglesLogged: string[];
+    recentPhotos: {
+      date: string;
+      angle: string;
+      notes?: string;
+      imageUrl?: string;
+    }[];
+  };
   totalDataPoints: number;
   insufficientData: boolean;
 }
@@ -56,17 +69,49 @@ export class AIDataAggregatorService {
     }
 
     // Parallel Cross-Module Aggregation
-    const [attendanceStats, workoutStats, weightHistoryRes, wellnessHistoryRes] = await Promise.all([
+    const [
+      attendanceStats,
+      workoutStats,
+      weightHistoryRes,
+      wellnessHistoryRes,
+      recentPhotos,
+      totalPhotoCount,
+    ] = await Promise.all([
       AttendanceService.getAttendanceStats(member._id.toString()),
       WorkoutLogService.getWorkoutCompletionStats(member._id.toString()),
       ProgressService.getWeightHistory(member._id.toString(), { limit: 10 }),
       ProgressService.getWellnessHistory(member._id.toString(), { limit: 14 }),
+      ProgressPhoto.find({ memberId: member._id }).sort({ recordedAt: -1 }).limit(5).lean(),
+      ProgressPhoto.countDocuments({ memberId: member._id }),
     ]);
 
     const weightTrend = weightHistoryRes.history.map((w) => ({
       date: w.dayKey,
       weightKg: w.weightKg,
     }));
+
+    // Process progress photos context
+    let progressPhotosContext;
+    if (totalPhotoCount > 0 && recentPhotos.length > 0) {
+      const latestPhoto = recentPhotos[0];
+      const daysSinceLastPhoto = Math.floor(
+        (Date.now() - new Date(latestPhoto.recordedAt).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const anglesLogged = Array.from(new Set(recentPhotos.map((p) => p.angle)));
+
+      progressPhotosContext = {
+        totalCount: totalPhotoCount,
+        latestDate: latestPhoto.dayKey || new Date(latestPhoto.recordedAt).toISOString().split('T')[0],
+        daysSinceLastPhoto,
+        anglesLogged,
+        recentPhotos: recentPhotos.map((p) => ({
+          date: p.dayKey || new Date(p.recordedAt).toISOString().split('T')[0],
+          angle: p.angle,
+          notes: p.notes,
+          imageUrl: p.imageUrl,
+        })),
+      };
+    }
 
     // Calculate wellness averages
     let totalWater = 0;
@@ -96,7 +141,10 @@ export class AIDataAggregatorService {
     );
 
     const totalDataPoints =
-      attendanceStats.totalVisits + workoutStats.totalWorkoutSessions + weightTrend.length;
+      attendanceStats.totalVisits +
+      workoutStats.totalWorkoutSessions +
+      weightTrend.length +
+      totalPhotoCount;
     const insufficientData = totalDataPoints < 3;
 
     return {
@@ -124,6 +172,7 @@ export class AIDataAggregatorService {
       recoveryScore: recoveryData.recoveryScore,
       recoveryCategory: recoveryData.recoveryCategory,
       recoveryAdvice: recoveryData.advice,
+      progressPhotos: progressPhotosContext,
       totalDataPoints,
       insufficientData,
     };

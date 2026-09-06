@@ -45,29 +45,29 @@ router.get(
 // Chatbot Endpoints (/api/v1/ai/chat/conversations)
 router.post(
   '/chat/conversations',
-  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(startConversationSchema, 'body'),
   AICoachController.startConversation
 );
 router.get(
   '/chat/conversations',
-  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   AICoachController.listConversations
 );
 router.post(
   '/chat/conversations/:conversationId/messages',
-  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(sendMessageSchema, 'body'),
   AICoachController.sendMessage
 );
 router.get(
   '/chat/conversations/:conversationId/messages',
-  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   AICoachController.getConversationHistory
 );
 router.patch(
   '/chat/conversations/:conversationId/archive',
-  authorize(Role.MEMBER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
+  authorize(Role.MEMBER, Role.TRAINER, Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   AICoachController.archiveConversation
 );
 
