@@ -90,13 +90,13 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
 
         {/* Exercises list */}
         {exercises.length === 0 ? (
-          <div className="text-center py-6 px-4">
-            <p className="text-xs text-(--color-text-muted)">No active workout plan assigned.</p>
+          <div className="flex flex-col items-center justify-center py-6 px-4 space-y-3 bg-(--color-surface-2)/30 rounded-xl border border-dashed border-(--color-border-soft)">
+            <p className="text-sm font-semibold text-(--color-text-muted)">No active workout plan assigned.</p>
             <Link
               to="/member/workout-plan"
-              className="inline-block mt-2 text-xs font-semibold text-(--color-accent) hover:underline"
+              className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 text-white font-bold text-xs py-2.5 px-6 hover:bg-indigo-500 transition-all shadow-md"
             >
-              View Workout Plans →
+              <Dumbbell className="h-4 w-4" /> Browse & Select a Routine
             </Link>
           </div>
         ) : (
@@ -124,12 +124,14 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
           </div>
         )}
 
-        <Link
-          to="/member/workout-plan?tab=tracking"
-          className="flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-white font-bold text-xs py-3 hover:brightness-110 transition-all shadow-lg"
-        >
-          <Play className="h-4 w-4 fill-white" /> Start Workout Logging
-        </Link>
+        {exercises.length > 0 && (
+          <Link
+            to="/member/workout-plan?tab=tracking"
+            className="flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-white font-bold text-base py-3.5 hover:brightness-110 transition-all shadow-lg mt-2"
+          >
+            <Play className="h-5 w-5 fill-white" /> Start Workout Logging
+          </Link>
+        )}
       </Card>
 
       {/* Right: Diet Plan & Water Tracker */}

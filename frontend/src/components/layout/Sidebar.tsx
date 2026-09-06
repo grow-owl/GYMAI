@@ -37,7 +37,7 @@ export default function Sidebar({
       <NavLink
         key={item.path}
         to={item.path}
-        end={item.path === "/owner" || item.path === "/trainer" || item.path === "/reception"}
+        end={["/owner", "/trainer", "/reception", "/member", "/admin"].includes(item.path)}
         className={({ isActive }) =>
           clsx(
             "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
@@ -64,7 +64,7 @@ export default function Sidebar({
         collapsed ? "w-[76px]" : "w-64"
       )}
     >
-      <div className={clsx("flex items-center gap-2.5 px-4 py-5", collapsed && "justify-center px-0")}>
+      <NavLink to={primary[0]?.path || "/"} className={clsx("flex items-center gap-2.5 px-4 py-5 hover:opacity-80 transition-opacity", collapsed && "justify-center px-0")}>
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-sidebar)">
           <Dumbbell size={18} strokeWidth={2.5} />
         </span>
@@ -74,7 +74,7 @@ export default function Sidebar({
             <p className="text-[11px] text-(--color-sidebar-text-muted)">{roleLabel}</p>
           </div>
         )}
-      </div>
+      </NavLink>
 
       <nav className="flex-1 space-y-1 px-3 overflow-y-auto">{primary.map((item) => renderItem(item))}</nav>
 

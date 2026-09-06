@@ -57,7 +57,6 @@ export const memberNav = [
   { label: "Workout", path: "/member/workout-plan", icon: "Dumbbell" },
   { label: "Diet Plan", path: "/member/diet-plan", icon: "Salad" },
   { label: "AI Coach", path: "/member/ai-coach", icon: "Sparkles" },
-  { label: "Attendance", path: "/member/attendance", icon: "QrCode" },
   { label: "Progress", path: "/member/progress", icon: "LineChart" },
   { label: "Gamification", path: "/member/rewards", icon: "Trophy" },
   { label: "Payments", path: "/member/payments", icon: "CreditCard" },

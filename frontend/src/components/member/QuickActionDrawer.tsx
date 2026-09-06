@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Scale, MessageSquare, Shield, Share2, X, Loader2, Star, Download, Check } from "lucide-react";
+import { Scale, MessageSquare, Shield, Share2, X, Loader2, Star, Download, Check, QrCode } from "lucide-react";
 import { progressApi, feedbackApi, privacyApi } from "@/lib/endpoints";
 import { toast } from "sonner";
 
 interface QuickActionModalProps {
-  type: "weight" | "feedback" | "privacy" | "referral" | null;
+  type: "weight" | "feedback" | "privacy" | "referral" | "checkin" | null;
   onClose: () => void;
   memberId?: string;
   referralCode?: string;
@@ -124,6 +124,38 @@ export default function QuickActionDrawer({
         >
           <X className="h-5 w-5" />
         </button>
+
+        {/* CHECK-IN MODAL */}
+        {type === "checkin" && (
+          <div className="space-y-6 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/20 text-accent">
+                <QrCode className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-display text-xl font-bold text-(--color-text)">Gym Access Pass</h3>
+                <p className="text-xs text-(--color-text-muted)">Scan this QR code at the front desk to check in.</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white flex justify-center border border-(--color-border) shadow-inner mx-auto w-fit">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${memberId}&bgcolor=ffffff&color=000000`} 
+                alt="Member Check-in QR"
+                className="w-48 h-48 rounded-lg"
+              />
+            </div>
+            
+            <p className="font-mono text-sm font-bold tracking-widest text-(--color-text-muted)">ID: {memberId.slice(-8).toUpperCase()}</p>
+
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:bg-(--color-surface-3) border border-(--color-border) transition-all"
+            >
+              Done
+            </button>
+          </div>
+        )}
 
         {/* LOG WEIGHT MODAL */}
         {type === "weight" && (

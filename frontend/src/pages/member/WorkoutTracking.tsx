@@ -11,9 +11,9 @@ import { toast } from "sonner";
 interface ExerciseSet {
   exerciseId?: string;
   exerciseName: string;
-  sets: number;
-  reps: number;
-  weightKg: number;
+  sets: number | string;
+  reps: number | string;
+  weightKg: number | string;
 }
 
 const PRESET_ROUTINES = [
@@ -169,13 +169,20 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
 
     setSubmitting(true);
     try {
+      const sanitizedSets = loggedSets.map(s => ({
+        ...s,
+        sets: Math.max(1, Number(s.sets) || 1),
+        reps: Math.max(1, Number(s.reps) || 1),
+        weightKg: Math.max(0, Number(s.weightKg) || 0),
+      }));
+
       await workoutApi.logWorkout({
         loggedAt: new Date().toISOString(),
-        exercises: loggedSets,
+        exercises: sanitizedSets,
       });
 
-      const totalVolume = loggedSets.reduce((sum, s) => sum + s.sets * s.reps * s.weightKg, 0);
-      const totalSets = loggedSets.reduce((sum, s) => sum + s.sets, 0);
+      const totalVolume = sanitizedSets.reduce((sum, s) => sum + s.sets * s.reps * s.weightKg, 0);
+      const totalSets = sanitizedSets.reduce((sum, s) => sum + s.sets, 0);
 
       setLastSummary({
         routineName,
@@ -387,7 +394,7 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
                       value={set.sets}
                       onChange={(e) => {
                         const updated = [...loggedSets];
-                        updated[idx].sets = Math.max(1, Number(e.target.value));
+                        updated[idx].sets = e.target.value === "" ? "" : Math.max(1, Number(e.target.value));
                         setLoggedSets(updated);
                       }}
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
@@ -401,7 +408,7 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
                       value={set.reps}
                       onChange={(e) => {
                         const updated = [...loggedSets];
-                        updated[idx].reps = Math.max(1, Number(e.target.value));
+                        updated[idx].reps = e.target.value === "" ? "" : Math.max(1, Number(e.target.value));
                         setLoggedSets(updated);
                       }}
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
@@ -415,7 +422,7 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
                       value={set.weightKg}
                       onChange={(e) => {
                         const updated = [...loggedSets];
-                        updated[idx].weightKg = Math.max(0, Number(e.target.value));
+                        updated[idx].weightKg = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
                         setLoggedSets(updated);
                       }}
                       className="w-full mt-1 p-1.5 rounded-lg bg-(--color-surface) border border-(--color-border) text-center text-(--color-text)"
