@@ -5,11 +5,12 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { memberApi, authApi, paymentApi } from "@/lib/endpoints";
+import { memberApi, authApi, paymentApi, gymApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useSearchStore } from "../../store/searchStore";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import { formatApiError } from "@/lib/api";
 
 const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
   active: "good",
@@ -96,6 +97,27 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
   const [error, setError] = useState<string | null>(null);
   const { searchQuery: search, setSearchQuery: setSearch, clearSearchQuery } = useSearchStore();
 
+  // Dynamic Gym Membership Plans from Backend
+  const [gymPlans, setGymPlans] = useState<GymPlanOption[]>([]);
+
+  useEffect(() => {
+    const activeGymId = gymId || "";
+    if (!activeGymId) return;
+    gymApi
+      .getMembershipPlans(activeGymId)
+      .then((res) => {
+        if (res?.plans && res.plans.length > 0) {
+          setGymPlans(res.plans);
+        } else {
+          setGymPlans(GYM_MEMBERSHIP_PLANS);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch custom plans, using starter templates:", err);
+        setGymPlans(GYM_MEMBERSHIP_PLANS);
+      });
+  }, [gymId]);
+
   // Clear search on page unmount so query doesn't bleed into other pages (fix #34)
   useEffect(() => () => { clearSearchQuery(); }, [clearSearchQuery]);
 
@@ -143,7 +165,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     if (planId === "custom") {
       setPaymentAmount(customPrice);
     } else {
-      const preset = GYM_MEMBERSHIP_PLANS.find((p) => p.id === planId);
+      const preset = gymPlans.find((p) => p.id === planId);
       if (preset) {
         setPaymentAmount(preset.price);
       }
@@ -184,7 +206,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
       return;
     }
 
-    const preset = GYM_MEMBERSHIP_PLANS.find((p) => p.id === selectedPlanId);
+    const preset = gymPlans.find((p) => p.id === selectedPlanId);
     const effectivePlanName =
       selectedPlanId === "custom"
         ? (customPlanName.trim() || "Custom Plan")
@@ -217,6 +239,8 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
       const newMemberId = createdRes?.member?._id || createdRes?._id || createdRes?.member?.id;
 
       // Auto-record initial payment if selected and valid
+      let paymentSuccess = false;
+      let paymentErrorMsg = "";
       if (recordInitialPayment && newMemberId && Number(paymentAmount) > 0) {
         try {
           await paymentApi.recordMemberPayment(activeGymId, {
@@ -227,16 +251,23 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
             method: paymentMethod,
             notes: paymentNotes.trim() || `Initial admission & payment for ${effectivePlanName}`,
           });
-        } catch {
-          // Member is created, payment error caught gracefully
+          paymentSuccess = true;
+        } catch (payErr: any) {
+          paymentErrorMsg = formatApiError(payErr, "Initial payment recording failed");
         }
       }
 
-      toast.success(
-        `Member ${formData.fullName} enrolled with ${effectivePlanName} plan${
-          recordInitialPayment ? ` (₹${paymentAmount} payment recorded)` : ""
-        }!`
-      );
+      if (recordInitialPayment && !paymentSuccess) {
+        toast.warning(
+          `Member ${formData.fullName} enrolled with ${effectivePlanName} plan, but initial payment of ₹${paymentAmount} failed: ${paymentErrorMsg}. Please record payment manually.`
+        );
+      } else {
+        toast.success(
+          `Member ${formData.fullName} enrolled with ${effectivePlanName} plan${
+            recordInitialPayment && paymentSuccess ? ` (₹${paymentAmount} payment recorded)` : ""
+          }!`
+        );
+      }
 
       setShowAddModal(false);
       setFormData({
@@ -673,7 +704,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {GYM_MEMBERSHIP_PLANS.map((plan) => {
+                  {gymPlans.map((plan) => {
                     const isSelected = selectedPlanId === plan.id;
                     return (
                       <button
@@ -885,7 +916,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                         onChange={(e) => {
                           const val = e.target.value;
                           setRenewPlanName(val);
-                          const matched = GYM_MEMBERSHIP_PLANS.find((p) => p.name === val);
+                          const matched = gymPlans.find((p) => p.name === val);
                           const months = matched ? matched.durationMonths : 1;
                           const newEnd = new Date();
                           newEnd.setMonth(newEnd.getMonth() + months);
@@ -893,7 +924,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                         }}
                         className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) cursor-pointer"
                       >
-                        {GYM_MEMBERSHIP_PLANS.map((p) => (
+                        {gymPlans.map((p) => (
                           <option key={p.id} value={p.name}>
                             {p.name} ({p.durationMonths} Mo - ₹{p.price.toLocaleString("en-IN")})
                           </option>

@@ -107,6 +107,7 @@ export const registerStaffSchema = z.object({
     .min(8, 'Password must be at least 8 characters')
     .regex(/(?=.*[a-zA-Z])(?=.*[0-9])/, 'Password must contain at least 1 letter and 1 number'),
   role: z.enum([Role.BRANCH_MANAGER, Role.KIOSK]).optional(),
+  branchId: z.string().optional(),
 });
 
 export const updateProfileSchema = z.object({

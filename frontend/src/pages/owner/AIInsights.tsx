@@ -41,6 +41,7 @@ export default function AIInsights() {
   const [peakHoursData, setPeakHoursData] = useState<any>(null);
   const [revenueForecastData, setRevenueForecastData] = useState<any>(null);
   const [planProfitabilityData, setPlanProfitabilityData] = useState<any>(null);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadOwnerAi = async () => {
@@ -68,6 +69,7 @@ export default function AIInsights() {
       const gymId = user?.gymId;
       if (!gymId) return;
       setLoadingAtRisk(true);
+      setInsightsError(null);
       try {
         const [riskRes, perfRes, peakRes, revRes, planRes] = await Promise.all([
           aiApi.getAtRiskMembers(gymId).catch(() => null),
@@ -83,7 +85,9 @@ export default function AIInsights() {
         if (peakRes) setPeakHoursData(peakRes);
         if (revRes) setRevenueForecastData(revRes);
         if (planRes) setPlanProfitabilityData(planRes);
-      } catch (err) {
+      } catch (err: any) {
+        const msg = formatApiError(err, "Failed to load gym analytics insights");
+        setInsightsError(msg);
         showApiErrorToast(err, "Failed to load gym analytics insights");
         setAtRiskMembers([]);
       } finally {
@@ -198,33 +202,50 @@ export default function AIInsights() {
         )}
       </Card>
 
+      {insightsError && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+          <span>⚠️ {insightsError}</span>
+          <button onClick={() => window.location.reload()} className="underline font-bold cursor-pointer hover:text-red-300">
+            Retry Sync
+          </button>
+        </div>
+      )}
+
       <div className="grid sm:grid-cols-4 gap-3">
         <Card className="flex flex-col gap-2">
           <TrendingUp size={16} className="text-emerald-400" />
           <p className="text-sm font-medium text-(--color-text)">Revenue Forecast</p>
           <p className="text-xs text-(--color-text-muted) leading-relaxed">
-            {revenueForecastData?.forecast ? `Projected Next Month: ₹${Number(revenueForecastData.forecast).toLocaleString("en-IN")}` : "AI linear trend project next month revenue based on history and upcoming renewals."}
+            {revenueForecastData?.forecast
+              ? `Projected Next Month: ₹${Number(revenueForecastData.forecast).toLocaleString("en-IN")}`
+              : "Awaiting more billing history to generate linear revenue forecast."}
           </p>
         </Card>
         <Card className="flex flex-col gap-2">
           <Clock size={16} className="text-blue-400" />
           <p className="text-sm font-medium text-(--color-text)">Peak Hours Analysis</p>
           <p className="text-xs text-(--color-text-muted) leading-relaxed">
-            {peakHoursData?.peakSlot ? `Peak Gym Window: ${peakHoursData.peakSlot}` : "Check-in clustering highlights 6–8 PM evening rush and trainer floor allocation."}
+            {peakHoursData?.peakSlot
+              ? `Peak Gym Window: ${peakHoursData.peakSlot}`
+              : "Awaiting check-in clustering data to identify peak workout hours."}
           </p>
         </Card>
         <Card className="flex flex-col gap-2">
           <Users2 size={16} className="text-purple-400" />
           <p className="text-sm font-medium text-(--color-text)">Trainer Performance</p>
           <p className="text-xs text-(--color-text-muted) leading-relaxed">
-            {trainerPerf?.topTrainer ? `Top Trainer: ${trainerPerf.topTrainer.name || "Staff"}` : "Composite ranking aggregating member workout completions & attendance."}
+            {trainerPerf?.topTrainer
+              ? `Top Trainer: ${trainerPerf.topTrainer.name || "Staff"}`
+              : "Awaiting client workout session completions to rank trainer performance."}
           </p>
         </Card>
         <Card className="flex flex-col gap-2">
           <Sparkles size={16} className="text-amber-400" />
           <p className="text-sm font-medium text-(--color-text)">Plan Profitability</p>
           <p className="text-xs text-(--color-text-muted) leading-relaxed">
-            {planProfitabilityData?.topPlan ? `Top Tier Plan: ${planProfitabilityData.topPlan}` : "High conversion rate on 3-month & annual VIP membership tiers."}
+            {planProfitabilityData?.topPlan
+              ? `Top Tier Plan: ${planProfitabilityData.topPlan}`
+              : "Awaiting active member plan enrollment to analyze tier profitability."}
           </p>
         </Card>
       </div>

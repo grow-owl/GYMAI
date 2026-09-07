@@ -24,8 +24,9 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import BarChart, { type BarDatum } from "@/components/ui/BarChart";
 import DonutChart, { type DonutSegment } from "@/components/ui/DonutChart";
-import { reportApi, attendanceApi, trainerApi, aiApi, type DashboardOverview } from "@/lib/endpoints";
+import { reportApi, attendanceApi, trainerApi, aiApi, paymentApi, type DashboardOverview } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useGymBranch } from "@/hooks/useGymBranch";
 import { formatApiError, showApiErrorToast } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -154,6 +155,7 @@ function reportDataToCsv(reportType: string, data: any): string {
 
 export default function Reports() {
   const user = useAuthStore((s) => s.user);
+  const { gymId, branchId } = useGymBranch();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
@@ -161,6 +163,7 @@ export default function Reports() {
   const [trainersList, setTrainersList] = useState<any[]>([]);
   const [heatmapData, setHeatmapData] = useState<any>(null);
   const [atRiskList, setAtRiskList] = useState<any[]>([]);
+  const [paymentsList, setPaymentsList] = useState<any[]>([]);
   const [active, setActive] = useState<ReportDef | null>(null);
   const [viewingReport, setViewingReport] = useState<any | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -180,7 +183,7 @@ export default function Reports() {
   const handleViewReportData = async (r: any) => {
     setViewingReport(r);
     setModalViewTab("graph");
-    const activeGymId = user?.gymId || "";
+    const activeGymId = gymId || user?.gymId || "";
     const reportId = r._id || r.id;
     if (activeGymId && reportId) {
       try {
@@ -195,17 +198,18 @@ export default function Reports() {
   };
 
   const fetchData = async () => {
-    const activeGymId = user?.gymId || "";
-    const activeBranchId = user?.branchId || "";
+    const activeGymId = gymId || user?.gymId || "";
+    const activeBranchId = branchId || user?.branchId || "";
     setLoading(true);
     setError(null);
     try {
-      const [ovRes, repRes, trainRes, heatRes, riskRes] = await Promise.all([
-        reportApi.getOverview(activeGymId, activeBranchId).catch(() => null),
-        reportApi.listReports(activeGymId).catch(() => null),
-        activeGymId && activeBranchId ? trainerApi.list(activeGymId, activeBranchId).catch(() => null) : null,
+      const [ovRes, repRes, trainRes, heatRes, riskRes, payRes] = await Promise.all([
+        reportApi.getOverview(activeGymId, activeBranchId),
+        reportApi.listReports(activeGymId),
+        activeGymId ? trainerApi.list(activeGymId, activeBranchId || undefined).catch(() => null) : null,
         activeGymId ? attendanceApi.getHeatmap(activeGymId, activeBranchId || undefined).catch(() => null) : null,
         activeGymId ? aiApi.getAtRiskMembers(activeGymId).catch(() => null) : null,
+        activeGymId ? paymentApi.listMemberPayments(activeGymId).catch(() => null) : null,
       ]);
 
       const zeroOverview: DashboardOverview = {
@@ -231,6 +235,10 @@ export default function Reports() {
         const rList = Array.isArray(riskRes) ? riskRes : riskRes.atRiskMembers || [];
         setAtRiskList(rList);
       }
+      if (payRes) {
+        const pList = Array.isArray(payRes) ? payRes : payRes.payments || [];
+        setPaymentsList(pList);
+      }
     } catch (err: any) {
       const msg = formatApiError(err, "Failed to load reports data.");
       setError(msg);
@@ -242,7 +250,7 @@ export default function Reports() {
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, [gymId, branchId, user]);
 
   const reportDefinitions: ReportDef[] = [
     {
@@ -333,11 +341,16 @@ export default function Reports() {
     if (Array.isArray(weeks) && weeks.length > 0) {
       const latestWeek = weeks[weeks.length - 1];
       if (Array.isArray(latestWeek) && latestWeek.length > 0) {
-        return latestWeek.map((cell: any) => ({
-          label: cell.dayKey ? new Date(cell.dayKey).toLocaleDateString("en-US", { weekday: "short" }) : "Day",
-          value: cell.checkInCount || cell.count || 0,
-          color: "var(--color-accent)",
-        }));
+        return latestWeek.map((cell: any) => {
+          const val = Number(cell.value ?? cell.checkInCount ?? cell.count ?? 0);
+          const dateStr = cell.date ?? cell.dayKey;
+          const dayLabel = cell.label || (dateStr ? new Date(dateStr).toLocaleDateString("en-US", { weekday: "short" }) : "Day");
+          return {
+            label: dayLabel,
+            value: val,
+            color: "var(--color-accent)",
+          };
+        });
       }
     }
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -364,7 +377,7 @@ export default function Reports() {
 
   const revenueBarData: BarDatum[] = useMemo(() => {
     const totalRev = overview?.revenueThisMonth ?? 0;
-    if (totalRev === 0) {
+    if (totalRev === 0 && paymentsList.length === 0) {
       return [
         { label: "Week 1", value: 0, color: "var(--color-surface-3)" },
         { label: "Week 2", value: 0, color: "var(--color-surface-3)" },
@@ -372,25 +385,84 @@ export default function Reports() {
         { label: "Week 4", value: 0, color: "var(--color-surface-3)" },
       ];
     }
-    const quarter = Math.round(totalRev / 4);
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const thisMonthPayments = paymentsList.filter((p: any) => {
+      if (p.status && p.status !== "success" && p.status !== "SUCCESS") return false;
+      const d = new Date(p.paidAt || p.createdAt);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    let w1 = 0, w2 = 0, w3 = 0, w4 = 0;
+    thisMonthPayments.forEach((p: any) => {
+      const day = new Date(p.paidAt || p.createdAt).getDate();
+      const amt = Number(p.amount) || 0;
+      if (day <= 7) w1 += amt;
+      else if (day <= 14) w2 += amt;
+      else if (day <= 21) w3 += amt;
+      else w4 += amt;
+    });
+
     return [
-      { label: "Week 1", value: quarter, color: "#10b981" },
-      { label: "Week 2", value: quarter, color: "#10b981" },
-      { label: "Week 3", value: quarter, color: "#10b981" },
-      { label: "Week 4", value: totalRev - quarter * 3, color: "var(--color-accent)" },
+      { label: "Week 1", value: Math.round(w1), color: "#10b981" },
+      { label: "Week 2", value: Math.round(w2), color: "#10b981" },
+      { label: "Week 3", value: Math.round(w3), color: "#10b981" },
+      { label: "Week 4", value: Math.round(w4), color: "var(--color-accent)" },
     ];
-  }, [overview]);
+  }, [overview, paymentsList]);
 
   const revenueDonutData: DonutSegment[] = useMemo(() => {
-    const totalRev = overview?.revenueThisMonth ?? 0;
-    if (totalRev === 0) {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const thisMonthPayments = paymentsList.filter((p: any) => {
+      if (p.status && p.status !== "success" && p.status !== "SUCCESS") return false;
+      const d = new Date(p.paidAt || p.createdAt);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    if (thisMonthPayments.length === 0) {
+      const totalRev = overview?.revenueThisMonth ?? 0;
+      if (totalRev === 0) {
+        return [{ label: "No Revenue Recorded Yet", value: 1, color: "var(--color-surface-3)" }];
+      }
+      return [{ label: "Recorded Revenue", value: totalRev, color: "var(--color-accent)" }];
+    }
+
+    let membershipRev = 0;
+    let ptRev = 0;
+    let storeRev = 0;
+    let otherRev = 0;
+
+    thisMonthPayments.forEach((p: any) => {
+      const amt = Number(p.amount) || 0;
+      const purpose = String(p.purpose || "").toLowerCase();
+      if (purpose.includes("membership") || purpose.includes("plan") || purpose === "initial_payment") {
+        membershipRev += amt;
+      } else if (purpose.includes("personal_training") || purpose.includes("pt")) {
+        ptRev += amt;
+      } else if (purpose.includes("store") || purpose.includes("supplement") || purpose.includes("product")) {
+        storeRev += amt;
+      } else {
+        otherRev += amt;
+      }
+    });
+
+    const segments: DonutSegment[] = [];
+    if (membershipRev > 0) segments.push({ label: "Membership Fees", value: Math.round(membershipRev), color: "var(--color-accent)" });
+    if (ptRev > 0) segments.push({ label: "Personal Training", value: Math.round(ptRev), color: "#8b5cf6" });
+    if (storeRev > 0) segments.push({ label: "Add-ons & Store", value: Math.round(storeRev), color: "#10b981" });
+    if (otherRev > 0) segments.push({ label: "Other Services", value: Math.round(otherRev), color: "#f59e0b" });
+
+    if (segments.length === 0) {
       return [{ label: "No Revenue Recorded Yet", value: 1, color: "var(--color-surface-3)" }];
     }
-    return [
-      { label: "Membership Fees", value: Math.round(totalRev * 0.85), color: "var(--color-accent)" },
-      { label: "Add-ons & Store", value: Math.round(totalRev * 0.15), color: "#10b981" },
-    ];
-  }, [overview]);
+    return segments;
+  }, [overview, paymentsList]);
 
   const churnBarData: BarDatum[] = useMemo(() => {
     const total = overview?.totalActiveMembers ?? 0;
@@ -454,11 +526,16 @@ export default function Reports() {
         value: m.visitCount ?? 0,
         color: idx % 2 === 0 ? "var(--color-accent)" : "#10b981",
       }));
-      const donut: DonutSegment[] = [
-        { label: "High Visits (10+)", value: perMember.filter((m: any) => (m.visitCount || 0) >= 10).length || 1, color: "#10b981" },
-        { label: "Regular Visits (4-9)", value: perMember.filter((m: any) => (m.visitCount || 0) >= 4 && (m.visitCount || 0) < 10).length || 1, color: "var(--color-accent)" },
-        { label: "Low Visits (1-3)", value: perMember.filter((m: any) => (m.visitCount || 0) < 4).length || 1, color: "#f59e0b" },
-      ];
+      const high = perMember.filter((m: any) => (m.visitCount || 0) >= 10).length;
+      const reg = perMember.filter((m: any) => (m.visitCount || 0) >= 4 && (m.visitCount || 0) < 10).length;
+      const low = perMember.filter((m: any) => (m.visitCount || 0) < 4).length;
+      const donut: DonutSegment[] = (high + reg + low === 0)
+        ? [{ label: "No Attendance Data", value: 1, color: "var(--color-surface-3)" }]
+        : [
+            { label: "High Visits (10+)", value: high, color: "#10b981" },
+            { label: "Regular Visits (4-9)", value: reg, color: "var(--color-accent)" },
+            { label: "Low Visits (1-3)", value: low, color: "#f59e0b" },
+          ];
       return { bar, donut, title: "Attendance & Visit Breakdown" };
     }
 
@@ -470,11 +547,13 @@ export default function Reports() {
         value: p.revenue ?? 0,
         color: "#10b981",
       }));
-      const donut: DonutSegment[] = plans.map((p: any, idx: number) => ({
-        label: p.planName || "Plan",
-        value: p.count ?? 1,
-        color: idx === 0 ? "var(--color-accent)" : idx === 1 ? "#10b981" : "#6366f1",
-      }));
+      const donut: DonutSegment[] = plans.length === 0
+        ? [{ label: "No Revenue Data", value: 1, color: "var(--color-surface-3)" }]
+        : plans.map((p: any, idx: number) => ({
+            label: p.planName || "Plan",
+            value: p.count ?? 0,
+            color: idx === 0 ? "var(--color-accent)" : idx === 1 ? "#10b981" : "#6366f1",
+          }));
       return { bar, donut, title: "Revenue & Plan Performance" };
     }
 
@@ -485,34 +564,38 @@ export default function Reports() {
       const normalCount = Math.max(0, summary.length - plateauCount - injuryCount);
 
       const bar: BarDatum[] = [
-        { label: "Plateau Detected", value: plateauCount || 1, color: "#f59e0b" },
-        { label: "Injury Risk", value: injuryCount || 1, color: "#ef4444" },
-        { label: "Normal Progress", value: normalCount || 3, color: "#10b981" },
+        { label: "Plateau Detected", value: plateauCount, color: "#f59e0b" },
+        { label: "Injury Risk", value: injuryCount, color: "#ef4444" },
+        { label: "Normal Progress", value: normalCount, color: "#10b981" },
       ];
-      const donut: DonutSegment[] = [
-        { label: "Optimal Progress", value: normalCount || 3, color: "#10b981" },
-        { label: "Plateau Alert", value: plateauCount || 1, color: "#f59e0b" },
-        { label: "Injury Risk Flag", value: injuryCount || 1, color: "#ef4444" },
-      ];
+      const donut: DonutSegment[] = (plateauCount + injuryCount + normalCount === 0)
+        ? [{ label: "No Churn Data", value: 1, color: "var(--color-surface-3)" }]
+        : [
+            { label: "Optimal Progress", value: normalCount, color: "#10b981" },
+            { label: "Plateau Alert", value: plateauCount, color: "#f59e0b" },
+            { label: "Injury Risk Flag", value: injuryCount, color: "#ef4444" },
+          ];
       return { bar, donut, title: "Member Churn & AI Risk Flags" };
     }
 
     if (typeKey.includes("trainer") || typeKey.includes("performance")) {
       const feedbacks = data.feedbacks || [];
-      const f5 = feedbacks.filter((f: any) => (f.rating || 0) >= 5).length || 3;
-      const f4 = feedbacks.filter((f: any) => (f.rating || 0) === 4).length || 1;
-      const f3 = feedbacks.filter((f: any) => (f.rating || 0) <= 3).length || 1;
+      const f5 = feedbacks.filter((f: any) => (f.rating || 0) >= 5).length;
+      const f4 = feedbacks.filter((f: any) => (f.rating || 0) === 4).length;
+      const f3 = feedbacks.filter((f: any) => (f.rating || 0) <= 3).length;
 
       const bar: BarDatum[] = [
         { label: "5 Stars", value: f5, color: "#10b981" },
         { label: "4 Stars", value: f4, color: "#3b82f6" },
         { label: "3 Stars & Below", value: f3, color: "#f59e0b" },
       ];
-      const donut: DonutSegment[] = [
-        { label: "5 Stars", value: f5, color: "#10b981" },
-        { label: "4 Stars", value: f4, color: "#3b82f6" },
-        { label: "3 Stars & Below", value: f3, color: "#f59e0b" },
-      ];
+      const donut: DonutSegment[] = (f5 + f4 + f3 === 0)
+        ? [{ label: "No Feedback Recorded", value: 1, color: "var(--color-surface-3)" }]
+        : [
+            { label: "5 Stars", value: f5, color: "#10b981" },
+            { label: "4 Stars", value: f4, color: "#3b82f6" },
+            { label: "3 Stars & Below", value: f3, color: "#f59e0b" },
+          ];
       return { bar, donut, title: "Trainer Rating & Workload Distribution" };
     }
 

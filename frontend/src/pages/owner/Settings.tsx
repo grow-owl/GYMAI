@@ -7,85 +7,62 @@ import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { gymApi, privacyApi, notificationApi, jobApi, authApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { invalidateBranchesCache } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 import { api } from "@/lib/api";
 import { KeyRound } from "lucide-react";
+import type { IBranch, IGym, IWhatsAppLog } from "@/types";
 
 type TabKey = "branches" | "staff" | "subscription" | "notifications" | "compliance" | "security";
-
-const STORAGE_KEY_BRANCHES = "gymai.branches_list";
-const STORAGE_KEY_SETTINGS = "gymai.gym_settings";
-
-function getStoredBranches(): any[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_BRANCHES);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
-  return [];
-}
-
-function saveStoredBranches(list: any[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY_BRANCHES, JSON.stringify(list));
-  } catch {}
-}
-
-function mergeBranchList(backendList: any[], storedList: any[]): any[] {
-  const map = new Map<string, any>();
-  for (const item of storedList) {
-    const key = item._id || item.id;
-    if (key) map.set(String(key), item);
-  }
-  for (const item of backendList) {
-    const key = item._id || item.id;
-    if (key) {
-      const existing = map.get(String(key));
-      map.set(String(key), existing ? { ...existing, ...item } : item);
-    }
-  }
-  return Array.from(map.values());
-}
 
 export default function Settings() {
   const user = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<TabKey>("branches");
-  const [branches, setBranches] = useState<any[]>(() => getStoredBranches());
-  const [gymInfo, setGymInfo] = useState<any>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return { name: user?.gymName || "My Gym Center", slug: "my-gym" };
-  });
-  const [waLogs, setWaLogs] = useState<any[]>([]);
+  const [branches, setBranches] = useState<IBranch[]>([]);
+  const [gymInfo, setGymInfo] = useState<Partial<IGym>>(() => ({
+    name: user?.gymName || "My Gym Center",
+  }));
+  const [waLogs, setWaLogs] = useState<IWhatsAppLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Member Trial Pass duration setting
-  const [trialPassDays, setTrialPassDays] = useState<number>(() => {
+  const [trialPassDays, setTrialPassDays] = useState<number>(2);
+  const [savingTrialPass, setSavingTrialPass] = useState(false);
+
+  // Clean up legacy stale localStorage entries on mount
+  useEffect(() => {
     try {
-      const stored = localStorage.getItem("gymai.trial_pass_days");
-      if (stored) return Number(stored) || 2;
+      localStorage.removeItem("gymai.branches_list");
+      localStorage.removeItem("gymai.gym_settings");
+      localStorage.removeItem("gymai.trial_pass_days");
+      if (user?._id) {
+        localStorage.removeItem(`gymai.branches_list.${user._id}`);
+      }
     } catch {}
-    return 2;
-  });
+  }, [user?._id]);
 
   const handleSaveTrialPassDays = async () => {
     const activeGymId = user?.gymId || "";
+    if (!activeGymId) {
+      toast.error("Active gym ID not found.");
+      return;
+    }
+    setSavingTrialPass(true);
     try {
-      localStorage.setItem("gymai.trial_pass_days", String(trialPassDays));
-      if (activeGymId) {
-        await gymApi.updateGym(activeGymId, {
-          settings: { defaultTrialPassDays: trialPassDays },
-        });
+      const res = await gymApi.updateGym(activeGymId, {
+        settings: { defaultTrialPassDays: trialPassDays },
+      });
+      if (res?.gym) {
+        setGymInfo(res.gym);
       }
       toast.success(`Member Free Trial Pass set to ${trialPassDays} days!`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to save pass settings");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save pass settings";
+      toast.error(msg);
+    } finally {
+      setSavingTrialPass(false);
     }
   };
 
@@ -188,27 +165,23 @@ export default function Settings() {
       const [bRes, gRes, waRes] = await Promise.all([
         gymApi.listBranches(activeGymId).catch(() => null),
         gymApi.getGymById(activeGymId).catch(() => null),
-        notificationApi.getWhatsAppLog(activeGymId).catch(() => notificationApi.getWhatsAppLogs(activeGymId).catch(() => null)),
+        notificationApi.getWhatsAppLogs(activeGymId).catch(() => null),
       ]);
 
-      const bList = Array.isArray(bRes) ? bRes : bRes?.branches || [];
-      const mergedBranches = mergeBranchList(bList, getStoredBranches());
-      setBranches(mergedBranches);
-      saveStoredBranches(mergedBranches);
+      const bList: IBranch[] = Array.isArray(bRes) ? bRes : bRes?.branches || [];
+      setBranches(bList);
 
       if (gRes?.gym) {
         setGymInfo(gRes.gym);
         if (gRes.gym.settings?.defaultTrialPassDays) {
           setTrialPassDays(gRes.gym.settings.defaultTrialPassDays);
-          localStorage.setItem("gymai.trial_pass_days", String(gRes.gym.settings.defaultTrialPassDays));
         }
-        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(gRes.gym));
       }
 
-      const wList = Array.isArray(waRes) ? waRes : waRes?.logs || [];
+      const wList: IWhatsAppLog[] = Array.isArray(waRes) ? waRes : waRes?.logs || [];
       setWaLogs(wList);
     } catch {
-      setBranches(getStoredBranches());
+      // keep current state on error
     } finally {
       setLoading(false);
     }
@@ -221,37 +194,38 @@ export default function Settings() {
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeGymId = user?.gymId || "";
+    if (!activeGymId) {
+      toast.error("Active gym ID not found.");
+      return;
+    }
     setSubmittingBranch(true);
 
-    const newBranchObj = {
-      _id: `b-${Date.now()}`,
-      name: branchForm.name,
-      city: branchForm.city || "",
-      contactPhone: branchForm.contactPhone || "",
-      timezone: branchForm.timezone || "Asia/Kolkata",
-    };
-
-    const updated = [...branches, newBranchObj];
-    setBranches(updated);
-    saveStoredBranches(updated);
-    toast.success(`Branch ${branchForm.name} created successfully!`);
-    setShowAddBranchModal(false);
-
     try {
-      await gymApi.createBranch(activeGymId, {
-        name: branchForm.name,
-        contactPhone: branchForm.contactPhone,
-        timezone: branchForm.timezone,
+      const res = await gymApi.createBranch(activeGymId, {
+        name: branchForm.name.trim(),
+        contactPhone: branchForm.contactPhone.trim(),
+        timezone: branchForm.timezone || "Asia/Kolkata",
         address: {
-          line1: branchForm.line1 || "",
-          city: branchForm.city || "",
-          state: branchForm.state || "",
-          pincode: branchForm.pincode || "",
-          country: branchForm.country || "India",
+          line1: branchForm.line1.trim() || "",
+          city: branchForm.city.trim() || "",
+          state: branchForm.state.trim() || "",
+          pincode: branchForm.pincode.trim() || "",
+          country: branchForm.country.trim() || "India",
         },
       });
-    } catch {} finally {
-      setSubmittingBranch(false);
+
+      const newBranch = (res as any)?.branch || (res as any)?.data?.branch;
+      if (newBranch) {
+        setBranches((prev) => [...prev, newBranch]);
+      } else {
+        await fetchData();
+      }
+
+      invalidateBranchesCache(activeGymId);
+      window.dispatchEvent(new CustomEvent("gymai-branch-changed"));
+
+      toast.success(`Branch ${branchForm.name} created successfully!`);
+      setShowAddBranchModal(false);
       setBranchForm({
         name: "",
         contactPhone: "",
@@ -262,6 +236,10 @@ export default function Settings() {
         pincode: "",
         country: "India",
       });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to create branch");
+    } finally {
+      setSubmittingBranch(false);
     }
   };
 
@@ -432,9 +410,16 @@ export default function Settings() {
                     <button
                       type="button"
                       onClick={handleSaveTrialPassDays}
-                      className="flex-1 sm:flex-initial px-4 py-2.5 sm:py-2 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:opacity-90 transition-all shadow-sm text-center"
+                      disabled={savingTrialPass}
+                      className="flex-1 sm:flex-initial px-4 py-2.5 sm:py-2 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:opacity-90 transition-all shadow-sm text-center disabled:opacity-50 inline-flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      Save Pass Duration
+                      {savingTrialPass ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                        </>
+                      ) : (
+                        "Save Pass Duration"
+                      )}
                     </button>
                   </div>
                 </div>
@@ -608,8 +593,8 @@ export default function Settings() {
                   <p className="text-xs text-(--color-text-faint) py-3 text-center">No WhatsApp messages dispatched yet.</p>
                 ) : (
                   <div className="divide-y divide-(--color-border-soft) text-xs">
-                    {waLogs.map((log: any, idx: number) => {
-                      const memberName = log.memberId?.userId?.fullName || log.memberId?.name || log.phone || "Member";
+                    {waLogs.map((log: IWhatsAppLog, idx: number) => {
+                      const memberName = log.memberId?.userId?.fullName || log.memberId?.name || log.phone || log.recipientPhone || "Member";
                       const errorMsg = log.status === "FAILED" ? (log.errorMessage || log.errorReason) : null;
 
                       return (

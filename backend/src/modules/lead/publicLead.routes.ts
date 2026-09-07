@@ -6,6 +6,7 @@ import { Lead } from './lead.model';
 import { LeadStatus } from './lead.types';
 import { AppError } from '../../common/utils/AppError';
 import { sendSuccess } from '../../common/utils/ApiResponse';
+import { asyncHandler } from '../../common/utils/asyncHandler';
 import { publicLimiter } from '../../common/middlewares/rateLimiter.middleware';
 import { z } from 'zod';
 
@@ -25,50 +26,57 @@ const publicLeadSchema = z.object({
  * GET /api/v1/public/branches/:branchId
  * Fetches publicly shareable branch information and gym branding for member join/trial page
  */
-publicLeadRouter.get('/branches/:branchId', publicLimiter, async (req: Request, res: Response): Promise<void> => {
-  const { branchId } = req.params;
+publicLeadRouter.get(
+  '/branches/:branchId',
+  publicLimiter,
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { branchId } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(branchId)) {
-    throw AppError.badRequest('Invalid branch ID format');
-  }
+    if (!mongoose.Types.ObjectId.isValid(branchId)) {
+      throw AppError.badRequest('Invalid branch ID format');
+    }
 
-  const branch = await Branch.findOne({ _id: branchId, isActive: true, isDeleted: false });
-  if (!branch) {
-    throw AppError.notFound('Gym branch not found or currently inactive');
-  }
+    const branch = await Branch.findOne({ _id: branchId, isActive: true, isDeleted: false });
+    if (!branch) {
+      throw AppError.notFound('Gym branch not found or currently inactive');
+    }
 
-  const gym = await Gym.findOne({ _id: branch.gymId, isDeleted: false }).select('name logoUrl settings');
-  if (!gym) {
-    throw AppError.notFound('Associated gym organization not found');
-  }
+    const gym = await Gym.findOne({ _id: branch.gymId, isDeleted: false }).select('name logoUrl settings');
+    if (!gym) {
+      throw AppError.notFound('Associated gym organization not found');
+    }
 
-  const trialDays = gym.settings?.defaultTrialPassDays || 2;
+    const trialDays = gym.settings?.defaultTrialPassDays || 2;
 
-  sendSuccess(
-    res,
-    {
-      gym: {
-        id: gym._id,
-        name: gym.name,
-        logoUrl: gym.logoUrl,
-        defaultTrialPassDays: trialDays,
+    sendSuccess(
+      res,
+      {
+        gym: {
+          id: gym._id,
+          name: gym.name,
+          logoUrl: gym.logoUrl,
+          defaultTrialPassDays: trialDays,
+        },
+        branch: {
+          id: branch._id,
+          name: branch.name,
+          address: branch.address,
+          contactPhone: branch.contactPhone,
+        },
       },
-      branch: {
-        id: branch._id,
-        name: branch.name,
-        address: branch.address,
-        contactPhone: branch.contactPhone,
-      },
-    },
-    'Branch and gym details retrieved successfully'
-  );
-});
+      'Branch and gym details retrieved successfully'
+    );
+  })
+);
 
 /**
  * POST /api/v1/public/leads
  * Allows prospective gym members to submit a trial pass request from the branded /join/:branchId link
  */
-publicLeadRouter.post('/leads', publicLimiter, async (req: Request, res: Response): Promise<void> => {
+publicLeadRouter.post(
+  '/leads',
+  publicLimiter,
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const validated = publicLeadSchema.parse(req.body);
 
   if (!mongoose.Types.ObjectId.isValid(validated.branchId)) {
@@ -135,4 +143,4 @@ publicLeadRouter.post('/leads', publicLimiter, async (req: Request, res: Respons
     `Congratulations! Your ${trialDays}-day free trial workout pass at ${gym.name} (${branch.name}) has been requested. The front desk will confirm your pass!`,
     201
   );
-});
+}))

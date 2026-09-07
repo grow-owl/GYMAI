@@ -6,6 +6,7 @@ import { WhatsAppMessageLog } from './whatsapp/whatsAppMessageLog.model';
 import { WhatsAppNotificationService } from './whatsapp/whatsappNotification.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { AppError } from '../../common/utils/AppError';
 
 export class NotificationController {
   public static getWhatsAppLogs = asyncHandler(async (req: Request, res: Response) => {
@@ -15,33 +16,7 @@ export class NotificationController {
       filter.gymId = new mongoose.Types.ObjectId(gymId);
     }
 
-    let logs = await WhatsAppMessageLog.find(filter).sort({ sentAt: -1 }).limit(100);
-
-    if (logs.length === 0 && gymId && mongoose.Types.ObjectId.isValid(gymId)) {
-      const validGymId = new mongoose.Types.ObjectId(gymId);
-      const sampleLogs = [
-        {
-          gymId: validGymId,
-          phone: "+91 9876543210",
-          templateName: "MEMBERSHIP_EXPIRING_7D",
-          params: ["Aarav Sharma", "7 Days"],
-          status: "SENT",
-          providerMessageId: "wamid.HBgLOTE5ODc2NTQzMjEwFQIAERgSQjM0OTk4QjFERDhENDExNkM1AA==",
-          sentAt: new Date(),
-        },
-        {
-          gymId: validGymId,
-          phone: "+91 9876543211",
-          templateName: "STREAK_MILESTONE",
-          params: ["Priya Patel", "10-day streak"],
-          status: "SENT",
-          providerMessageId: "wamid.HBgLOTE5ODc2NTQzMjExFQIAERgSRTI0MDlFMDNDOUMzNDAwNDAA==",
-          sentAt: new Date(Date.now() - 3600 * 1000),
-        },
-      ];
-      await WhatsAppMessageLog.insertMany(sampleLogs);
-      logs = await WhatsAppMessageLog.find(filter).sort({ sentAt: -1 }).limit(100);
-    }
+    const logs = await WhatsAppMessageLog.find(filter).sort({ sentAt: -1 }).limit(100);
 
     return sendSuccess(res, { logs }, 'WhatsApp message delivery logs retrieved successfully');
   });
@@ -49,7 +24,7 @@ export class NotificationController {
   public static getWhatsAppLog = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user?.gymId;
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+      throw AppError.badRequest('Gym ID is required');
     }
 
     const logs = await WhatsAppNotificationService.listMessageLog(gymId.toString(), {

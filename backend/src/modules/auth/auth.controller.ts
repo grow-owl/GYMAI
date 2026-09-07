@@ -4,6 +4,7 @@ import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
 import { AppError } from '../../common/utils/AppError';
 import { env } from '../../config/env';
+import { Branch } from '../gym/branch.model';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -145,10 +146,24 @@ export class AuthController {
 
   public static registerStaff = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user?.gymId;
-    const branchId = req.params.branchId || req.user?.branchId;
-    if (!gymId || !branchId) {
-      throw AppError.badRequest('Gym ID and Branch ID are required for staff registration');
+    if (!gymId) {
+      throw AppError.badRequest('Gym ID is required for staff registration');
     }
+
+    let branchId = req.params.branchId || req.body?.branchId || req.user?.branchId;
+    if (!branchId) {
+      const branches = await Branch.find({ gymId, isDeleted: false });
+      if (branches.length === 1) {
+        branchId = branches[0]._id.toString();
+      } else if (branches.length > 1) {
+        throw AppError.badRequest(
+          'Branch ID is required when a gym has multiple branches. Please select a specific branch.'
+        );
+      } else {
+        throw AppError.badRequest('No active branch found for this gym. Please create a branch first.');
+      }
+    }
+
     const user = await AuthService.registerStaff(gymId, branchId, req.body);
     const safeUser = user.toSafeJSON ? user.toSafeJSON() : user;
     return sendSuccess(res, { staff: safeUser }, 'Staff member created successfully', 201);

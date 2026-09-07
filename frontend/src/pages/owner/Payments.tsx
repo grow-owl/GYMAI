@@ -10,6 +10,7 @@ import { paymentApi, memberApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 const paymentMethodOptions = [
   { value: "cash", label: "Cash" },
@@ -74,15 +75,21 @@ export default function Payments() {
     try {
       const [sumRes, payRes, memRes] = await Promise.all([
         paymentApi.getRevenueSummary(activeGymId).catch(() => null),
-        paymentApi.listMemberPayments(activeGymId).catch(() => null),
+        paymentApi.listMemberPayments(activeGymId),
         memberApi.list(activeGymId, activeBranchId).catch(() => null),
       ]);
 
-      const paymentArray = Array.isArray(payRes) ? payRes : payRes?.payments || [];
+      const paymentArray: any[] = Array.isArray(payRes) ? (payRes as any[]) : (payRes?.payments || []);
       setPayments(paymentArray);
 
-      const totalRevenue = sumRes?.summary?.total || paymentArray.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
-      const totalCount = sumRes?.summary?.transactions || paymentArray.length;
+      let totalRevenue = sumRes?.summary?.total;
+      if (typeof totalRevenue !== "number") {
+        totalRevenue = 0;
+        for (const p of paymentArray) {
+          totalRevenue += Number(p?.amount || 0);
+        }
+      }
+      const totalCount = sumRes?.summary?.transactions ?? paymentArray.length;
       setSummary({ total: totalRevenue, transactions: totalCount });
 
       let mList = Array.isArray(memRes) ? memRes : memRes?.members || [];
@@ -97,8 +104,10 @@ export default function Payments() {
         const firstId = mList[0]._id || mList[0].id;
         setFormData((prev) => ({ ...prev, memberId: String(firstId) }));
       }
-    } catch {
-      setError("Failed to load payments from backend.");
+    } catch (err: any) {
+      const msg = formatApiError(err, "Failed to load payments ledger from backend.");
+      setError(msg);
+      showApiErrorToast(err, "Failed to load payments ledger");
       setPayments([]);
     } finally {
       setLoading(false);

@@ -74,6 +74,19 @@ router.get(
   NotificationController.getWhatsAppLog
 );
 
+// Gym Membership Plans Routes
+router.get(
+  '/:gymId/membership-plans',
+  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN, Role.BRANCH_MANAGER, Role.TRAINER, Role.MEMBER, Role.KIOSK),
+  GymController.getMembershipPlans
+);
+
+router.put(
+  '/:gymId/membership-plans',
+  authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
+  GymController.updateMembershipPlans
+);
+
 // Branch Routes
 router.post(
   '/:gymId/branches',
@@ -116,7 +129,7 @@ router.patch(
 
 // Staff Routes (Non-trainer staff creation & management)
 router.post(
-  '/:gymId/branches/:branchId/staff',
+  ['/:gymId/branches/:branchId/staff', '/:gymId/staff'],
   authorize(Role.GYM_OWNER, Role.SUPER_ADMIN),
   validate(registerStaffSchema, 'body'),
   AuthController.registerStaff

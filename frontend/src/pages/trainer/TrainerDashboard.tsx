@@ -39,7 +39,7 @@ export default function TrainerDashboard() {
     setError(null);
     try {
       const [clientRes, attRes] = await Promise.all([
-        trainerApi.getMyClients(user.gymId).catch(() => null),
+        trainerApi.getMyClients(user.gymId),
         user.branchId ? attendanceApi.getToday(user.gymId, user.branchId).catch(() => null) : Promise.resolve(null),
       ]);
 

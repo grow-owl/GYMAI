@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { attendanceApi, trainerApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 export default function Sessions() {
   const user = useAuthStore((s) => s.user);
@@ -18,8 +19,8 @@ export default function Sessions() {
     setError(null);
     try {
       const [attRes, clientRes] = await Promise.all([
-        attendanceApi.getToday(user.gymId, user.branchId).catch(() => null),
-        trainerApi.getMyClients(user.gymId).catch(() => null),
+        attendanceApi.getToday(user.gymId, user.branchId),
+        trainerApi.getMyClients(user.gymId),
       ]);
 
       const attList = Array.isArray(attRes) ? attRes : attRes?.attendance || [];
@@ -28,8 +29,10 @@ export default function Sessions() {
 
       const mySessions = attList.filter((a: any) => clientUserIds.has(a.memberId?.userId?._id || a.memberId?.userId));
       setSessions(mySessions);
-    } catch {
-      setError("Failed to load today's sessions.");
+    } catch (err: any) {
+      const msg = formatApiError(err, "Failed to load today's sessions.");
+      setError(msg);
+      showApiErrorToast(err, "Failed to load today's sessions");
       setSessions([]);
     } finally {
       setLoading(false);

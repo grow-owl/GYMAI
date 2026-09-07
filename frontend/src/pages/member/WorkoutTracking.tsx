@@ -116,9 +116,9 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
             exercises: (day.exercises || []).map((ex: any) => ({
               exerciseId: ex.exerciseId?._id || ex.exerciseId || undefined,
               exerciseName: ex.name || ex.exerciseName || ex.exerciseId?.name || "Exercise",
-              sets: Number(ex.sets) || 3,
-              reps: Number(ex.reps) || 10,
-              weightKg: Number(ex.weightKg) || 20,
+              sets: Number(ex.targetSets ?? ex.sets) || 3,
+              reps: Number(ex.targetReps ?? ex.reps) || 10,
+              weightKg: Number(ex.targetWeightKg ?? ex.weightKg) || 0,
             })),
           }));
           if (mappedRoutines.length > 0) {

@@ -557,15 +557,22 @@ export class AttendanceService {
    */
   public static async generateDynamicQR(
     gymId: string,
-    branchId: string,
+    branchId?: string,
     ttlSeconds: number = 60
   ): Promise<{ qrToken: string; qrCodeDataUrl: string; ttlSeconds: number; expiresAt: Date }> {
-    const branch = await Branch.findOne({ _id: branchId, gymId, isDeleted: false });
+    let branch;
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+      branch = await Branch.findOne({ _id: branchId, gymId, isDeleted: false });
+    }
+    if (!branch && gymId && mongoose.Types.ObjectId.isValid(gymId)) {
+      branch = (await Branch.findOne({ gymId, isPrimary: true, isDeleted: false })) || (await Branch.findOne({ gymId, isDeleted: false }));
+    }
     if (!branch) {
       throw AppError.notFound('Branch not found for generating dynamic QR');
     }
 
-    const qrToken = `DYN_QR_${gymId}_${branchId}_${crypto.randomBytes(12).toString('hex')}`;
+    const resolvedBranchId = branch._id.toString();
+    const qrToken = `DYN_QR_${gymId}_${resolvedBranchId}_${crypto.randomBytes(12).toString('hex')}`;
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
     await QRSession.create({

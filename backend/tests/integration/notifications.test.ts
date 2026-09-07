@@ -246,18 +246,24 @@ describe('Notifications Module Integration Tests', () => {
         muscleGroup: MuscleGroup.CHEST,
       });
 
-      await WorkoutPlanService.createWorkoutPlan(gymId, ownerUserId, {
-        memberId: memberDocId,
-        title: 'Hypertrophy Phase 1',
-        durationWeeks: 4,
-        daysPerWeek: 3,
-        days: [
-          {
-            dayName: 'Day 1',
-            exercises: [{ exerciseId: exercise._id.toString(), targetSets: 3, targetReps: 10 }],
-          },
-        ],
-      });
+      await WorkoutPlanService.createWorkoutPlan(
+        memberDocId,
+        {
+          gymId,
+          title: 'Hypertrophy Phase 1',
+          durationWeeks: 4,
+          daysPerWeek: 3,
+          days: [
+            {
+              dayName: 'Day 1',
+              exercises: [{ exerciseId: exercise._id.toString(), targetSets: 3, targetReps: 10 }],
+            },
+          ],
+        },
+        ownerUserId,
+        undefined,
+        gymId
+      );
 
       const notif = await Notification.findOne({ userId: memberUserId, type: NotificationType.WORKOUT_ASSIGNED });
       expect(notif).toBeDefined();

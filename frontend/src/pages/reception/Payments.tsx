@@ -8,6 +8,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import { paymentApi, memberApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 export default function ReceptionPayments() {
   const user = useAuthStore((s) => s.user);
@@ -35,7 +36,7 @@ export default function ReceptionPayments() {
     setError(null);
     try {
       const [payRes, memRes] = await Promise.all([
-        paymentApi.listMemberPayments(user.gymId).catch(() => null),
+        paymentApi.listMemberPayments(user.gymId),
         memberApi.list(user.gymId, user.branchId || undefined).catch(() => []),
       ]);
 
@@ -44,8 +45,9 @@ export default function ReceptionPayments() {
 
       const mList = Array.isArray(memRes) ? memRes : memRes?.members || [];
       setMembersList(mList);
-    } catch {
-      setError("Failed to load payments data.");
+    } catch (err: any) {
+      setError(formatApiError(err, "Failed to load payments data."));
+      showApiErrorToast(err, "Failed to load payments");
     } finally {
       setLoading(false);
     }
@@ -66,26 +68,29 @@ export default function ReceptionPayments() {
     const selectedMem = membersList.find((m) => m._id === formData.memberId || m.id === formData.memberId);
     const memName = selectedMem?.fullName || selectedMem?.name || selectedMem?.userId?.fullName || "Gym Member";
 
-    const newPaymentRecord = {
-      _id: `pay-${Date.now()}`,
-      amount: formData.amount,
-      purpose: formData.purpose,
-      method: formData.method,
-      notes: formData.notes,
-      createdAt: new Date().toISOString(),
-      memberId: { fullName: memName },
-    };
-
-    setPayments((prev) => [newPaymentRecord, ...prev]);
-    toast.success(`Payment of ₹${Number(formData.amount).toLocaleString("en-IN")} recorded for ${memName}!`);
-    setShowRecordModal(false);
-
     try {
-      await paymentApi.recordMemberPayment(activeGymId, {
+      const res = await paymentApi.recordMemberPayment(activeGymId, {
         ...formData,
         branchId: user?.branchId || "",
       });
-    } catch {} finally {
+
+      const recordedPayment = (res as any)?.payment || res || {
+        _id: `pay-${Date.now()}`,
+        amount: formData.amount,
+        purpose: formData.purpose,
+        method: formData.method,
+        notes: formData.notes,
+        createdAt: new Date().toISOString(),
+        memberId: { fullName: memName },
+      };
+
+      setPayments((prev) => [recordedPayment, ...prev]);
+      toast.success(`Payment of ₹${Number(formData.amount).toLocaleString("en-IN")} recorded for ${memName}!`);
+      setShowRecordModal(false);
+      fetchData();
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to record payment");
+    } finally {
       setSubmitting(false);
     }
   };

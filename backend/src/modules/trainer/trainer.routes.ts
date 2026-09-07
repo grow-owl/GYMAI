@@ -20,7 +20,7 @@ router.post(
 );
 
 router.get(
-  '/:gymId/branches/:branchId/trainers',
+  ['/:gymId/branches/:branchId/trainers', '/:gymId/trainers'],
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
   TrainerController.listTrainers
 );

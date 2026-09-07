@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ExpenseCategory } from './expense.types';
 
 export const createExpenseSchema = z.object({
-  branchId: z.string().min(1, 'Branch ID is required'),
+  branchId: z.string().optional(),
   category: z.nativeEnum(ExpenseCategory),
   amount: z.number().positive('Amount must be positive'),
   description: z.string().min(2, 'Description must be at least 2 characters').trim(),

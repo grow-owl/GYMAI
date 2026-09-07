@@ -381,4 +381,18 @@ export class PlatformBillingService {
 
     return requests;
   }
+
+  public static async cancelUpgradeRequest(gymId: string, _userId: string) {
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false });
+    if (!gym) {
+      throw AppError.notFound('Gym organization not found');
+    }
+
+    const updated = await PlatformUpgradeRequest.updateMany(
+      { gymId: gym._id, status: 'PENDING' },
+      { $set: { status: 'CANCELLED' } }
+    );
+
+    return { success: true, count: updated.modifiedCount };
+  }
 }

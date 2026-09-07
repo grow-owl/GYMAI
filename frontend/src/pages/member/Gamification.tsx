@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Trophy, Flame, Loader2, RefreshCw, Flag } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
+import StreakGamificationHub from "@/components/member/StreakGamificationHub";
 import { gamificationApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -13,14 +14,16 @@ export default function Gamification() {
 
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
+  const [gameProfile, setGameProfile] = useState<any | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [lbRes, chRes] = await Promise.all([
+      const [lbRes, chRes, profRes] = await Promise.all([
         gamificationApi.getLeaderboard(user?.gymId),
-        gamificationApi.listChallenges(user?.gymId),
+        gamificationApi.listChallenges(user?.gymId).catch(() => null),
+        gamificationApi.getMyProfile().catch(() => null),
       ]);
 
       const lbList = Array.isArray(lbRes) ? lbRes : (lbRes as any)?.leaderboard || [];
@@ -28,6 +31,11 @@ export default function Gamification() {
 
       const chList = Array.isArray(chRes) ? chRes : (chRes as any)?.challenges || [];
       setChallenges(chList);
+
+      if (profRes) {
+        const prof = (profRes as any)?.profile || (profRes as any)?.gameProfile || profRes;
+        setGameProfile(prof);
+      }
     } catch (err: any) {
       console.error("Failed to load gamification data:", err);
       setError(
@@ -80,6 +88,9 @@ export default function Gamification() {
         </Card>
       ) : (
         <>
+          {/* Main Interactive Streak & Gamification Hub */}
+          <StreakGamificationHub gameProfile={gameProfile} onProfileUpdate={fetchData} />
+
           {/* User's Own Standing Card */}
           {myItem && (
             <Card sweep className="p-4 bg-gradient-to-br from-amber-500/10 via-(--color-surface) to-(--color-surface-2) border-amber-500/30">

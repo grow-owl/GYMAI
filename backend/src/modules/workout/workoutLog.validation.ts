@@ -7,7 +7,7 @@ const batchExerciseSchema = z.object({
   name: z.string().trim().optional(),
   sets: z.number().int().positive().optional().default(1),
   reps: z.number().int().positive().optional().default(10),
-  weightKg: z.number().positive().optional().default(0),
+  weightKg: z.number().nonnegative('Weight must be 0 or positive').optional().default(0),
 });
 
 export const startWorkoutLogSchema = z.object({
@@ -20,7 +20,7 @@ export const startWorkoutLogSchema = z.object({
 
 export const updateSetSchema = z.object({
   reps: z.number().int().positive('Reps must be a positive integer'),
-  weightKg: z.number().positive().optional(),
+  weightKg: z.number().nonnegative('Weight must be 0 or positive').optional(),
   completed: z.boolean().optional().default(true),
 });
 

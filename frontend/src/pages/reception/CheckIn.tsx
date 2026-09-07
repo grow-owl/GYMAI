@@ -6,6 +6,8 @@ import { attendanceApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 import QRCode from "qrcode";
+import type { IAttendanceCheckInResponse } from "@/types";
+import { formatApiError } from "@/lib/api";
 
 export default function CheckIn() {
   const user = useAuthStore((s) => s.user);
@@ -33,7 +35,7 @@ export default function CheckIn() {
       const newTtl = res?.ttlSeconds || 25;
       setTtl(newTtl);
       setCountdown(newTtl);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to generate dynamic kiosk QR:", err);
     } finally {
       setQrLoading(false);
@@ -63,7 +65,7 @@ export default function CheckIn() {
     if (!identifier.trim()) return;
     setLoading(true);
     try {
-      let res: any = null;
+      let res: IAttendanceCheckInResponse | null = null;
       if (user?.gymId && user?.branchId) {
         res = await attendanceApi.checkIn({ gymId: user.gymId, branchId: user.branchId, identifier: identifier.trim() });
       } else {
@@ -75,7 +77,8 @@ export default function CheckIn() {
       toast.success(`Check-in verified for ${memberName}!${streakText} Access Granted.`);
       setIdentifier("");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || `Check-in failed for ${identifier}. Member not found or membership invalid.`);
+      const msg = formatApiError(err, `Check-in failed for ${identifier}. Member not found or membership invalid.`);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

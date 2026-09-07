@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { ShieldCheck, Lock, AlertCircle } from "lucide-react";
+import { ShieldCheck, Lock, AlertCircle, CreditCard, ChevronRight } from "lucide-react";
 import { memberApi, progressApi, attendanceApi, paymentApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { useAttendanceStore } from "@/store/attendanceStore";
@@ -29,7 +29,7 @@ export default function MemberHome() {
   const [attendanceStats, setAttendanceStats] = useState<any | null>(null);
   const [completedWorkoutsCount, setCompletedWorkoutsCount] = useState<number>(0);
   const [workoutVolumeLogs, setWorkoutVolumeLogs] = useState<any[]>([]);
-  const [, setMyPayment] = useState<any | null>(null);
+  const [myPayments, setMyPayments] = useState<any[]>([]);
   const [activePlanName, setActivePlanName] = useState<string | null>(null);
 
   // Modal State
@@ -46,10 +46,10 @@ export default function MemberHome() {
 
       const memberId = m?._id || user?._id;
       const gymId = m?.gymId || user?.gymId;
-      const branchId = m?.branchId || user?.branchId;
 
-      if (!gymId || !branchId) {
+      if (!memberId && !gymId) {
         setProfileError("Couldn't load your profile — please try logging in again.");
+        return;
       }
 
       // 2. Fetch parallel endpoints
@@ -65,7 +65,10 @@ export default function MemberHome() {
         setWeightLogs(logs);
       }
       if (attStatsRes) setAttendanceStats(attStatsRes);
-      if (payRes) setMyPayment(payRes);
+      if (payRes) {
+        const pList = Array.isArray(payRes) ? payRes : payRes?.payments || [];
+        setMyPayments(pList);
+      }
       if (workoutStatsRes) {
         const stats = workoutStatsRes?.stats || workoutStatsRes;
         const count = stats?.totalWorkoutSessions ?? 0;
@@ -206,6 +209,38 @@ export default function MemberHome() {
           </div>
         </div>
       </div>
+
+      {/* Membership & Payment Quick Status */}
+      {myPayments.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-(--color-surface-2) to-emerald-500/10 p-3.5 sm:p-4 rounded-2xl border border-(--color-border) flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-(--color-surface) border border-(--color-border) flex items-center justify-center text-(--color-accent) shrink-0">
+              <CreditCard size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-(--color-text)">
+                  Membership: {memberProfile?.membershipPlan || "Active Plan"}
+                </span>
+                {memberProfile?.membershipEndDate && (
+                  <span className="text-[11px] text-(--color-text-muted)">
+                    (Valid till {new Date(memberProfile.membershipEndDate).toLocaleDateString()})
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-(--color-text-muted) mt-0.5">
+                Last payment of ₹{myPayments[0]?.amount} recorded on {new Date(myPayments[0]?.paidAt || myPayments[0]?.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/member/payments"
+            className="inline-flex items-center gap-1 font-semibold text-(--color-accent) hover:underline shrink-0"
+          >
+            View Receipts & Invoices <ChevronRight size={14} />
+          </Link>
+        </div>
+      )}
 
       {/* SECTION 1: Today's Workout & Active Diet Plan Overview (HERO SECTION) */}
       <WorkoutDietOverview memberId={memberId} />

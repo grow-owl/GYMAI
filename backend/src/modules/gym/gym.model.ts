@@ -55,6 +55,17 @@ const gymSchema = new Schema<IGym>(
         max: 30,
       },
     },
+    membershipPlans: [
+      {
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        durationMonths: { type: Number, required: true },
+        price: { type: Number, required: true },
+        badge: { type: String },
+        description: { type: String },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
     isDeleted: {
       type: Boolean,
       default: false,

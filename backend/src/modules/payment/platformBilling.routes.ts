@@ -41,10 +41,28 @@ router.post(
   PlatformBillingController.createUpgradeRequest
 );
 
+router.delete(
+  '/gyms/:gymId/upgrade-request',
+  authorize(Role.GYM_OWNER),
+  PlatformBillingController.cancelUpgradeRequest
+);
+
 router.get(
   '/upgrade-requests',
   authorize(Role.SUPER_ADMIN),
   PlatformBillingController.listUpgradeRequests
+);
+
+router.get(
+  '/settings',
+  authorize(Role.SUPER_ADMIN),
+  PlatformBillingController.getPlatformSettings
+);
+
+router.put(
+  '/settings',
+  authorize(Role.SUPER_ADMIN),
+  PlatformBillingController.updatePlatformSettings
 );
 
 export default router;

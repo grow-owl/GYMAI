@@ -27,9 +27,10 @@ export default function MemberProfile() {
       const res = await memberApi.getSelfProfile();
       if (res?.member) {
         setProfileData(res.member);
+        const userObj = typeof res.member.userId === "object" && res.member.userId !== null ? res.member.userId : null;
         setForm({
-          fullName: res.member.userId?.fullName || user?.fullName || "",
-          phone: res.member.userId?.phone || user?.phone || "",
+          fullName: userObj?.fullName || user?.fullName || "",
+          phone: userObj?.phone || user?.phone || "",
         });
       }
     } catch {
@@ -56,7 +57,7 @@ export default function MemberProfile() {
   };
 
   const memberName = profileData?.userId?.fullName || user?.fullName || "Member";
-  const planName = profileData?.planName || "Annual Membership";
+  const planName = profileData?.planName || "—";
   const startDate = profileData?.membershipStartDate ? new Date(profileData.membershipStartDate).toLocaleDateString() : "—";
   const endDate = profileData?.membershipEndDate ? new Date(profileData.membershipEndDate).toLocaleDateString() : "—";
   const status = profileData?.membershipStatus || "ACTIVE";

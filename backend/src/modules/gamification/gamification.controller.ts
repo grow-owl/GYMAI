@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { GamificationService } from './gamification.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { AppError } from '../../common/utils/AppError';
 
 export class GamificationController {
   public static getMyProfile = asyncHandler(async (req: Request, res: Response) => {
@@ -16,7 +17,7 @@ export class GamificationController {
     const timeframe = (req.query.timeframe as 'weekly' | 'monthly' | 'allTime') || 'allTime';
 
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required for leaderboard' } });
+      throw AppError.badRequest('Gym ID is required for leaderboard');
     }
 
     const leaderboard = await GamificationService.getLeaderboard(
@@ -39,7 +40,7 @@ export class GamificationController {
   public static createChallenge = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user!.gymId;
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+      throw AppError.badRequest('Gym ID is required');
     }
 
     const challenge = await GamificationService.createChallenge(gymId.toString(), req.body);

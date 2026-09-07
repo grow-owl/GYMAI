@@ -3,6 +3,7 @@ import { gymApi } from "@/lib/endpoints";
 import CustomSelect from "@/components/ui/CustomSelect";
 import OwnerTrainers from "@/pages/owner/Trainers";
 import { Loader2 } from "lucide-react";
+import { showApiErrorToast } from "@/lib/api";
 
 export default function Trainers() {
   const [gyms, setGyms] = useState<any[]>([]);
@@ -24,7 +25,8 @@ export default function Trainers() {
             setSelectedBranchId(gymList[0].branches[0]._id || gymList[0].branches[0].id);
           }
         }
-      } catch {
+      } catch (err: any) {
+        showApiErrorToast(err, "Failed to load gym locations");
       } finally {
         setLoadingGyms(false);
       }

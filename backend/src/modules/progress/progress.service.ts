@@ -11,6 +11,11 @@ import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../.
 import { logger } from '../../config/logger';
 import { cloudinaryUpload } from '../../config/cloudinary';
 import { env } from '../../config/env';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/notification.types';
+import { Trainer } from '../trainer/trainer.model';
+import { User } from '../user/user.model';
+import { AIDataAggregatorService } from '../aiCoach/aiDataAggregator.service';
 
 export class ProgressService {
   /**
@@ -287,6 +292,47 @@ export class ProgressService {
     );
 
     logger.info(`💧 Wellness logged: [Member: ${member._id}] [DayKey: ${dayKey}]`);
+
+    // Automatic AI Recovery Check: Trigger notifications if recovery score drops below 50
+    try {
+      const recoveryData = AIDataAggregatorService.calculateRecoveryScore(
+        wellness.sleepHours,
+        wellness.waterIntakeMl
+      );
+
+      if (recoveryData.recoveryScore < 50) {
+        // 1. Notify the Member
+        NotificationService.sendToUser(
+          member.userId.toString(),
+          member.gymId ? member.gymId.toString() : null,
+          NotificationType.RECOVERY_ALERT,
+          `Low Recovery Alert (Score: ${recoveryData.recoveryScore}%)`,
+          `High fatigue detected due to low sleep (${wellness.sleepHours ?? '--'}h). Prioritize rest, stretching, and hydration today.`,
+          { route: '/progress', recoveryScore: String(recoveryData.recoveryScore) }
+        ).catch((err: Error) => logger.warn(`Failed to dispatch member recovery notification: ${err.message}`));
+
+        // 2. Notify the Assigned Trainer (if one is assigned)
+        if (member.assignedTrainerId) {
+          Trainer.findById(member.assignedTrainerId).then(async (trainer) => {
+            if (trainer && trainer.userId) {
+              const memberUser = await User.findById(member.userId).select('fullName');
+              const memberName = memberUser?.fullName || 'Assigned Client';
+              NotificationService.sendToUser(
+                trainer.userId.toString(),
+                member.gymId ? member.gymId.toString() : null,
+                NotificationType.RECOVERY_ALERT,
+                `Client Recovery Alert: ${memberName}`,
+                `${memberName}'s recovery dropped to ${recoveryData.recoveryScore}% (Rest Needed). Recommended action: adjust today's workout plan or schedule a deload session.`,
+                { route: '/trainer/recovery-alerts', memberId: member._id.toString() }
+              ).catch((err: Error) => logger.warn(`Failed to dispatch trainer recovery notification: ${err.message}`));
+            }
+          }).catch((err: Error) => logger.warn(`Failed to lookup assigned trainer: ${err.message}`));
+        }
+      }
+    } catch (err: unknown) {
+      logger.warn(`Failed to evaluate recovery score for wellness entry: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     return wellness;
   }
 

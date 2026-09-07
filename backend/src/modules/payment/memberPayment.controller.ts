@@ -6,13 +6,14 @@ import { PaymentStatus } from './platformSubscription.types';
 import { PaymentPurpose } from './memberPayment.types';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { AppError } from '../../common/utils/AppError';
 import { Role } from '../../common/constants/roles.enum';
 
 export class MemberPaymentController {
   public static recordManualPayment = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user!.gymId;
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+      throw AppError.badRequest('Gym ID is required');
     }
 
     const payment = await MemberPaymentService.recordManualPayment(
@@ -36,7 +37,7 @@ export class MemberPaymentController {
   public static initiateOnlineOrder = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user!.gymId;
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+      throw AppError.badRequest('Gym ID is required');
     }
 
     const result = await MemberPaymentService.initiateOnlineMemberPayment(
@@ -75,7 +76,7 @@ export class MemberPaymentController {
   public static listPayments = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user!.gymId;
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+      throw AppError.badRequest('Gym ID is required');
     }
 
     const { branchId, memberId, status, purpose } = req.query;
@@ -106,7 +107,7 @@ export class MemberPaymentController {
   public static getMyPayments = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user!.gymId;
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+      throw AppError.badRequest('Gym ID is required');
     }
 
     const member = await Member.findOne({ userId: req.user!.id, gymId, isDeleted: false });
@@ -125,7 +126,7 @@ export class MemberPaymentController {
   public static getRevenueSummary = asyncHandler(async (req: Request, res: Response) => {
     const gymId = req.params.gymId || req.user!.gymId;
     if (!gymId) {
-      return res.status(400).json({ success: false, error: { message: 'Gym ID is required' } });
+      throw AppError.badRequest('Gym ID is required');
     }
 
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;

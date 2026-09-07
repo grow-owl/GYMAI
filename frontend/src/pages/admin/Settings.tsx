@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Settings as SettingsIcon, Save, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings as SettingsIcon, Save, ShieldAlert, CheckCircle2, Loader2 } from "lucide-react";
 import { useFormValidation } from "@/lib/useFormValidation";
-
-const STORAGE_KEY = "gymai.admin_settings";
+import { paymentApi } from "@/lib/endpoints";
+import { showApiErrorToast } from "@/lib/api";
+import { toast } from "sonner";
 
 const defaultAdminSettings = {
   supportEmail: "support@gymai-saas.com",
@@ -13,36 +14,51 @@ const defaultAdminSettings = {
 };
 
 export default function AdminSettings() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const getInitialSettings = () => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return defaultAdminSettings;
-  };
-
-  const initial = getInitialSettings();
-
-  const { values, errors, touched, handleChange, handleBlur, validateAll } = useFormValidation(
-    {
-      supportEmail: initial.supportEmail,
-      defaultTrialDays: initial.defaultTrialDays,
-      platformCurrency: initial.platformCurrency,
-      maintenanceMode: initial.maintenanceMode,
-      whatsappAlertsEnabled: initial.whatsappAlertsEnabled,
-    },
+  const { values, errors, touched, handleChange, handleBlur, validateAll, setValues } = useFormValidation(
+    defaultAdminSettings,
     {
       supportEmail: { required: "Support email is required", email: "Enter a valid email" },
       defaultTrialDays: { required: "Trial period days is required" },
     }
   );
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  useEffect(() => {
+    let mounted = true;
+    const fetchSettings = async () => {
+      setLoading(true);
+      try {
+        const res = await paymentApi.getPlatformSettings();
+        if (mounted && res?.settings) {
+          setValues({
+            supportEmail: res.settings.supportEmail || defaultAdminSettings.supportEmail,
+            defaultTrialDays: res.settings.defaultTrialDays ?? defaultAdminSettings.defaultTrialDays,
+            platformCurrency: res.settings.platformCurrency || defaultAdminSettings.platformCurrency,
+            maintenanceMode: Boolean(res.settings.maintenanceMode),
+            whatsappAlertsEnabled: res.settings.whatsappAlertsEnabled ?? defaultAdminSettings.whatsappAlertsEnabled,
+          });
+        }
+      } catch (err: any) {
+        showApiErrorToast(err, "Failed to load platform settings from server");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchSettings();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateAll()) return;
 
+    setSaving(true);
     const updated = {
       supportEmail: values.supportEmail,
       defaultTrialDays: Number(values.defaultTrialDays),
@@ -52,12 +68,34 @@ export default function AdminSettings() {
     };
 
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
-
-    setToastMessage("SaaS Platform settings updated successfully!");
-    setTimeout(() => setToastMessage(null), 4000);
+      const res = await paymentApi.updatePlatformSettings(updated);
+      if (res?.settings) {
+        setValues({
+          supportEmail: res.settings.supportEmail,
+          defaultTrialDays: res.settings.defaultTrialDays,
+          platformCurrency: res.settings.platformCurrency,
+          maintenanceMode: res.settings.maintenanceMode,
+          whatsappAlertsEnabled: res.settings.whatsappAlertsEnabled,
+        });
+      }
+      toast.success("SaaS Platform settings saved to database!");
+      setToastMessage("SaaS Platform settings updated successfully!");
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to save platform settings to server");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="p-12 flex flex-col items-center justify-center space-y-3 text-(--color-text-muted)">
+        <Loader2 className="h-6 w-6 animate-spin text-(--color-accent)" />
+        <p className="text-sm">Loading SaaS platform configuration...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-3xl space-y-6">
@@ -159,9 +197,11 @@ export default function AdminSettings() {
 
         <button
           type="submit"
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-(--color-accent) text-white font-semibold text-sm rounded-xl hover:bg-(--color-accent-strong) shadow-lg shadow-(--color-accent-soft) transition-all"
+          disabled={saving}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-(--color-accent) text-white font-semibold text-sm rounded-xl hover:bg-(--color-accent-strong) shadow-lg shadow-(--color-accent-soft) transition-all cursor-pointer disabled:opacity-50"
         >
-          <Save size={18} /> Save Settings
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={18} />}
+          {saving ? "Saving to Database..." : "Save Settings"}
         </button>
       </form>
     </div>

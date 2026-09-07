@@ -5,6 +5,7 @@ import { ILead, LeadStatus } from './lead.types';
 import { Member } from '../member/member.model';
 import { MemberService } from '../member/member.service';
 import { IMember } from '../member/member.types';
+import { Branch } from '../gym/branch.model';
 import { AppError } from '../../common/utils/AppError';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 
@@ -32,11 +33,28 @@ export interface ConvertLeadInput {
 export class LeadService {
   public static async createLead(
     gymId: string,
-    branchId: string,
+    branchId: string | undefined,
     input: CreateLeadInput
   ): Promise<ILead> {
     const { referralCode, ...leadData } = input;
     let source = leadData.source;
+
+    let targetBranchId: mongoose.Types.ObjectId | null = null;
+    if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
+      targetBranchId = new mongoose.Types.ObjectId(branchId);
+    } else if (mongoose.Types.ObjectId.isValid(gymId)) {
+      const primaryOrActive = await Branch.findOne({
+        gymId: new mongoose.Types.ObjectId(gymId),
+        isDeleted: false,
+      }).sort({ isPrimary: -1, createdAt: 1 });
+      if (primaryOrActive) {
+        targetBranchId = primaryOrActive._id as mongoose.Types.ObjectId;
+      }
+    }
+
+    if (!targetBranchId) {
+      throw AppError.badRequest('A valid branch is required to create a lead');
+    }
 
     if (referralCode) {
       const referringMember = await Member.findOne({
@@ -52,7 +70,7 @@ export class LeadService {
 
     const lead = new Lead({
       gymId: new mongoose.Types.ObjectId(gymId),
-      branchId: new mongoose.Types.ObjectId(branchId),
+      branchId: targetBranchId,
       ...leadData,
       source,
     });

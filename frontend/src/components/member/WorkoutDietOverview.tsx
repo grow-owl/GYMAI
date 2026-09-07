@@ -87,8 +87,8 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
     if (memberId) {
       dietApi.getActive(memberId)
         .then((dRes) => {
-          if (dRes && (dRes.plan || dRes._id || dRes.dietPlan)) {
-            setDietPlan(dRes.plan || dRes.dietPlan || dRes);
+          if (dRes && (dRes.dietPlan || dRes.plan)) {
+            setDietPlan(dRes.dietPlan || dRes.plan || null);
           }
         })
         .catch(() => {});

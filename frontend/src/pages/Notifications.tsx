@@ -20,6 +20,7 @@ import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { notificationApi } from "@/lib/endpoints";
 import type { INotificationItem, NotificationPaginationMeta } from "@/lib/endpoints";
+import { showApiErrorToast } from "@/lib/api";
 import { toast } from "sonner";
 
 
@@ -60,40 +61,11 @@ function formatTimeAgo(dateString: string) {
   }
 }
 
-const READ_KEY = "gymai.read_notifications";
-
-function getReadIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(READ_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveReadId(id: string) {
-  try {
-    const set = getReadIds();
-    set.add(id);
-    localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
-  } catch {
-    // ignore
-  }
-}
-
-function saveAllReadIds(ids: string[]) {
-  try {
-    const set = getReadIds();
-    ids.forEach((id) => set.add(id));
-    localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
-  } catch {
-    // ignore
-  }
-}
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState<INotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filterTab, setFilterTab] = useState<"ALL" | "UNREAD" | "READ">("ALL");
 
@@ -111,39 +83,31 @@ export default function Notifications() {
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
-    const readSet = getReadIds();
+    setError(null);
 
     try {
       const isReadParam = filterTab === "UNREAD" ? false : filterTab === "READ" ? true : undefined;
       const res = await notificationApi.list({ page, limit, isRead: isReadParam });
       
       const rawList = res?.notifications || (Array.isArray(res as any) ? (res as any) : []);
-      
-      const list = rawList.map((n: INotificationItem) =>
-        readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
-      );
-      
-      let filteredList = list;
-      if (filterTab === "UNREAD") filteredList = list.filter((n) => !n.isRead);
-      if (filterTab === "READ") filteredList = list.filter((n) => n.isRead);
+      setNotifications(rawList);
 
-      setNotifications(filteredList);
       if (res?.pagination) {
-        setPaginationMeta({
-          ...res.pagination,
-          totalItems: filteredList.length < list.length ? filteredList.length : res.pagination.totalItems,
-        });
+        setPaginationMeta(res.pagination);
       } else {
         setPaginationMeta({
           page,
           limit,
-          totalItems: filteredList.length,
-          totalPages: Math.ceil(filteredList.length / limit) || 1,
+          totalItems: rawList.length,
+          totalPages: Math.ceil(rawList.length / limit) || 1,
           hasNextPage: false,
           hasPrevPage: false,
         });
       }
-    } catch {
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err.message || "Failed to load notifications feed";
+      setError(msg);
+      showApiErrorToast(err, "Failed to load notifications feed");
       setNotifications([]);
       setPaginationMeta({
         page,
@@ -166,43 +130,38 @@ export default function Notifications() {
     };
 
     window.addEventListener("gymai-notifications-updated", handleSync);
-    window.addEventListener("storage", handleSync);
     return () => {
       window.removeEventListener("gymai-notifications-updated", handleSync);
-      window.removeEventListener("storage", handleSync);
     };
   }, [fetchNotifications]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     setActionLoading(notificationId);
-    saveReadId(notificationId);
     try {
       await notificationApi.markAsRead(notificationId);
-    } catch {
-      // ignore API failure, local storage is saved
-    } finally {
       toast.success("Notification marked as read");
       setNotifications((prev) =>
         prev.map((n) => (n._id === notificationId || n.id === notificationId ? { ...n, isRead: true } : n))
       );
-      setActionLoading(null);
       window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
+    } catch {
+      toast.error("Failed to mark notification as read");
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleMarkAllAsRead = async () => {
     setActionLoading("ALL");
-    const ids = notifications.map((n) => n._id || n.id || "");
-    saveAllReadIds(ids);
     try {
       await notificationApi.markAllAsRead();
-    } catch {
-      // ignore API failure, local storage is saved
-    } finally {
       toast.success("All notifications marked as read");
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setActionLoading(null);
       window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
+    } catch {
+      toast.error("Failed to mark all as read");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -301,6 +260,20 @@ export default function Notifications() {
           <div className="flex flex-col items-center justify-center py-16 text-center text-sm text-(--color-text-muted) gap-3">
             <Loader2 className="w-6 h-6 animate-spin text-(--color-accent)" />
             <p>Loading notification feed...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center px-4 space-y-3">
+            <AlertCircle className="w-10 h-10 text-rose-400 mb-1 opacity-80" />
+            <p className="text-base font-semibold text-rose-400">{error}</p>
+            <p className="text-xs text-(--color-text-muted) max-w-sm">
+              We encountered a problem fetching your notification feed from the server.
+            </p>
+            <button
+              onClick={() => fetchNotifications()}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-(--color-surface-2) text-(--color-text) hover:bg-(--color-surface-3) transition-colors cursor-pointer"
+            >
+              <RefreshCw size={14} /> Retry loading feed
+            </button>
           </div>
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-4">

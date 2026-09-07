@@ -398,6 +398,11 @@ export default function PerformanceCharts({
               })}
             </div>
           </div>
+          {volumeData.every((v) => v.volume === 0) && (
+            <p className="text-[11px] text-(--color-text-muted) text-center bg-(--color-surface-2) p-2.5 rounded-xl border border-(--color-border-soft)">
+              No workout volume recorded this week yet. Complete your logged workout sessions to track weekly volume progression!
+            </p>
+          )}
         </div>
       )}
 

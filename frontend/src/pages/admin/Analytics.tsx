@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, DollarSign, Building2, Users, ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
+import { TrendingUp, DollarSign, Building2, Users, ArrowUpRight, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { paymentApi, gymApi } from "@/lib/endpoints";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 export default function Analytics() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [overview, setOverview] = useState<{
     totalRevenue: number;
     revenueThisMonth: number;
@@ -16,41 +18,47 @@ export default function Analytics() {
   });
   const [gymsCount, setGymsCount] = useState({ total: 0, active: 0, trial: 0, totalBranches: 0 });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [overviewRes, gymsRes] = await Promise.all([
-          paymentApi.getPlatformAnalyticsOverview().catch(() => null),
-          gymApi.listAllGyms().catch(() => null),
-        ]);
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [overviewRes, gymsRes] = await Promise.all([
+        paymentApi.getPlatformAnalyticsOverview(),
+        gymApi.listAllGyms(),
+      ]);
 
-        if (overviewRes) {
-          setOverview({
-            totalRevenue: overviewRes.totalRevenue || 0,
-            revenueThisMonth: overviewRes.revenueThisMonth || 0,
-            activePayingGymsCount: overviewRes.activePayingGymsCount || 0,
-            revenueByPlan: overviewRes.revenueByPlan || {},
-          });
-        }
-
-        if (gymsRes?.gyms) {
-          const list = gymsRes.gyms;
-          const active = list.filter((g: any) => g.status === "ACTIVE" || g.isActive).length;
-          const trial = list.filter((g: any) => g.plan === "TRIAL" || g.status === "TRIAL").length;
-          const totalBranches = list.reduce((sum: number, g: any) => sum + (g.branches?.length || 1), 0);
-          setGymsCount({
-            total: list.length,
-            active,
-            trial,
-            totalBranches,
-          });
-        }
-      } finally {
-        setLoading(false);
+      if (overviewRes) {
+        const ov = overviewRes as any;
+        setOverview({
+          totalRevenue: Number(ov.totalRevenue) || 0,
+          revenueThisMonth: Number(ov.revenueThisMonth) || 0,
+          activePayingGymsCount: Number(ov.activePayingGymsCount) || 0,
+          revenueByPlan: (ov.revenueByPlan as Record<string, number>) || {},
+        });
       }
-    };
 
+      if (gymsRes?.gyms) {
+        const list = gymsRes.gyms;
+        const active = list.filter((g: any) => g.status === "ACTIVE" || g.isActive).length;
+        const trial = list.filter((g: any) => g.plan === "TRIAL" || g.status === "TRIAL").length;
+        const totalBranches = list.reduce((sum: number, g: any) => sum + (g.branches?.length || 1), 0);
+        setGymsCount({
+          total: list.length,
+          active,
+          trial,
+          totalBranches,
+        });
+      }
+    } catch (err: any) {
+      const msg = formatApiError(err, "Failed to load platform analytics.");
+      setError(msg);
+      showApiErrorToast(err, "Failed to load platform analytics");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -58,6 +66,20 @@ export default function Analytics() {
     return (
       <div className="flex h-64 items-center justify-center text-(--color-text-muted) gap-2">
         <Loader2 className="animate-spin" size={24} /> Loading SaaS Platform Analytics...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl bg-(--color-surface-2) border border-(--color-border) space-y-3">
+        <p className="text-sm font-semibold text-red-400">{error}</p>
+        <button
+          onClick={fetchData}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar) cursor-pointer hover:brightness-110"
+        >
+          <RefreshCw size={14} /> Retry Analytics Sync
+        </button>
       </div>
     );
   }

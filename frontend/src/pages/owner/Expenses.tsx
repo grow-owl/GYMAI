@@ -5,7 +5,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
-import { expenseApi } from "@/lib/endpoints";
+import { expenseApi, gymApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 
@@ -22,12 +22,30 @@ const expenseCategoryOptions = [
 export default function Expenses() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [expenseList, setExpenseList] = useState<any[]>([]);
+  const [profitSummary, setProfitSummary] = useState<any | null>(null);
+  const [branchesList, setBranchesList] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [submittingEdit, setSubmittingEdit] = useState(false);
+
+  useEffect(() => {
+    if (gymId) {
+      gymApi
+        .listBranches(gymId)
+        .then((res) => {
+          const list = Array.isArray(res) ? res : (res as any)?.branches || [];
+          setBranchesList(list);
+          if (list.length === 1 && !branchId) {
+            setSelectedBranchId(list[0]._id || list[0].id);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [gymId, branchId]);
 
   const [newExpense, setNewExpense] = useState({
     title: "",
@@ -47,15 +65,22 @@ export default function Expenses() {
   const fetchExpenses = useCallback(async () => {
     if (!gymId) {
       setExpenseList([]);
+      setProfitSummary(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await expenseApi.list(gymId);
+      const [res, summaryRes] = await Promise.all([
+        expenseApi.list(gymId),
+        expenseApi.getProfitSummary(gymId).catch(() => null),
+      ]);
       const list = Array.isArray(res) ? res : (res as any)?.expenses || [];
       setExpenseList(list);
+      if (summaryRes) {
+        setProfitSummary(summaryRes);
+      }
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || "Failed to load expenses";
       setFetchError(msg);
@@ -73,12 +98,13 @@ export default function Expenses() {
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeGymId = gymId || "";
-    const activeBranchId = branchId || "";
+    const activeBranchId =
+      selectedBranchId || branchId || (branchesList.length === 1 ? branchesList[0]._id || branchesList[0].id : undefined);
 
     setSubmittingAdd(true);
     try {
       await expenseApi.add(activeGymId, {
-        branchId: activeBranchId,
+        branchId: activeBranchId || undefined,
         description: newExpense.title || "Operating Expense",
         category: newExpense.category,
         amount: Number(newExpense.amount),
@@ -164,17 +190,34 @@ export default function Expenses() {
         }
       />
 
-      <Card sweep className="mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-(--color-text-muted) mb-1">Total Expenses This Month</p>
-            <p className="font-display text-3xl font-semibold text-rose-400 font-mono">₹{totalExpense.toLocaleString("en-IN")}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <Card sweep>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-(--color-text-muted) mb-1">Total Expenses This Month</p>
+              <p className="font-display text-3xl font-semibold text-rose-400 font-mono">₹{totalExpense.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="p-3 rounded-full bg-rose-500/10 text-rose-400">
+              <DollarSign size={24} />
+            </div>
           </div>
-          <div className="p-3 rounded-full bg-rose-500/10 text-rose-400">
-            <DollarSign size={24} />
-          </div>
-        </div>
-      </Card>
+        </Card>
+        {profitSummary && (
+          <Card sweep>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-(--color-text-muted) mb-1">Net Operating Balance</p>
+                <p className={`font-display text-3xl font-semibold font-mono ${(profitSummary.netProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  ₹{Number(profitSummary.netProfit || 0).toLocaleString("en-IN")}
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-400">
+                <DollarSign size={24} />
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
 
       {resolvingBranch || loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -236,6 +279,20 @@ export default function Expenses() {
         <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Add Gym Expense">
           <form onSubmit={handleAddExpense} className="space-y-4">
             <div className="space-y-3 text-xs">
+              {branchesList.length > 1 && !branchId && (
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">Branch</label>
+                  <CustomSelect
+                    value={selectedBranchId}
+                    onChange={(val) => setSelectedBranchId(val)}
+                    options={[
+                      { value: "", label: "Primary Branch (Default)" },
+                      ...branchesList.map((b) => ({ value: b._id || b.id, label: b.name })),
+                    ]}
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Expense Description</label>
                 <input

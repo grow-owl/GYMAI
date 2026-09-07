@@ -10,6 +10,7 @@ import { productApi, memberApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import { showApiErrorToast } from "@/lib/api";
 
 const categoryOptions = [
   { value: "supplement", label: "Supplement" },
@@ -32,6 +33,7 @@ export default function Inventory() {
   const [products, setProducts] = useState<any[]>([]);
   const [membersList, setMembersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
@@ -68,9 +70,10 @@ export default function Inventory() {
       return;
     }
     setLoading(true);
+    setError(null);
     try {
       const [prodRes, memRes] = await Promise.all([
-        productApi.list(gymId, branchId || undefined).catch(() => []),
+        productApi.list(gymId, branchId || undefined),
         memberApi.list(gymId, branchId || "").catch(() => []),
       ]);
 
@@ -83,7 +86,10 @@ export default function Inventory() {
         mList = Array.isArray(fallbackRes) ? fallbackRes : (fallbackRes as any)?.members || [];
       }
       setMembersList(mList);
-    } catch {
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err.message || "Failed to load inventory products";
+      setError(msg);
+      showApiErrorToast(err, "Failed to load inventory products");
       setProducts([]);
     } finally {
       setLoading(false);
@@ -272,6 +278,18 @@ export default function Inventory() {
           </div>
         </Card>
       </div>
+
+      {error && (
+        <Card className="text-center py-8 text-(--color-text-muted) space-y-3 border-rose-500/30">
+          <p className="text-sm font-semibold text-rose-400">{error}</p>
+          <button
+            onClick={fetchProducts}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-(--color-surface-2) text-(--color-text) hover:bg-(--color-surface-3) transition-colors cursor-pointer"
+          >
+            <RefreshCw size={14} /> Retry loading inventory
+          </button>
+        </Card>
+      )}
 
       {resolvingBranch || loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">

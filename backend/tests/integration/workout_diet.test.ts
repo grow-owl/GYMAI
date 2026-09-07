@@ -16,6 +16,8 @@ import { ExerciseService } from '../../src/modules/workout/exercise.service';
 import { Role } from '../../src/common/constants/roles.enum';
 import { MuscleGroup } from '../../src/modules/workout/exercise.types';
 import { PlanStatus } from '../../src/modules/workout/workoutPlan.types';
+import { Attendance } from '../../src/modules/attendance/attendance.model';
+import { AttendanceStatus } from '../../src/modules/attendance/attendance.types';
 import { generateAccessToken } from '../../src/common/utils/generateTokens';
 
 let mongoServer: MongoMemoryServer;
@@ -282,6 +284,16 @@ describe('Workout & Diet Plan Module Integration Tests', () => {
         status: PlanStatus.ACTIVE,
       });
 
+      // Check in member to satisfy in-gym check-in requirement
+      await Attendance.create({
+        gymId: new mongoose.Types.ObjectId(gymId),
+        branchId: new mongoose.Types.ObjectId(branchId),
+        memberId: new mongoose.Types.ObjectId(memberDocId),
+        status: AttendanceStatus.CHECKED_IN,
+        checkInAt: now,
+        dayKey: now.toISOString().slice(0, 10),
+      });
+
       // 1. Start Workout Log
       const startRes = await request(app)
         .post('/api/v1/workout-logs/start')
@@ -294,14 +306,15 @@ describe('Workout & Diet Plan Module Integration Tests', () => {
       expect(startRes.status).toBe(201);
       const logId = startRes.body.data.log._id;
 
-      // 2. Log Set 1 Progress
+      // 2. Log Set 1 Progress (with bodyweight 0 kg to verify non-negative support)
       const set1Res = await request(app)
         .patch(`/api/v1/workout-logs/${logId}/exercises/${exercise1Id}/sets/1`)
         .set('Authorization', `Bearer ${memberToken}`)
-        .send({ reps: 10, weightKg: 70, completed: true });
+        .send({ reps: 10, weightKg: 0, completed: true });
 
       expect(set1Res.status).toBe(200);
       expect(set1Res.body.data.log.exercises[0].sets[0].completed).toBe(true);
+      expect(set1Res.body.data.log.exercises[0].sets[0].weightKg).toBe(0);
 
       // 3. Complete Exercise 1
       const completeExRes = await request(app)

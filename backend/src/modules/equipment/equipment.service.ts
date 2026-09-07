@@ -65,7 +65,7 @@ export class EquipmentService {
     }
 
     let [equipment, totalItems] = await Promise.all([
-      Equipment.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+      Equipment.find(filter).populate('branchId', 'name address').skip(skip).limit(limit).sort({ createdAt: -1 }),
       Equipment.countDocuments(filter),
     ]);
 

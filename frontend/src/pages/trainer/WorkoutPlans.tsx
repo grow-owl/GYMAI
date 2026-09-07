@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Dumbbell, Copy, Archive, Trash2, Edit2, Loader2, Users, Search, Settings } from "lucide-react";
+import { Plus, Dumbbell, Copy, Archive, Trash2, Edit2, Loader2, Users, Search, Settings, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -9,6 +9,8 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { trainerApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
+import type { IMemberClient, IWorkoutPlan, IExerciseLibraryItem, IWorkoutDay, IWorkoutPlanExercise } from "@/types";
 
 interface ExerciseItem {
   exerciseId: string;
@@ -30,10 +32,10 @@ export default function WorkoutPlans() {
   const gymId = user?.gymId || "";
 
   // Primary States
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<IMemberClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
-  const [plans, setPlans] = useState<any[]>([]);
-  const [exercisesList, setExercisesList] = useState<any[]>([]);
+  const [plans, setPlans] = useState<IWorkoutPlan[]>([]);
+  const [exercisesList, setExercisesList] = useState<IExerciseLibraryItem[]>([]);
 
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -65,49 +67,57 @@ export default function WorkoutPlans() {
   const [days, setDays] = useState<WorkoutDayItem[]>([
     { dayLabel: "Day 1: Push", exercises: [] },
   ]);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // Load clients & exercise repository on mount
-  useEffect(() => {
-    async function loadInitialData() {
-      setLoadingClients(true);
-      try {
-        if (gymId) {
-          const clientRes = await trainerApi.getMyClients(gymId).catch(() => null);
-          const list = Array.isArray(clientRes) ? clientRes : clientRes?.clients || [];
-          setClients(list);
-          if (list.length > 0) {
-            const firstId = list[0]._id || list[0].id || list[0].userId?._id;
-            setSelectedClientId(String(firstId));
-          }
+  async function loadInitialData() {
+    setLoadingClients(true);
+    setDataError(null);
+    try {
+      if (gymId) {
+        const clientRes = await trainerApi.getMyClients(gymId);
+        const list = Array.isArray(clientRes) ? clientRes : clientRes?.clients || [];
+        setClients(list);
+        if (list.length > 0 && !selectedClientId) {
+          const firstId = list[0]._id || list[0].id || list[0].userId?._id;
+          setSelectedClientId(String(firstId));
         }
-        const exRes = await workoutApi.listExercises().catch(() => null);
-        const exList = Array.isArray(exRes) ? exRes : exRes?.exercises || [];
-        setExercisesList(exList);
-      } catch (err) {
-        console.error("Error loading trainer clients or exercises:", err);
-      } finally {
-        setLoadingClients(false);
       }
+      const exRes = await workoutApi.listExercises();
+      const exList = Array.isArray(exRes) ? exRes : (exRes as any)?.exercises || [];
+      setExercisesList(exList);
+    } catch (err: any) {
+      const msg = formatApiError(err, "Failed to load trainer clients or exercises.");
+      setDataError(msg);
+      showApiErrorToast(err, "Failed to load clients or exercises");
+    } finally {
+      setLoadingClients(false);
     }
+  }
+
+  useEffect(() => {
     loadInitialData();
   }, [gymId]);
 
   // Load plans when selected client changes
+  async function fetchClientPlans(clientId?: string) {
+    const cId = clientId || selectedClientId;
+    if (!cId) return;
+    setLoadingPlans(true);
+    try {
+      const res = await workoutApi.listPlans(cId);
+      const list = Array.isArray(res) ? res : (res as any)?.plans || [];
+      setPlans(list);
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to load client workout plans");
+      setPlans([]);
+    } finally {
+      setLoadingPlans(false);
+    }
+  }
+
   useEffect(() => {
     if (!selectedClientId) return;
-    async function fetchClientPlans() {
-      setLoadingPlans(true);
-      try {
-        const res = await workoutApi.listPlans(selectedClientId).catch(() => null);
-        const list = Array.isArray(res) ? res : res?.plans || [];
-        setPlans(list);
-      } catch (err) {
-        console.error("Error loading client workout plans:", err);
-        setPlans([]);
-      } finally {
-        setLoadingPlans(false);
-      }
-    }
     fetchClientPlans();
   }, [selectedClientId]);
 
@@ -158,8 +168,8 @@ export default function WorkoutPlans() {
     }
   };
 
-  const handleEditCustomExerciseClick = (ex: any) => {
-    setEditingCustomExId(ex._id || ex.id);
+  const handleEditCustomExerciseClick = (ex: IExerciseLibraryItem) => {
+    setEditingCustomExId(ex._id || ex.id || "");
     setCustomExForm({
       name: ex.name || "",
       muscleGroup: ex.muscleGroup || "CHEST",
@@ -204,7 +214,7 @@ export default function WorkoutPlans() {
   };
 
   const addExerciseToDay = (dayIndex: number) => {
-    const defaultExId = exercisesList.length > 0 ? (exercisesList[0]._id || exercisesList[0].id) : "";
+    const defaultExId = exercisesList.length > 0 ? (exercisesList[0]._id || exercisesList[0].id || "") : "";
     setDays((prev) => {
       const next = [...prev];
       next[dayIndex].exercises.push({
@@ -226,7 +236,7 @@ export default function WorkoutPlans() {
     });
   };
 
-  const updateExercise = (dayIndex: number, exIndex: number, field: keyof ExerciseItem, val: any) => {
+  const updateExercise = (dayIndex: number, exIndex: number, field: keyof ExerciseItem, val: string | number | undefined) => {
     setDays((prev) => {
       const next = [...prev];
       next[dayIndex].exercises[exIndex] = { ...next[dayIndex].exercises[exIndex], [field]: val };
@@ -235,18 +245,18 @@ export default function WorkoutPlans() {
   };
 
   // Open Edit Modal for a plan
-  const handleOpenEditPlanModal = (plan: any) => {
-    setEditingPlanId(plan._id || plan.id);
+  const handleOpenEditPlanModal = (plan: IWorkoutPlan) => {
+    setEditingPlanId(plan._id || plan.id || "");
     setTitle(plan.title || "");
     setGoal(plan.goal || "General Fitness");
     setStartDate(plan.startDate ? plan.startDate.split("T")[0] : new Date().toISOString().split("T")[0]);
 
     if (plan.days && Array.isArray(plan.days) && plan.days.length > 0) {
       setDays(
-        plan.days.map((d: any) => ({
+        plan.days.map((d: IWorkoutDay) => ({
           dayLabel: d.dayLabel || d.dayName || "Workout Day",
-          exercises: (d.exercises || []).map((e: any, idx: number) => ({
-            exerciseId: typeof e.exerciseId === "object" ? String(e.exerciseId?._id || e.exerciseId?.id) : String(e.exerciseId),
+          exercises: (d.exercises || []).map((e: IWorkoutPlanExercise, idx: number) => ({
+            exerciseId: typeof e.exerciseId === "object" ? String((e.exerciseId as { _id?: string; id?: string })?._id || (e.exerciseId as { _id?: string; id?: string })?.id) : String(e.exerciseId),
             order: e.order || idx + 1,
             targetSets: Number(e.targetSets || 3),
             targetReps: Number(e.targetReps || 10),
@@ -416,6 +426,18 @@ export default function WorkoutPlans() {
           </div>
         }
       />
+
+      {dataError && (
+        <Card className="text-center py-4 border-rose-500/20 bg-rose-500/5">
+          <p className="text-xs text-(--color-danger) mb-2">{dataError}</p>
+          <button
+            onClick={loadInitialData}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-(--color-surface-2) text-(--color-text) hover:bg-(--color-surface-3)"
+          >
+            <RefreshCw size={13} /> Retry Loading
+          </button>
+        </Card>
+      )}
 
       {/* Client Selector & Controls */}
       <Card className="p-4 space-y-3">

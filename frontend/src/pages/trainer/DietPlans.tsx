@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Utensils, Archive, Loader2, Users, Trash2, Edit2 } from "lucide-react";
+import { Plus, Utensils, Archive, Loader2, Users, Trash2, Edit2, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -9,6 +9,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { trainerApi, dietApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 interface MealItemInput {
   name: string;
@@ -56,46 +57,54 @@ export default function DietPlans() {
       items: [{ name: "Oats & Eggs", quantity: "1 bowl + 4 whites", calories: 450, protein_g: 35 }],
     },
   ]);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // Load clients on mount
-  useEffect(() => {
-    async function loadInitialData() {
-      setLoadingClients(true);
-      try {
-        if (gymId) {
-          const clientRes = await trainerApi.getMyClients(gymId).catch(() => null);
-          const list = Array.isArray(clientRes) ? clientRes : clientRes?.clients || [];
-          setClients(list);
-          if (list.length > 0) {
-            const firstId = list[0]._id || list[0].id || list[0].userId?._id;
-            setSelectedClientId(String(firstId));
-          }
+  async function loadInitialData() {
+    setLoadingClients(true);
+    setDataError(null);
+    try {
+      if (gymId) {
+        const clientRes = await trainerApi.getMyClients(gymId);
+        const list = Array.isArray(clientRes) ? clientRes : clientRes?.clients || [];
+        setClients(list);
+        if (list.length > 0 && !selectedClientId) {
+          const firstId = list[0]._id || list[0].id || list[0].userId?._id;
+          setSelectedClientId(String(firstId));
         }
-      } catch (err) {
-        console.error("Error loading trainer clients:", err);
-      } finally {
-        setLoadingClients(false);
       }
+    } catch (err: any) {
+      const msg = formatApiError(err, "Failed to load assigned clients.");
+      setDataError(msg);
+      showApiErrorToast(err, "Failed to load assigned clients");
+    } finally {
+      setLoadingClients(false);
     }
+  }
+
+  useEffect(() => {
     loadInitialData();
   }, [gymId]);
 
   // Load plans when selected client changes
+  async function fetchClientPlans(clientId?: string) {
+    const cId = clientId || selectedClientId;
+    if (!cId) return;
+    setLoadingPlans(true);
+    try {
+      const res = await dietApi.listPlans(cId);
+      const list = Array.isArray(res) ? res : ((res as any)?.plans || []);
+      setPlans(list);
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to load client diet plans");
+      setPlans([]);
+    } finally {
+      setLoadingPlans(false);
+    }
+  }
+
   useEffect(() => {
     if (!selectedClientId) return;
-    async function fetchClientPlans() {
-      setLoadingPlans(true);
-      try {
-        const res = await dietApi.listPlans(selectedClientId).catch(() => null);
-        const list = Array.isArray(res) ? res : res?.plans || [];
-        setPlans(list);
-      } catch (err) {
-        console.error("Error loading client diet plans:", err);
-        setPlans([]);
-      } finally {
-        setLoadingPlans(false);
-      }
-    }
     fetchClientPlans();
   }, [selectedClientId]);
 
@@ -268,6 +277,18 @@ export default function DietPlans() {
           </button>
         }
       />
+
+      {dataError && (
+        <Card className="text-center py-4 border-rose-500/20 bg-rose-500/5">
+          <p className="text-xs text-(--color-danger) mb-2">{dataError}</p>
+          <button
+            onClick={loadInitialData}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-(--color-surface-2) text-(--color-text) hover:bg-(--color-surface-3)"
+          >
+            <RefreshCw size={13} /> Retry Loading
+          </button>
+        </Card>
+      )}
 
       {/* Client Selector & Controls */}
       <Card className="p-4 space-y-3">

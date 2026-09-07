@@ -3,8 +3,10 @@ import { Loader2, RefreshCw, CreditCard } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { paymentApi } from "@/lib/endpoints";
+import { paymentApi, memberApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 export default function MemberPayments() {
   const user = useAuthStore((s) => s.user);
@@ -13,15 +15,27 @@ export default function MemberPayments() {
   const [payments, setPayments] = useState<any[]>([]);
 
   const fetchMyPayments = async () => {
-    if (!user?.gymId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await paymentApi.getMyPayments(user.gymId);
+      let activeGymId = user?.gymId;
+      if (!activeGymId) {
+        const prof = await memberApi.getSelfProfile().catch(() => null);
+        activeGymId = prof?.member?.gymId;
+      }
+      if (!activeGymId) {
+        setLoading(false);
+        setError("Unable to resolve your gym membership. Please contact front desk staff.");
+        return;
+      }
+
+      const res = await paymentApi.getMyPayments(activeGymId);
       const list = Array.isArray(res) ? res : res?.payments || [];
       setPayments(list);
-    } catch {
-      setError("Failed to load your payment history.");
+    } catch (err) {
+      const msg = formatApiError(err, "Failed to load your payment history.");
+      setError(msg);
+      showApiErrorToast(err, "Failed to load your payment history");
       setPayments([]);
     } finally {
       setLoading(false);

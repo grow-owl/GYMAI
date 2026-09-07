@@ -26,7 +26,7 @@ export default function ConsistencyProgressTracker({
   });
 
   const currentMonthTarget = 20;
-  const currentMonthAttended = attendanceStats?.monthlyVisits || Math.min(16, currentMonthTarget);
+  const currentMonthAttended = typeof attendanceStats?.monthlyVisits === "number" ? attendanceStats.monthlyVisits : 0;
   const attendanceProgress = Math.min(100, Math.round((currentMonthAttended / currentMonthTarget) * 100));
 
   const totalProgramWorkouts = 24;

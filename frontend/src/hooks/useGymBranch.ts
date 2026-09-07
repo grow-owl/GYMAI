@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { gymApi } from "@/lib/endpoints";
+import type { IBranch } from "@/types";
 
-function extractId(val: any): string | null {
+function extractId(val: unknown): string | null {
   if (!val) return null;
   if (typeof val === "string") return val;
-  if (typeof val === "object" && val._id) return String(val._id);
-  if (typeof val === "object" && val.id) return String(val.id);
+  if (typeof val === "object" && val !== null && "_id" in val) return String((val as { _id: unknown })._id);
+  if (typeof val === "object" && val !== null && "id" in val) return String((val as { id: unknown }).id);
   return null;
 }
 
@@ -15,7 +16,7 @@ function isValidMongoId(id: string | null | undefined): boolean {
   return /^[0-9a-fA-F]{24}$/.test(id);
 }
 
-let branchesCache: { [gymId: string]: { data: any[]; timestamp: number } } = {};
+let branchesCache: { [gymId: string]: { data: IBranch[]; timestamp: number } } = {};
 const CACHE_TTL_MS = 60000; // 1 minute in-memory cache
 
 export function invalidateBranchesCache(gymId?: string) {
@@ -26,14 +27,14 @@ export function invalidateBranchesCache(gymId?: string) {
   }
 }
 
-async function fetchGymBranchesCached(gymId: string): Promise<any[]> {
+async function fetchGymBranchesCached(gymId: string): Promise<IBranch[]> {
   const cached = branchesCache[gymId];
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
   }
 
   const res = await gymApi.listBranches(gymId);
-  const branches = res?.branches || (Array.isArray(res as any) ? (res as any) : []);
+  const branches: IBranch[] = res?.branches || (Array.isArray(res) ? res : []);
   branchesCache[gymId] = { data: branches, timestamp: Date.now() };
   return branches;
 }
@@ -101,7 +102,7 @@ export function useGymBranch() {
     try {
       const branches = await fetchGymBranchesCached(activeGymId);
       if (storedBranchId) {
-        const exists = branches.some((b: any) => (b._id || b.id) === storedBranchId);
+        const exists = branches.some((b: IBranch) => (b._id || b.id) === storedBranchId);
         if (exists) {
           setBranchId(storedBranchId);
           setLoading(false);
@@ -113,8 +114,8 @@ export function useGymBranch() {
       if (isValidMongoId(activeBranchId)) {
         setBranchId(activeBranchId);
       } else {
-        const firstBranch = branches.find((b: any) => isValidMongoId(b._id || b.id));
-        setBranchId(firstBranch ? firstBranch._id || firstBranch.id : "");
+        const firstBranch = branches.find((b: IBranch) => isValidMongoId(b._id || b.id));
+        setBranchId(firstBranch ? firstBranch._id || firstBranch.id || "" : "");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load branch");

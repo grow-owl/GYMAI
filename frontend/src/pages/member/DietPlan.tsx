@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Utensils, Loader2, Flame } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Utensils, Loader2, Flame, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -9,29 +9,33 @@ import { useAuthStore } from "@/store/authStore";
 export default function DietPlan() {
   const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activePlan, setActivePlan] = useState<any | null>(null);
 
-  useEffect(() => {
-    async function loadPlan() {
-      setLoading(true);
-      try {
-        const profRes = await memberApi.getSelfProfile().catch(() => null);
-        const memberId = profRes?.member?._id || user?._id;
-        if (memberId) {
-          const planRes = await dietApi.getActive(memberId).catch(() => null);
-          const plan = planRes?.dietPlan || planRes?.plan || planRes;
-          if (plan && (plan._id || plan.id || plan.title)) {
-            setActivePlan(plan);
-          }
+  const loadPlan = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const profRes = await memberApi.getSelfProfile().catch(() => null);
+      const memberId = profRes?.member?._id || user?._id;
+      if (memberId) {
+        const planRes = await dietApi.getActive(memberId);
+        const plan: any = (planRes as any)?.dietPlan || (planRes as any)?.plan || planRes;
+        if (plan && (plan._id || plan.id || plan.title)) {
+          setActivePlan(plan);
         }
-      } catch (err) {
-        console.error("Failed to load active diet plan:", err);
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error("Failed to load active diet plan:", err);
+      setError("Failed to load your nutrition plan from server.");
+    } finally {
+      setLoading(false);
     }
-    loadPlan();
   }, [user]);
+
+  useEffect(() => {
+    loadPlan();
+  }, [loadPlan]);
 
   if (loading) {
     return (
@@ -39,6 +43,23 @@ export default function DietPlan() {
         <PageHeader title="Diet Plan" subtitle="Loading your assigned nutrition plan..." backTo="/member" />
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
           <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading nutrition plan...
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div>
+        <PageHeader title="Diet Plan" subtitle="Your active nutrition targets" backTo="/member" />
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-3">
+          <p className="text-base font-bold text-red-400">{error}</p>
+          <button
+            onClick={loadPlan}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar) cursor-pointer hover:brightness-110"
+          >
+            <RefreshCw size={14} /> Retry Sync
+          </button>
         </Card>
       </div>
     );

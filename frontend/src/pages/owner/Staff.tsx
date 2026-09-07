@@ -6,9 +6,10 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import CustomSelect from "@/components/ui/CustomSelect";
-import { staffApi, authApi } from "@/lib/endpoints";
+import { staffApi, authApi, gymApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { useAuthStore } from "@/store/authStore";
+import { showApiErrorToast } from "@/lib/api";
 import { toast } from "sonner";
 
 interface StaffProps {
@@ -27,6 +28,8 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
+  const [branchesList, setBranchesList] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
 
   // Add Staff Modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -45,8 +48,26 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
   const [newPasswordVal, setNewPasswordVal] = useState("Staff@123");
   const [resettingPass, setResettingPass] = useState(false);
 
+  useEffect(() => {
+    if (gymId) {
+      gymApi
+        .listBranches(gymId)
+        .then((res) => {
+          const list = Array.isArray(res) ? res : (res as any)?.branches || [];
+          setBranchesList(list);
+          if (list.length === 1) {
+            setSelectedBranchId(list[0]._id || list[0].id);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load branches for staff assignment:", err);
+          showApiErrorToast(err, "Failed to load branches");
+        });
+    }
+  }, [gymId]);
+
   const fetchStaff = async () => {
-    if (!gymId || !branchId) {
+    if (!gymId) {
       setStaffList([]);
       setLoading(false);
       return;
@@ -54,7 +75,7 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
     setLoading(true);
     setError(null);
     try {
-      const res = await staffApi.list(gymId, branchId);
+      const res = await staffApi.list(gymId, branchId || undefined);
       const list = Array.isArray(res) ? res : res?.staff || [];
       setStaffList(list);
     } catch (err: any) {
@@ -71,10 +92,21 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gymId || !branchId) return;
+    if (!gymId) return;
+    const targetBranchId =
+      branchId || selectedBranchId || (branchesList.length === 1 ? branchesList[0]._id || branchesList[0].id : "");
+
+    if (!targetBranchId && branchesList.length > 1) {
+      toast.error("Please select a specific branch for this staff member.");
+      return;
+    }
+
     setSubmittingAdd(true);
     try {
-      await staffApi.create(gymId, branchId, formData);
+      await staffApi.create(gymId, targetBranchId || undefined, {
+        ...formData,
+        branchId: targetBranchId || undefined,
+      });
       toast.success(`Staff member ${formData.fullName} created successfully!`);
       setShowAddModal(false);
       setFormData({
@@ -200,7 +232,14 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
                       {initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-display text-sm font-semibold text-(--color-text) truncate">{name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-display text-sm font-semibold text-(--color-text) truncate">{name}</p>
+                        {s.branchId?.name && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-(--color-surface-3) text-(--color-text-muted) border border-(--color-border)">
+                            📍 {s.branchId.name}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-(--color-text-muted) truncate">{email}</p>
                       <p className="text-xs text-(--color-text-faint) truncate">{phone}</p>
                     </div>
@@ -242,6 +281,27 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
         <Modal onClose={() => setShowAddModal(false)} maxWidth="md" title="Register New Staff Member">
           <form onSubmit={handleAddStaff} className="space-y-4">
             <div className="space-y-3 text-xs">
+              {!branchId && (
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">
+                    Branch Assignment <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={selectedBranchId}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    required={branchesList.length > 1}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border)"
+                  >
+                    <option value="">Select Branch...</option>
+                    {branchesList.map((b) => (
+                      <option key={b._id || b.id} value={b._id || b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Full Name</label>
                 <input

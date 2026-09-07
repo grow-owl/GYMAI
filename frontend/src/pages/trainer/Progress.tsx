@@ -24,6 +24,7 @@ import { trainerApi, progressApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 import { exportClientProgressCsv, exportClientProgressPdf } from "@/utils/reportExporter";
+import type { IMemberClient } from "@/types";
 
 interface ClientProgressItem {
   id: string;
@@ -49,7 +50,7 @@ interface ClientProgressItem {
   weeklyVolumeLogs: Array<{ day: string; volume: number; label: string }>;
   mostSkippedExercises: Array<{ name: string; skipCount: number }>;
   workoutLogs: Array<{ date: string; title: string; exercisesCount?: number; durationMinutes?: number }>;
-  rawClient?: any;
+  rawClient?: IMemberClient;
 }
 
 function SparklineChart({ data }: { data: Array<{ label: string; value: number }> }) {
@@ -337,14 +338,14 @@ export default function Progress() {
       }
 
       const items: ClientProgressItem[] = await Promise.all(
-        clientsList.map(async (c: any) => {
+        clientsList.map(async (c: IMemberClient) => {
           const cId = c._id || c.id;
           const name = c.fullName || c.name || c.userId?.fullName || "Member";
           const email = c.email || c.userId?.email || "";
           const phone = c.phone || c.userId?.phone || "";
-          const membershipPlan = c.planName || c.plan || "Membership";
+          const membershipPlan = c.planName || c.membershipPlan || "Membership";
 
-          let latestWeight: number | null = c.healthInfo?.currentWeight_kg || c.currentWeight_kg || null;
+          let latestWeight: number | null = c.healthInfo?.currentWeight_kg || c.weightKg || null;
           let initialWeight: number | null = null;
           let targetWeight: number | null = c.healthInfo?.targetWeight_kg || c.targetWeightKg || null;
           let heightCm: number | null = c.healthInfo?.height_cm || c.heightCm || null;
@@ -370,10 +371,10 @@ export default function Progress() {
               workoutApi.getHistory(cId, 1, 10).catch(() => null),
             ]);
 
-            const history = histRes?.history || (Array.isArray(histRes) ? histRes : []);
+            const history = (histRes as { history?: Array<{ createdAt?: string; recordedAt?: string; weightKg: number; heightCm?: number }> })?.history || (Array.isArray(histRes) ? histRes : []);
             if (Array.isArray(history) && history.length > 0) {
               const sorted = [...history].sort(
-                (a, b) => new Date(a.createdAt || a.recordedAt).getTime() - new Date(b.createdAt || b.recordedAt).getTime()
+                (a, b) => new Date(a.createdAt || a.recordedAt || "").getTime() - new Date(b.createdAt || b.recordedAt || "").getTime()
               );
               const first = sorted[0].weightKg;
               const last = sorted[sorted.length - 1].weightKg;
@@ -386,25 +387,25 @@ export default function Progress() {
                 weightChange = `${diff >= 0 ? "+" : ""}${diff} kg (${history.length} logs)`;
               }
               weightHistory = sorted.map((item) => ({
-                date: new Date(item.createdAt || item.recordedAt).toLocaleDateString(),
-                label: new Date(item.createdAt || item.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                date: new Date(item.createdAt || item.recordedAt || "").toLocaleDateString(),
+                label: new Date(item.createdAt || item.recordedAt || "").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
                 value: Number(item.weightKg),
                 heightCm: item.heightCm || heightCm || undefined,
               }));
             }
 
-            if (planRes && (planRes.plan || planRes.title || planRes.name)) {
+            if (planRes && (planRes.plan || (planRes as { title?: string }).title || (planRes as { name?: string }).name)) {
               const p = planRes.plan || planRes;
-              planTitle = p.title || p.name || "Active Workout Plan";
+              planTitle = (p as { title?: string; name?: string }).title || (p as { title?: string; name?: string }).name || "Active Workout Plan";
             }
 
             if (logsRes) {
               const rawLogs = Array.isArray(logsRes) ? logsRes : logsRes?.logs || [];
-              workoutLogs = rawLogs.map((l: any) => ({
-                date: new Date(l.startedAt || l.createdAt).toLocaleDateString(),
+              workoutLogs = rawLogs.map((l: { startedAt?: string; createdAt?: string; dayLabel?: string; exercises?: unknown[]; totalDurationMinutes?: number }) => ({
+                date: new Date(l.startedAt || l.createdAt || "").toLocaleDateString(),
                 title: l.dayLabel || "Workout Session",
                 exercisesCount: l.exercises?.length || 0,
-                durationMinutes: l.totalDurationMinutes || 45,
+                durationMinutes: l.totalDurationMinutes || 0,
               }));
             }
 
@@ -979,7 +980,7 @@ export default function Progress() {
                           </div>
                           <div className="text-right">
                             <span className="font-semibold text-emerald-500">Completed</span>
-                            <p className="text-[10px] text-(--color-text-muted)">{log.durationMinutes} mins duration</p>
+                            <p className="text-[10px] text-(--color-text-muted)">{log.durationMinutes ? `${log.durationMinutes} mins duration` : "Untracked duration"}</p>
                           </div>
                         </div>
                       ))}

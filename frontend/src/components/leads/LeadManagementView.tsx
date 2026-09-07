@@ -5,9 +5,10 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { leadApi } from "@/lib/endpoints";
+import { leadApi, gymApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
+import { showApiErrorToast } from "@/lib/api";
 
 const statusTone: Record<string, "accent" | "warn" | "good" | "danger" | "neutral"> = {
   NEW: "accent",
@@ -35,6 +36,8 @@ interface LeadManagementViewProps {
 export default function LeadManagementView({ backTo = "/owner", roleTitle }: LeadManagementViewProps) {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [leads, setLeads] = useState<any[]>([]);
+  const [branchesList, setBranchesList] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
@@ -59,7 +62,20 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const publicJoinUrl = branchId ? `${window.location.origin}/join/${branchId}` : "";
+  useEffect(() => {
+    if (gymId) {
+      gymApi
+        .listBranches(gymId)
+        .then((res) => {
+          const list = Array.isArray(res) ? res : (res as any)?.branches || [];
+          setBranchesList(list);
+        })
+        .catch(() => {});
+    }
+  }, [gymId]);
+
+  const effectiveBranchId = selectedBranchId || branchId || (branchesList.length > 0 ? branchesList[0]._id || branchesList[0].id : "");
+  const publicJoinUrl = effectiveBranchId ? `${window.location.origin}/join/${effectiveBranchId}` : "";
 
   const handleCopyPublicLink = () => {
     if (!publicJoinUrl) return;
@@ -77,17 +93,19 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
   });
 
   const fetchLeads = async () => {
-    if (!gymId || !branchId) {
+    if (!gymId) {
       setLeads([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const res = await leadApi.list(gymId, branchId);
+      const activeBranch = selectedBranchId || branchId || undefined;
+      const res = await leadApi.list(gymId, activeBranch);
       const list = Array.isArray(res) ? res : (res as any)?.leads || [];
       setLeads(list);
-    } catch {
+    } catch (err: any) {
+      showApiErrorToast(err, "Failed to load leads");
       setLeads([]);
     } finally {
       setLoading(false);
@@ -96,12 +114,12 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
 
   useEffect(() => {
     fetchLeads();
-  }, [gymId, branchId]);
+  }, [gymId, branchId, selectedBranchId]);
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeGymId = gymId || "";
-    const activeBranchId = branchId || "";
+    const activeBranchId = selectedBranchId || branchId || undefined;
     setSubmittingAdd(true);
     try {
       await leadApi.create(activeGymId, activeBranchId, newLead);
@@ -225,8 +243,37 @@ export default function LeadManagementView({ backTo = "/owner", roleTitle }: Lea
         }
       />
 
+      {/* Branch selector if owner has multiple branches */}
+      {branchesList.length > 1 && !branchId && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setSelectedBranchId("")}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+              !selectedBranchId
+                ? "bg-(--color-accent) text-white"
+                : "bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+            }`}
+          >
+            All Branches
+          </button>
+          {branchesList.map((b) => (
+            <button
+              key={b._id || b.id}
+              onClick={() => setSelectedBranchId(b._id || b.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                selectedBranchId === (b._id || b.id)
+                  ? "bg-(--color-accent) text-white"
+                  : "bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
+              }`}
+            >
+              {b.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Public Trial Pass Shareable Banner */}
-      {branchId && (
+      {effectiveBranchId && (
         <Card className="border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.04] via-transparent to-emerald-500/[0.02]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">

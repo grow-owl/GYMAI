@@ -92,6 +92,8 @@ export default function OwnerDashboard() {
   const [trainerPerf, setTrainerPerf] = useState<any>(null);
   const [atRiskData, setAtRiskData] = useState<any>(null);
 
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+
   useEffect(() => {
     if (branchError) {
       toast.error(`Branch error: ${branchError}`);
@@ -100,9 +102,15 @@ export default function OwnerDashboard() {
 
     setLoadingOverview(true);
     setDigestLoading(true);
+    setOverviewError(null);
 
     Promise.all([
-      reportApi.getOverview(gymId, branchId ?? undefined).catch(() => null),
+      reportApi.getOverview(gymId, branchId ?? undefined).catch((err) => {
+        console.error("Overview error:", err);
+        setOverviewError("Failed to sync overview metrics from server.");
+        toast.error("Failed to load gym overview metrics.");
+        return null;
+      }),
       branchId ? memberApi.list(gymId, branchId).catch(() => []) : Promise.resolve([]),
       aiApi.getWeeklyDigest(gymId).catch(() => null),
       reportApi.getExpiringMemberships(gymId).catch(() => []),
@@ -191,6 +199,15 @@ export default function OwnerDashboard() {
 
   return (
     <div className="space-y-6">
+      {overviewError && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+          <span>⚠️ {overviewError}</span>
+          <button onClick={() => window.location.reload()} className="underline font-bold cursor-pointer hover:text-red-300">
+            Retry Sync
+          </button>
+        </div>
+      )}
+
       {resolvingBranch || loadingOverview ? (
         <div className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
           <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading dashboard metrics...

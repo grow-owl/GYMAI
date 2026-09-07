@@ -14,36 +14,6 @@ interface NavEntry {
   icon: string;
 }
 
-const READ_KEY = "gymai.read_notifications";
-
-function getReadIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(READ_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveReadId(id: string) {
-  try {
-    const set = getReadIds();
-    set.add(id);
-    localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
-  } catch {
-    // ignore
-  }
-}
-
-function saveAllReadIds(ids: string[]) {
-  try {
-    const set = getReadIds();
-    ids.forEach((id) => set.add(id));
-    localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set)));
-  } catch {
-    // ignore
-  }
-}
 
 export default function TopBar({
   greeting,
@@ -99,7 +69,6 @@ export default function TopBar({
   // Branch Switcher state
   const [branches, setBranches] = useState<any[]>([]);
   const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : 'gymai.selected_branch_id';
-  const branchesKey = user?._id ? `gymai.branches_list.${user._id}` : 'gymai.branches_list';
   const [activeBranchId, setActiveBranchId] = useState<string>(() => {
     try {
       const stored = localStorage.getItem(storageKey);
@@ -114,22 +83,21 @@ export default function TopBar({
     }
   }, [user?.branchId, activeBranchId]);
 
+  // Purge legacy stale branches list from localStorage
+  useEffect(() => {
+    try {
+      localStorage.removeItem('gymai.branches_list');
+      if (user?._id) {
+        localStorage.removeItem(`gymai.branches_list.${user._id}`);
+      }
+    } catch {}
+  }, [user?._id]);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const fetchBranches = useCallback(async () => {
-    try {
-      const storedLocal = localStorage.getItem(branchesKey);
-      if (storedLocal) {
-        const parsed = JSON.parse(storedLocal);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setBranches(parsed);
-          return;
-        }
-      }
-    } catch {}
-
     const gymId = user?.gymId || "";
     const userBranchId = user?.branchId || "";
     const userBranchName = user?.branchName || (user?.gymName ? `${user.gymName} Branch` : "");
@@ -147,7 +115,7 @@ export default function TopBar({
     }
     try {
       const res = await gymApi.listBranches(gymId);
-      const bList = Array.isArray(res) ? res : res?.branches || [];
+      const bList = Array.isArray(res) ? res : (res as any)?.branches || [];
       if (bList.length > 0) {
         setBranches(bList);
       } else if (userBranchId) {
@@ -158,10 +126,18 @@ export default function TopBar({
         setBranches([{ _id: userBranchId, name: userBranchName || "My Branch" }]);
       }
     }
-  }, [user?.gymId, user?.branchId, user?.branchName, user?.gymName, branchesKey]);
+  }, [user?.gymId, user?.branchId, user?.branchName, user?.gymName, user?.role]);
 
   useEffect(() => {
     fetchBranches();
+
+    const handleBranchSync = () => {
+      fetchBranches();
+    };
+    window.addEventListener("gymai-branch-changed", handleBranchSync);
+    return () => {
+      window.removeEventListener("gymai-branch-changed", handleBranchSync);
+    };
   }, [fetchBranches]);
 
   const activeBranch = useMemo(() => {
@@ -196,8 +172,6 @@ export default function TopBar({
   }, [location.pathname]);
 
   const loadNotifications = useCallback(async () => {
-    const readSet = getReadIds();
-
     try {
       const [listRes, countRes] = await Promise.all([
         notificationApi.list({ limit: 5 }),
@@ -205,19 +179,12 @@ export default function TopBar({
       ]);
 
       const rawList = listRes?.notifications || (Array.isArray(listRes as any) ? (listRes as any) : []);
-      const baseList = rawList || [];
-      
-      const processedList = baseList.map((n) =>
-        readSet.has(n._id || n.id || "") ? { ...n, isRead: true } : n
-      );
+      setNotifications(rawList);
 
-      setNotifications(processedList);
-
-      const realUnread = processedList.filter((n) => !n.isRead).length;
-      if (countRes?.unreadCount !== undefined && rawList.length > 0) {
-        setUnreadCount(Math.min(countRes.unreadCount, realUnread));
+      if (countRes?.unreadCount !== undefined) {
+        setUnreadCount(countRes.unreadCount);
       } else {
-        setUnreadCount(realUnread);
+        setUnreadCount(rawList.filter((n: INotificationItem) => !n.isRead).length);
       }
     } catch {
       setNotifications([]);
@@ -233,42 +200,37 @@ export default function TopBar({
     };
 
     window.addEventListener("gymai-notifications-updated", handleSync);
-    window.addEventListener("storage", handleSync);
     return () => {
       window.removeEventListener("gymai-notifications-updated", handleSync);
-      window.removeEventListener("storage", handleSync);
     };
   }, [loadNotifications]);
 
   const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    saveReadId(id);
     try {
       await notificationApi.markAsRead(id);
+      toast.success("Marked as read");
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id || n.id === id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+      window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
     } catch {
-      // ignore
+      toast.error("Failed to mark notification as read");
     }
-    toast.success("Marked as read");
-    setNotifications((prev) =>
-      prev.map((n) => (n._id === id || n.id === id ? { ...n, isRead: true } : n))
-    );
-    setUnreadCount((c) => Math.max(0, c - 1));
-    window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
   };
 
   const handleMarkAllAsRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const ids = notifications.map((n) => n._id || n.id || "");
-    saveAllReadIds(ids);
     try {
       await notificationApi.markAllAsRead();
+      toast.success("All notifications marked as read");
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+      window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
     } catch {
-      // ignore
+      toast.error("Failed to mark all as read");
     }
-    toast.success("All notifications marked as read");
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
-    window.dispatchEvent(new CustomEvent("gymai-notifications-updated"));
   };
 
   const results = useMemo(() => {

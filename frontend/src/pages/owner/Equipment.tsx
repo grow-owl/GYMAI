@@ -6,7 +6,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
-import { equipmentApi } from "@/lib/endpoints";
+import { equipmentApi, gymApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
 
@@ -32,6 +32,8 @@ const equipmentStatusOptions = [
 export default function Equipment() {
   const { gymId, branchId, loading: resolvingBranch } = useGymBranch();
   const [equipmentList, setEquipmentList] = useState<any[]>([]);
+  const [branchesList, setBranchesList] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
@@ -55,6 +57,21 @@ export default function Equipment() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
+  useEffect(() => {
+    if (gymId) {
+      gymApi
+        .listBranches(gymId)
+        .then((res) => {
+          const list = Array.isArray(res) ? res : (res as any)?.branches || [];
+          setBranchesList(list);
+          if (list.length === 1) {
+            setSelectedBranchId(list[0]._id || list[0].id);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [gymId]);
+
   const fetchEquipment = useCallback(async () => {
     if (!gymId) {
       setEquipmentList([]);
@@ -64,11 +81,11 @@ export default function Equipment() {
     setLoading(true);
     try {
       if (showMaintenanceDueOnly) {
-        const res = await equipmentApi.getMaintenanceDue(gymId);
+        const res = await equipmentApi.getMaintenanceDue(gymId, branchId || undefined);
         const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
         setEquipmentList(list);
-      } else if (branchId) {
-        const res = await equipmentApi.list(gymId, branchId);
+      } else {
+        const res = await equipmentApi.list(gymId, branchId || undefined);
         const list = Array.isArray(res) ? res : (res as any)?.equipment || [];
         setEquipmentList(list);
       }
@@ -88,11 +105,20 @@ export default function Equipment() {
   const handleAddEquipment = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeGymId = gymId || "";
-    const activeBranchId = branchId || "";
+    const activeBranchId =
+      branchId || selectedBranchId || (branchesList.length === 1 ? branchesList[0]._id || branchesList[0].id : "");
+
+    if (!activeBranchId && branchesList.length > 1) {
+      toast.error("Branch is required. Please select which branch this equipment belongs to.");
+      return;
+    }
 
     setSubmittingAdd(true);
     try {
-      await equipmentApi.add(activeGymId, activeBranchId, newEquipment);
+      await equipmentApi.add(activeGymId, activeBranchId || undefined, {
+        ...newEquipment,
+        branchId: activeBranchId || undefined,
+      });
       toast.success(`Equipment ${newEquipment.name} registered!`);
       setShowAddModal(false);
       setNewEquipment({ name: "", category: "strength", status: "WORKING" });
@@ -211,7 +237,14 @@ export default function Equipment() {
                 <div key={eqId} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex items-center justify-between gap-3">
                   <div>
                     <h4 className="font-display text-sm font-semibold text-(--color-text)">{item.name}</h4>
-                    <p className="text-xs text-(--color-text-muted) capitalize mt-0.5">{item.category}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-(--color-text-muted) capitalize">{item.category}</p>
+                      {item.branchId?.name && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 font-medium">
+                          📍 {item.branchId.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -307,6 +340,29 @@ export default function Equipment() {
                   options={equipmentCategoryOptions}
                 />
               </div>
+
+              {(!branchId && branchesList.length > 0) && (
+                <div>
+                  <label className="block text-(--color-text-muted) mb-1 font-medium">
+                    Branch Assignment {branchesList.length > 1 && <span className="text-rose-400">*</span>}
+                  </label>
+                  {branchesList.length === 1 ? (
+                    <div className="p-2.5 rounded-xl bg-(--color-surface-2) text-xs text-(--color-text) border border-(--color-border)">
+                      📍 {branchesList[0].name} (Default Branch)
+                    </div>
+                  ) : (
+                    <CustomSelect
+                      value={selectedBranchId}
+                      onChange={(val) => setSelectedBranchId(val)}
+                      options={branchesList.map((b) => ({ value: b._id || b.id, label: b.name }))}
+                      placeholder="Select branch for this equipment..."
+                    />
+                  )}
+                  {branchesList.length > 1 && !selectedBranchId && (
+                    <p className="text-[11px] text-amber-400 mt-1">Please select which branch this equipment belongs to.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 pt-2">

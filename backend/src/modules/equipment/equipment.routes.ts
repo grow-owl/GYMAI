@@ -12,16 +12,16 @@ const router = Router();
 router.use(authenticate);
 router.use(tenantScope);
 
-// Routes scoped under /gyms/:gymId/branches/:branchId/equipment
+// Routes scoped under equipment
 router.post(
-  '/gyms/:gymId/branches/:branchId/equipment',
+  ['/gyms/:gymId/branches/:branchId/equipment', '/gyms/:gymId/equipment'],
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.SUPER_ADMIN),
   validate(createEquipmentSchema, 'body'),
   EquipmentController.createEquipment
 );
 
 router.get(
-  '/gyms/:gymId/branches/:branchId/equipment',
+  ['/gyms/:gymId/branches/:branchId/equipment', '/gyms/:gymId/equipment'],
   authorize(Role.GYM_OWNER, Role.BRANCH_MANAGER, Role.TRAINER, Role.SUPER_ADMIN),
   EquipmentController.listEquipment
 );

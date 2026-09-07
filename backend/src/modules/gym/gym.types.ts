@@ -18,6 +18,16 @@ export interface IGymSettings {
   defaultTrialPassDays?: number;
 }
 
+export interface IGymMembershipPlan {
+  id: string;
+  name: string;
+  durationMonths: number;
+  price: number;
+  badge?: string;
+  description: string;
+  isActive?: boolean;
+}
+
 export interface IGym {
   _id: Types.ObjectId;
   name: string;
@@ -30,6 +40,7 @@ export interface IGym {
   billingEmail: string;
   isMultiBranch: boolean; // derived/settable flag for UI convenience
   settings?: IGymSettings;
+  membershipPlans?: IGymMembershipPlan[];
   isDeleted: boolean;
   deletedAt?: Date;
   createdAt: Date;

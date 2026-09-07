@@ -9,6 +9,7 @@ export const createEquipmentSchema = z.object({
   lastServicedDate: z.string().datetime().or(z.date()).optional(),
   nextServiceDueDate: z.string().datetime().or(z.date()).optional(),
   notes: z.string().optional(),
+  branchId: z.string().optional(),
 });
 
 export const updateEquipmentSchema = createEquipmentSchema.partial();

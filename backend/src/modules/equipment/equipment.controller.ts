@@ -3,12 +3,29 @@ import { EquipmentService } from './equipment.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { assertTenantMatch } from '../../common/middlewares/tenant.middleware';
 import { EquipmentStatus } from './equipment.types';
+import { Branch } from '../gym/branch.model';
+import { AppError } from '../../common/utils/AppError';
+import { Role } from '../../common/constants/roles.enum';
 
 export class EquipmentController {
   public static async createEquipment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { gymId, branchId } = req.params;
+      const { gymId } = req.params;
       assertTenantMatch(gymId, req);
+
+      let branchId = req.params.branchId || req.body?.branchId || req.user?.branchId;
+      if (!branchId) {
+        const branches = await Branch.find({ gymId, isDeleted: false });
+        if (branches.length === 1) {
+          branchId = branches[0]._id.toString();
+        } else if (branches.length > 1) {
+          throw AppError.badRequest(
+            'Branch ID is required when a gym has multiple branches. Please select a specific branch.'
+          );
+        } else {
+          throw AppError.badRequest('No active branch found for this gym. Please create a branch first.');
+        }
+      }
 
       const equipment = await EquipmentService.createEquipment(gymId, branchId, req.body);
       sendSuccess(res, equipment, 'Equipment created successfully', 201);
@@ -19,8 +36,13 @@ export class EquipmentController {
 
   public static async listEquipment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { gymId, branchId } = req.params;
+      const { gymId } = req.params;
       assertTenantMatch(gymId, req);
+
+      const branchId =
+        req.params.branchId ||
+        (req.query.branchId as string) ||
+        (req.user?.role === Role.BRANCH_MANAGER ? req.user.branchId : undefined);
 
       const { status, category, page, limit } = req.query;
       const result = await EquipmentService.listEquipment(

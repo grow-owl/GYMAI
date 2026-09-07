@@ -4,7 +4,7 @@ import { Branch } from './branch.model';
 import { User } from '../user/user.model';
 import { Member } from '../member/member.model';
 import { Trainer } from '../trainer/trainer.model';
-import { IGym, GymPlan, GymStatus, IBranch } from './gym.types';
+import { IGym, GymPlan, GymStatus, IBranch, IGymMembershipPlan } from './gym.types';
 import { Role } from '../../common/constants/roles.enum';
 import { AppError } from '../../common/utils/AppError';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
@@ -367,5 +367,77 @@ export class GymService {
     );
 
     return { gyms: gymListWithBranches };
+  }
+
+  public static readonly DEFAULT_MEMBERSHIP_PLANS: IGymMembershipPlan[] = [
+    {
+      id: 'monthly',
+      name: 'Monthly Fitness',
+      durationMonths: 1,
+      price: 1500,
+      description: '30 Days standard gym access',
+      isActive: true,
+    },
+    {
+      id: 'quarterly',
+      name: 'Quarterly Transformation',
+      durationMonths: 3,
+      price: 4000,
+      badge: 'Popular',
+      description: '90 Days full gym access',
+      isActive: true,
+    },
+    {
+      id: 'half_yearly',
+      name: 'Half-Yearly Pro',
+      durationMonths: 6,
+      price: 7500,
+      description: '180 Days intensive gym access',
+      isActive: true,
+    },
+    {
+      id: 'annual',
+      name: 'Annual Elite',
+      durationMonths: 12,
+      price: 14000,
+      badge: 'Best Value',
+      description: '365 Days complete elite access',
+      isActive: true,
+    },
+    {
+      id: 'pt_monthly',
+      name: 'Personal Training (PT) Pack',
+      durationMonths: 1,
+      price: 5000,
+      description: '30 Days 1-on-1 personal trainer',
+      isActive: true,
+    },
+    {
+      id: 'custom',
+      name: 'Custom Plan',
+      durationMonths: 1,
+      price: 2000,
+      description: 'Custom duration & fee',
+      isActive: true,
+    },
+  ];
+
+  public static async getMembershipPlans(gymId: string): Promise<IGymMembershipPlan[]> {
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false });
+    if (!gym) throw AppError.notFound('Gym organization not found');
+
+    if (gym.membershipPlans && gym.membershipPlans.length > 0) {
+      return gym.membershipPlans;
+    }
+    return GymService.DEFAULT_MEMBERSHIP_PLANS;
+  }
+
+  public static async updateMembershipPlans(gymId: string, plans: IGymMembershipPlan[]): Promise<IGymMembershipPlan[]> {
+    const gym = await Gym.findOne({ _id: gymId, isDeleted: false });
+    if (!gym) throw AppError.notFound('Gym organization not found');
+
+    gym.membershipPlans = plans;
+    await gym.save();
+    return gym.membershipPlans;
   }
 }

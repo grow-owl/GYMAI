@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Dumbbell, Loader2, Calendar, Play, Lock } from "lucide-react";
+import { Dumbbell, Loader2, Calendar, Play, Lock, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -26,27 +26,32 @@ export default function WorkoutPlan() {
   const [completedDayIndices, setCompletedDayIndices] = useState<number[]>([]);
   const [refreshHistory, setRefreshHistory] = useState(0);
 
-  useEffect(() => {
-    async function loadPlan() {
-      setLoading(true);
-      try {
-        const profRes = await memberApi.getSelfProfile().catch(() => null);
-        const memberId = profRes?.member?._id || user?._id;
-        if (memberId) {
-          const planRes = await workoutApi.getActivePlan(memberId).catch(() => null);
-          const plan = planRes?.plan || planRes;
-          if (plan && (plan._id || plan.id || plan.title)) {
-            setActivePlan(plan);
-          }
+  const [error, setError] = useState<string | null>(null);
+
+  const loadPlan = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const profRes = await memberApi.getSelfProfile().catch(() => null);
+      const memberId = profRes?.member?._id || user?._id;
+      if (memberId) {
+        const planRes = await workoutApi.getActivePlan(memberId);
+        const plan: any = (planRes as any)?.plan || planRes;
+        if (plan && (plan._id || plan.id || plan.title)) {
+          setActivePlan(plan);
         }
-      } catch (err) {
-        console.error("Failed to load active workout plan:", err);
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error("Failed to load active workout plan:", err);
+      setError("Failed to load your workout plan from server.");
+    } finally {
+      setLoading(false);
     }
-    loadPlan();
   }, [user]);
+
+  useEffect(() => {
+    loadPlan();
+  }, [loadPlan]);
 
   const { isCheckedIn, fetchCurrentSession, initialized } = useAttendanceStore();
 
@@ -148,6 +153,24 @@ export default function WorkoutPlan() {
         {renderTabs()}
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
           <Loader2 className="w-5 h-5 animate-spin text-(--color-accent)" /> Loading...
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4 max-w-3xl mx-auto w-full">
+        <PageHeader title="Workout Hub" subtitle="Your active fitness plan" backTo="/member" />
+        {renderTabs()}
+        <Card className="text-center py-12 text-(--color-text-muted) space-y-3">
+          <p className="text-base font-bold text-red-400">{error}</p>
+          <button
+            onClick={loadPlan}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar) cursor-pointer hover:brightness-110"
+          >
+            <RefreshCw size={14} /> Retry Plan Sync
+          </button>
         </Card>
       </div>
     );

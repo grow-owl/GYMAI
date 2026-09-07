@@ -1,6 +1,22 @@
 // Typed service functions grouped by backend module.
 // Each function maps 1:1 to a real route in backend/src/modules/**/*.routes.ts.
 import { api } from "./api";
+import type {
+  IGym,
+  IBranch,
+  IMember,
+  IMemberClient,
+  ITrainer,
+  IWorkoutPlan,
+  IExerciseLibraryItem,
+  IDietPlan,
+  IPayment,
+  IRecoveryStatus,
+  IWellnessHistoryResponse,
+  IAttendanceCheckInResponse,
+  IWhatsAppLog,
+  IStaffUser,
+} from "../types";
 
 export type Role = "SUPER_ADMIN" | "GYM_OWNER" | "BRANCH_MANAGER" | "TRAINER" | "MEMBER" | "KIOSK";
 
@@ -43,7 +59,7 @@ export const authApi = {
     branchName?: string;
     plan?: string;
     trialDays?: number;
-  }) => api.post<{ user: AuthUser; gym: any; primaryBranch: any; tempPassword?: string }>("/auth/register-owner", input),
+  }) => api.post<{ user: AuthUser; gym: IGym; primaryBranch: IBranch; tempPassword?: string }>("/auth/register-owner", input),
 
   adminResetPassword: (userId: string, newPassword: string) =>
     api.patch<{ message: string }>(`/auth/users/${userId}/reset-password`, { newPassword }),
@@ -69,10 +85,10 @@ export const authApi = {
 };
 
 export const gymApi = {
-  listAllGyms: () => api.get<{ gyms: any[] }>("/gyms"),
+  listAllGyms: () => api.get<{ gyms: IGym[] }>("/gyms"),
 
   createGym: (input: { name: string; billingEmail: string }) =>
-    api.post<{ gym: { _id: string; name: string } }>("/gyms", input),
+    api.post<{ gym: IGym }>("/gyms", input),
 
   createBranch: (
     gymId: string,
@@ -82,30 +98,46 @@ export const gymApi = {
       contactPhone: string;
       timezone?: string;
     }
-  ) => api.post<{ branch: { _id: string; name: string } }>(`/gyms/${gymId}/branches`, input),
+  ) => api.post<{ branch: IBranch }>(`/gyms/${gymId}/branches`, input),
 
-  listBranches: (gymId: string) => api.get<{ branches: { _id: string; name: string }[] }>(`/gyms/${gymId}/branches`),
+  listBranches: (gymId: string) => api.get<{ branches: IBranch[] }>(`/gyms/${gymId}/branches`),
 
-  getGymById: (gymId: string) => api.get<{ gym: any }>(`/gyms/${gymId}`),
+  getGymById: (gymId: string) => api.get<{ gym: IGym }>(`/gyms/${gymId}`),
 
-  updateGym: (gymId: string, data: any) => api.patch<{ gym: any }>(`/gyms/${gymId}`, data),
+  updateGym: (gymId: string, data: Partial<IGym> | Record<string, unknown>) => api.patch<{ gym: IGym }>(`/gyms/${gymId}`, data),
 
-  deleteGym: (gymId: string) => api.delete<any>(`/gyms/${gymId}`),
+  deleteGym: (gymId: string) => api.delete<{ success: boolean; message?: string }>(`/gyms/${gymId}`),
 
-  updateGymPlan: (gymId: string, plan: string) => api.patch<any>(`/gyms/${gymId}/plan`, { plan }),
+  updateGymPlan: (gymId: string, plan: string) => api.patch<{ gym: IGym }>(`/gyms/${gymId}/plan`, { plan }),
 
-  getOverview: (gymId: string) => api.get<any>(`/gyms/${gymId}/overview`),
+  getOverview: (gymId: string) => api.get<Record<string, unknown>>(`/gyms/${gymId}/overview`),
 
-  getBranchById: (gymId: string, branchId: string) => api.get<any>(`/gyms/${gymId}/branches/${branchId}`),
+  getBranchById: (gymId: string, branchId: string) => api.get<{ branch: IBranch }>(`/gyms/${gymId}/branches/${branchId}`),
 
-  updateBranch: (gymId: string, branchId: string, data: any) =>
-    api.patch<any>(`/gyms/${gymId}/branches/${branchId}`, data),
+  updateBranch: (gymId: string, branchId: string, data: Partial<IBranch> | Record<string, unknown>) =>
+    api.patch<{ branch: IBranch }>(`/gyms/${gymId}/branches/${branchId}`, data),
 
-  deleteBranch: (gymId: string, branchId: string) => api.delete<any>(`/gyms/${gymId}/branches/${branchId}`),
+  deleteBranch: (gymId: string, branchId: string) => api.delete<{ success: boolean; message?: string }>(`/gyms/${gymId}/branches/${branchId}`),
 
   assignBranchManager: (gymId: string, branchId: string, managerId: string) =>
-    api.patch<any>(`/gyms/${gymId}/branches/${branchId}/manager`, { managerId }),
+    api.patch<{ branch: IBranch }>(`/gyms/${gymId}/branches/${branchId}/manager`, { managerId }),
+
+  getMembershipPlans: (gymId: string) =>
+    api.get<{ plans: GymPlanOption[] }>(`/gyms/${gymId}/membership-plans`),
+
+  updateMembershipPlans: (gymId: string, plans: GymPlanOption[]) =>
+    api.put<{ plans: GymPlanOption[] }>(`/gyms/${gymId}/membership-plans`, { plans }),
 };
+
+export interface GymPlanOption {
+  id: string;
+  name: string;
+  durationMonths: number;
+  price: number;
+  badge?: string;
+  description: string;
+  isActive?: boolean;
+}
 
 export interface DashboardOverview {
   totalActiveMembers: number;
@@ -138,17 +170,21 @@ export const reportApi = {
 };
 
 export const trainerApi = {
-  list: (gymId: string, branchId: string) =>
-    api.get<{ trainers: any[] }>(`/gyms/${gymId}/branches/${branchId}/trainers`),
+  list: (gymId: string, branchId?: string) =>
+    api.get<{ trainers: ITrainer[] }>(
+      branchId
+        ? `/gyms/${gymId}/branches/${branchId}/trainers`
+        : `/gyms/${gymId}/trainers`
+    ),
 
   getById: (gymId: string, trainerId: string) =>
-    api.get<any>(`/gyms/${gymId}/trainers/${trainerId}`),
+    api.get<{ trainer: ITrainer }>(`/gyms/${gymId}/trainers/${trainerId}`),
 
-  create: (gymId: string, branchId: string, data: any) =>
-    api.post<{ trainer: any }>(`/gyms/${gymId}/branches/${branchId}/trainers`, data),
+  create: (gymId: string, branchId: string, data: Partial<ITrainer> | Record<string, unknown>) =>
+    api.post<{ trainer: ITrainer }>(`/gyms/${gymId}/branches/${branchId}/trainers`, data),
 
-  update: (gymId: string, trainerId: string, data: any) =>
-    api.patch<any>(`/gyms/${gymId}/trainers/${trainerId}`, data),
+  update: (gymId: string, trainerId: string, data: Partial<ITrainer> | Record<string, unknown>) =>
+    api.patch<{ trainer: ITrainer }>(`/gyms/${gymId}/trainers/${trainerId}`, data),
 
   assignClient: (gymId: string, _branchId: string, _trainerId: string, memberId: string) =>
     api.patch<{ success: boolean }>(`/gyms/${gymId}/members/${memberId}/assign-trainer`, { trainerId: _trainerId }),
@@ -157,64 +193,66 @@ export const trainerApi = {
     api.get<{ activeMembersAssigned: number }>(`/gyms/${gymId}/trainers/${trainerId}/workload`),
 
   getMyClients: (gymId: string) =>
-    api.get<{ clients: any[] }>(`/gyms/${gymId}/trainers/me/clients`),
+    api.get<{ clients: IMemberClient[] }>(`/gyms/${gymId}/trainers/me/clients`),
 
   delete: (gymId: string, trainerId: string) =>
-    api.delete<any>(`/gyms/${gymId}/trainers/${trainerId}`),
+    api.delete<{ success: boolean; message?: string }>(`/gyms/${gymId}/trainers/${trainerId}`),
 };
 
 export const staffApi = {
   list: (gymId: string, branchId?: string) =>
-    api.get<{ staff: any[] }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`),
+    api.get<{ staff: IStaffUser[] }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`),
 
-  create: (gymId: string, branchId?: string, data?: any) =>
-    api.post<{ staff: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`, data),
+  create: (gymId: string, branchId?: string, data?: Partial<IStaffUser> | Record<string, unknown>) =>
+    api.post<{ staff: IStaffUser }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff` : `/gyms/${gymId}/staff`, data),
 
   delete: (gymId: string, staffId: string, branchId?: string) =>
-    api.delete<any>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff/${staffId}` : `/gyms/${gymId}/staff/${staffId}`),
+    api.delete<{ success: boolean; message?: string }>(branchId ? `/gyms/${gymId}/branches/${branchId}/staff/${staffId}` : `/gyms/${gymId}/staff/${staffId}`),
 };
 
 export const memberApi = {
   list: (gymId: string, branchId?: string) =>
-    api.get<{ members: any[]; meta?: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`),
+    api.get<{ members: IMember[]; meta?: { total: number; page: number; limit: number } }>(
+      branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`
+    ),
 
-  create: (gymId: string, branchId?: string, data?: any) =>
-    api.post<{ member: any }>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`, data),
+  create: (gymId: string, branchId?: string, data?: Record<string, unknown>) =>
+    api.post<{ member: IMember }>(branchId ? `/gyms/${gymId}/branches/${branchId}/members` : `/gyms/${gymId}/members`, data),
 
   getMemberById: (gymId: string, memberId: string) =>
-    api.get<any>(`/gyms/${gymId}/members/${memberId}`),
+    api.get<{ member: IMember }>(`/gyms/${gymId}/members/${memberId}`),
 
-  updateMember: (gymId: string, memberId: string, data: any) =>
-    api.patch<any>(`/gyms/${gymId}/members/${memberId}`, data),
+  updateMember: (gymId: string, memberId: string, data: Partial<IMember> | Record<string, unknown>) =>
+    api.patch<{ member: IMember }>(`/gyms/${gymId}/members/${memberId}`, data),
 
   deleteMember: (gymId: string, memberId: string) =>
-    api.delete<any>(`/gyms/${gymId}/members/${memberId}`),
+    api.delete<{ success: boolean }>(`/gyms/${gymId}/members/${memberId}`),
 
   freeze: (gymId: string, _branchId: string, memberId: string, reason: string, startDate?: string, endDate?: string) =>
-    api.patch<any>(`/gyms/${gymId}/members/${memberId}/freeze`, { freezeUntil: endDate || startDate, reason }),
+    api.patch<{ member: IMember }>(`/gyms/${gymId}/members/${memberId}/freeze`, { freezeUntil: endDate || startDate, reason }),
 
   extend: (gymId: string, _branchId: string, memberId: string, days: number, reason: string) =>
-    api.patch<any>(`/gyms/${gymId}/members/${memberId}/extend`, { days, reason }),
+    api.patch<{ member: IMember }>(`/gyms/${gymId}/members/${memberId}/extend`, { days, reason }),
 
   cancel: (gymId: string, _branchId: string, memberId: string, reason: string) =>
-    api.patch<any>(`/gyms/${gymId}/members/${memberId}/cancel`, { reason }),
+    api.patch<{ member: IMember }>(`/gyms/${gymId}/members/${memberId}/cancel`, { reason }),
 
   renew: (gymId: string, _branchId: string, memberId: string, data: { newEndDate: string; planName?: string }) =>
-    api.patch<any>(`/gyms/${gymId}/members/${memberId}/renew`, data),
+    api.patch<{ member: IMember }>(`/gyms/${gymId}/members/${memberId}/renew`, data),
 
   regenerateQR: (gymId: string, memberId: string) =>
-    api.post<any>(`/gyms/${gymId}/members/${memberId}/regenerate-qr`),
+    api.post<{ qrCode: string }>(`/gyms/${gymId}/members/${memberId}/regenerate-qr`),
 
   getMemberQR: (gymId: string, memberId: string) =>
-    api.get<any>(`/gyms/${gymId}/members/${memberId}/qr`),
+    api.get<{ qrCode: string }>(`/gyms/${gymId}/members/${memberId}/qr`),
 
-  getSelfProfile: () => api.get<{ member: any }>("/members/me"),
+  getSelfProfile: () => api.get<{ member: IMember }>("/members/me"),
 
-  updateMe: (data: any) => api.patch<any>("/members/me", data),
+  updateMe: (data: Partial<IMember> | Record<string, unknown>) => api.patch<{ member: IMember }>("/members/me", data),
 
-  getMyReferralStats: () => api.get<any>("/members/me/referral-stats"),
+  getMyReferralStats: () => api.get<Record<string, unknown>>("/members/me/referral-stats"),
 
-  sendReferralAsk: (memberId: string) => api.post<any>(`/members/${memberId}/referral-ask`),
+  sendReferralAsk: (memberId: string) => api.post<{ success: boolean }>(`/members/${memberId}/referral-ask`),
 };
 
 export const attendanceApi = {
@@ -224,20 +262,20 @@ export const attendanceApi = {
     identifier?: string
   ) => {
     if (typeof gymIdOrPayload === "object") {
-      return api.post<{ checkIn: any }>("/attendance/check-in", gymIdOrPayload);
+      return api.post<IAttendanceCheckInResponse>("/attendance/check-in", gymIdOrPayload);
     }
-    const payload: Record<string, any> = { gymId: gymIdOrPayload, branchId };
+    const payload: Record<string, unknown> = { gymId: gymIdOrPayload, branchId };
     if (identifier?.startsWith("DYN_QR_") || identifier?.includes("_QR_")) {
       payload.qrToken = identifier;
     } else if (identifier) {
       payload.memberId = identifier;
     }
-    return api.post<{ checkIn: any }>("/attendance/check-in", payload);
+    return api.post<IAttendanceCheckInResponse>("/attendance/check-in", payload);
   },
 
-  checkOut: (attendanceId: string) => api.post<any>("/attendance/check-out", { attendanceId }),
+  checkOut: (attendanceId: string) => api.post<{ success: boolean }>("/attendance/check-out", { attendanceId }),
 
-  manualCheckInOut: (data: any) => api.post<any>("/attendance/manual", data),
+  manualCheckInOut: (data: Record<string, unknown>) => api.post<IAttendanceCheckInResponse>("/attendance/manual", data),
 
   generateQR: (gymId: string, branchId?: string, ttlSeconds: number = 25) =>
     api.get<{ qrToken: string; qrCodeDataUrl: string; ttlSeconds: number; expiresAt: string }>(
@@ -247,20 +285,20 @@ export const attendanceApi = {
     ),
 
   getToday: (gymId: string, branchId?: string) =>
-    api.get<{ attendance: any[] }>(
+    api.get<{ attendance: Array<Record<string, unknown>> }>(
       branchId
         ? `/gyms/${gymId}/branches/${branchId}/attendance/daily`
         : `/gyms/${gymId}/attendance/daily`
     ),
 
-  getCurrentSession: () => api.get<any>("/attendance/me/current"),
+  getCurrentSession: () => api.get<Record<string, unknown> | null>("/attendance/me/current"),
 
-  getMyHistory: () => api.get<any[]>("/attendance/me/history"),
+  getMyHistory: () => api.get<Array<Record<string, unknown>>>("/attendance/me/history"),
 
-  getMyStats: () => api.get<any>("/attendance/me/stats"),
+  getMyStats: () => api.get<Record<string, unknown>>("/attendance/me/stats"),
 
   getHeatmap: (gymId: string, branchId?: string) =>
-    api.get<{ weeks: any[][]; avgAttendanceRate30d: number }>(
+    api.get<{ weeks: number[][]; avgAttendanceRate30d: number }>(
       branchId
         ? `/gyms/${gymId}/branches/${branchId}/attendance/heatmap`
         : `/gyms/${gymId}/attendance-heatmap`
@@ -268,53 +306,59 @@ export const attendanceApi = {
 };
 
 export const workoutApi = {
-  listExercises: () => api.get<any[]>("/exercises"),
+  listExercises: () => api.get<IExerciseLibraryItem[]>("/exercises"),
 
-  getExerciseById: (exerciseId: string) => api.get<any>(`/exercises/${exerciseId}`),
+  getExerciseById: (exerciseId: string) => api.get<IExerciseLibraryItem>(`/exercises/${exerciseId}`),
 
-  createExercise: (data: any) => api.post<any>("/exercises", data),
+  createExercise: (data: Partial<IExerciseLibraryItem> | Record<string, unknown>) =>
+    api.post<{ exercise: IExerciseLibraryItem }>("/exercises", data),
 
-  updateExercise: (exerciseId: string, data: any) => api.patch<any>(`/exercises/${exerciseId}`, data),
+  updateExercise: (exerciseId: string, data: Partial<IExerciseLibraryItem> | Record<string, unknown>) =>
+    api.patch<{ exercise: IExerciseLibraryItem }>(`/exercises/${exerciseId}`, data),
 
-  deleteExercise: (exerciseId: string) => api.delete<any>(`/exercises/${exerciseId}`),
+  deleteExercise: (exerciseId: string) => api.delete<{ success: boolean }>(`/exercises/${exerciseId}`),
 
-  seedGlobalExercises: () => api.post<any>("/exercises/seed-global"),
+  seedGlobalExercises: () => api.post<{ success: boolean; count?: number }>("/exercises/seed-global"),
 
-  listPlans: (memberId: string) => api.get<any[]>(`/members/${memberId}/workout-plans`),
+  listPlans: (memberId: string) => api.get<IWorkoutPlan[]>(`/members/${memberId}/workout-plans`),
 
-  getActivePlan: (memberId: string) => api.get<any>(`/members/${memberId}/workout-plans/active`),
+  getActivePlan: (memberId: string) => api.get<{ plan: IWorkoutPlan | null }>(`/members/${memberId}/workout-plans/active`),
 
-  createPlan: (memberId: string, data: any) => api.post<any>(`/members/${memberId}/workout-plans`, data),
+  createPlan: (memberId: string, data: Partial<IWorkoutPlan> | Record<string, unknown>) =>
+    api.post<{ plan: IWorkoutPlan }>(`/members/${memberId}/workout-plans`, data),
 
-  updatePlan: (planId: string, data: any) => api.patch<any>(`/workout-plans/${planId}`, data),
+  updatePlan: (planId: string, data: Partial<IWorkoutPlan> | Record<string, unknown>) =>
+    api.patch<{ plan: IWorkoutPlan }>(`/workout-plans/${planId}`, data),
 
-  archivePlan: (planId: string) => api.patch<any>(`/workout-plans/${planId}/archive`),
+  archivePlan: (planId: string) => api.patch<{ plan: IWorkoutPlan }>(`/workout-plans/${planId}/archive`),
 
-  deletePlan: (planId: string) => api.delete<any>(`/workout-plans/${planId}`),
+  deletePlan: (planId: string) => api.delete<{ success: boolean }>(`/workout-plans/${planId}`),
 
-  duplicatePlan: (planId: string) => api.post<any>(`/workout-plans/${planId}/duplicate`),
+  duplicatePlan: (planId: string) => api.post<{ plan: IWorkoutPlan }>(`/workout-plans/${planId}/duplicate`),
 
-  logWorkout: (data: any) => api.post<any>("/workout-logs/start", data),
+  logWorkout: (data: Record<string, unknown>) => api.post<Record<string, unknown>>("/workout-logs/start", data),
 
   logSetProgress: (logId: string, exerciseId: string, setNumber: number, data: { reps: number; weightKg?: number; completed?: boolean }) =>
-    api.patch<any>(`/workout-logs/${logId}/exercises/${exerciseId}/sets/${setNumber}`, data),
+    api.patch<Record<string, unknown>>(`/workout-logs/${logId}/exercises/${exerciseId}/sets/${setNumber}`, data),
 
   markExerciseComplete: (logId: string, exerciseId: string) =>
-    api.patch<any>(`/workout-logs/${logId}/exercises/${exerciseId}/complete`),
+    api.patch<Record<string, unknown>>(`/workout-logs/${logId}/exercises/${exerciseId}/complete`),
 
   completeWorkoutLog: (logId: string) =>
-    api.patch<any>(`/workout-logs/${logId}/complete`),
+    api.patch<Record<string, unknown>>(`/workout-logs/${logId}/complete`),
 
   getHistory: (memberId: string, page = 1, limit = 10) =>
-    api.get<{ logs: any[]; meta?: any }>(`/members/${memberId}/workout-logs?page=${page}&limit=${limit}`),
+    api.get<{ logs: Array<Record<string, unknown>>; meta?: { total: number; page: number; limit: number } }>(
+      `/members/${memberId}/workout-logs?page=${page}&limit=${limit}`
+    ),
 
-  getCompletionStats: (memberId: string) => api.get<any>(`/members/${memberId}/workout-stats`),
+  getCompletionStats: (memberId: string) => api.get<Record<string, unknown>>(`/members/${memberId}/workout-stats`),
 
   getTodayWorkout: (memberId?: string) =>
-    api.get<{ today: any }>(`/workout-logs/today${memberId ? `?memberId=${memberId}` : ""}`),
+    api.get<{ today: Record<string, unknown> | null }>(`/workout-logs/today${memberId ? `?memberId=${memberId}` : ""}`),
 
   toggleExerciseToday: (exerciseId: string) =>
-    api.patch<{ today: any }>("/workout-logs/today", { exerciseId }),
+    api.patch<{ today: Record<string, unknown> }>("/workout-logs/today", { exerciseId }),
 
   getProgressAnalytics: (days = 7, memberId?: string) =>
     api.get<{ data: Array<{ date: string; completionPercentage: number }> }>(
@@ -323,36 +367,39 @@ export const workoutApi = {
 };
 
 export const dietApi = {
-  listPlans: (memberId: string) => api.get<any[]>(`/members/${memberId}/diet-plans`),
+  listPlans: (memberId: string) => api.get<IDietPlan[]>(`/members/${memberId}/diet-plans`),
 
-  createPlan: (memberId: string, data: any) => api.post<any>(`/members/${memberId}/diet-plans`, data),
+  createPlan: (memberId: string, data: Partial<IDietPlan> | Record<string, unknown>) =>
+    api.post<{ plan: IDietPlan }>(`/members/${memberId}/diet-plans`, data),
 
-  getActive: (memberId: string) => api.get<any>(`/members/${memberId}/diet-plans/active`),
+  getActive: (memberId: string) =>
+    api.get<{ plan?: IDietPlan | null; dietPlan?: IDietPlan | null }>(`/members/${memberId}/diet-plans/active`),
 
-  updatePlan: (planId: string, data: any) => api.patch<any>(`/diet-plans/${planId}`, data),
+  updatePlan: (planId: string, data: Partial<IDietPlan> | Record<string, unknown>) =>
+    api.patch<{ plan: IDietPlan }>(`/diet-plans/${planId}`, data),
 
-  archivePlan: (planId: string) => api.patch<any>(`/diet-plans/${planId}/archive`),
+  archivePlan: (planId: string) => api.patch<{ plan: IDietPlan }>(`/diet-plans/${planId}/archive`),
 
-  deletePlan: (planId: string) => api.delete<any>(`/diet-plans/${planId}`),
+  deletePlan: (planId: string) => api.delete<{ success: boolean }>(`/diet-plans/${planId}`),
 };
 
 export const progressApi = {
-  getHistory: (memberId?: string) => api.get<any>(`/progress/weight/history${memberId ? `/${memberId}` : ""}`),
+  getHistory: (memberId?: string) => api.get<{ history: Array<Record<string, unknown>> }>(`/progress/weight/history${memberId ? `/${memberId}` : ""}`),
 
   logWeight: (
     payload: number | { memberId?: string; weightKg: number; heightCm?: number; targetWeightKg?: number; notes?: string },
     notes?: string
   ) => {
     const body = typeof payload === "number" ? { weightKg: payload, notes } : payload;
-    return api.post<any>("/progress/weight", body);
+    return api.post<{ log: Record<string, unknown> }>("/progress/weight", body);
   },
 
   uploadPhoto: (data: { image?: string; imageUrl?: string; photoUrl?: string; angle?: 'front' | 'side' | 'back'; notes?: string }) =>
-    api.post<any>("/progress/photos", data),
+    api.post<{ photo: Record<string, unknown> }>("/progress/photos", data),
 
-  getPhotos: (memberId?: string) => api.get<any>(memberId ? `/progress/photos/${memberId}` : "/progress/photos"),
+  getPhotos: (memberId?: string) => api.get<{ photos: Array<Record<string, unknown>> }>(memberId ? `/progress/photos/${memberId}` : "/progress/photos"),
 
-  deletePhoto: (photoId: string) => api.delete<any>(`/progress/photos/${photoId}`),
+  deletePhoto: (photoId: string) => api.delete<{ success: boolean }>(`/progress/photos/${photoId}`),
 
   logWellness: (data: {
     waterIntakeMl?: number;
@@ -362,97 +409,104 @@ export const progressApi = {
     stressLevel?: string;
     sorenessNotes?: string;
     dayKey?: string;
-  }) => api.patch<any>("/progress/wellness", data),
+  }) => api.patch<Record<string, unknown>>("/progress/wellness", data),
 
-  getWellnessHistory: () => api.get<any[]>("/progress/wellness/history"),
+  getWellnessHistory: (memberId?: string) =>
+    api.get<IWellnessHistoryResponse>(`/progress/wellness/history${memberId ? `/${memberId}` : ""}`),
 
   logDietMeal: (data: { mealType: string; calories?: number; proteinGrams?: number; carbsGrams?: number; fatGrams?: number; notes?: string }) =>
-    api.post<any>("/progress/diet-log", data),
+    api.post<{ meal: Record<string, unknown> }>("/progress/diet-log", data),
 
-  getDietLogs: () => api.get<any[]>("/progress/diet-log"),
+  getDietLogs: () => api.get<Array<Record<string, unknown>>>("/progress/diet-log"),
 
-  getSummary: () => api.get<any>("/progress/summary"),
+  getSummary: () => api.get<Record<string, unknown>>("/progress/summary"),
 };
 
 export const gamificationApi = {
-  getMyProfile: () => api.get<any>("/gamification/me"),
+  getMyProfile: () => api.get<Record<string, unknown>>("/gamification/me"),
 
-  updateRestDays: (restDays: string[]) => api.put<any>("/gamification/me/rest-days", { restDays }),
+  updateRestDays: (restDays: string[]) => api.put<{ success: boolean }>("/gamification/me/rest-days", { restDays }),
 
   getLeaderboard: (gymId?: string, type?: string) => {
     const params = new URLSearchParams();
     if (gymId) params.append("gymId", gymId);
     if (type) params.append("type", type);
     const q = params.toString();
-    return api.get<any>(`/gamification/leaderboard${q ? `?${q}` : ""}`);
+    return api.get<{ leaderboard: Array<Record<string, unknown>> }>(`/gamification/leaderboard${q ? `?${q}` : ""}`);
   },
 
-  listChallenges: (gymId?: string) => api.get<any[]>(`/gamification/challenges${gymId ? `?gymId=${gymId}` : ""}`),
+  listChallenges: (gymId?: string) => api.get<Array<Record<string, unknown>>>(`/gamification/challenges${gymId ? `?gymId=${gymId}` : ""}`),
 
-  createChallenge: (gymId: string, data: any) => api.post<any>(`/gyms/${gymId}/challenges`, data),
+  createChallenge: (gymId: string, data: Record<string, unknown>) => api.post<{ challenge: Record<string, unknown> }>(`/gyms/${gymId}/challenges`, data),
 
-  joinChallenge: (challengeId: string) => api.post<any>(`/gamification/challenges/${challengeId}/join`),
+  joinChallenge: (challengeId: string) => api.post<{ success: boolean }>(`/gamification/challenges/${challengeId}/join`),
 };
 
 export const paymentApi = {
-  listMemberPayments: (gymId: string) => api.get<any>(`/gyms/${gymId}/payments`),
+  listMemberPayments: (gymId: string) => api.get<{ payments: IPayment[] }>(`/gyms/${gymId}/payments`),
 
-  recordMemberPayment: (gymId: string, data: any) => api.post<any>(`/gyms/${gymId}/payments/manual`, data),
+  recordMemberPayment: (gymId: string, data: Partial<IPayment> | Record<string, unknown>) =>
+    api.post<{ payment: IPayment }>(`/gyms/${gymId}/payments/manual`, data),
 
   initiateOnlineOrder: (gymId: string, data: { amount: number; planName?: string; billingCycle?: string }) =>
-    api.post<any>(`/gyms/${gymId}/payments/online-order`, data),
+    api.post<{ orderId: string; amount: number; currency: string }>(`/gyms/${gymId}/payments/online-order`, data),
 
   refundPayment: (gymId: string, paymentId: string, reason?: string) =>
-    api.patch<any>(`/gyms/${gymId}/payments/${paymentId}/refund`, { reason }),
+    api.patch<{ payment: IPayment }>(`/gyms/${gymId}/payments/${paymentId}/refund`, { reason }),
 
-  update: (gymId: string, paymentId: string, data: any) =>
-    api.patch<any>(`/gyms/${gymId}/payments/${paymentId}`, data),
+  update: (gymId: string, paymentId: string, data: Partial<IPayment> | Record<string, unknown>) =>
+    api.patch<{ payment: IPayment }>(`/gyms/${gymId}/payments/${paymentId}`, data),
 
   delete: (gymId: string, paymentId: string) =>
-    api.delete<any>(`/gyms/${gymId}/payments/${paymentId}`),
+    api.delete<{ success: boolean }>(`/gyms/${gymId}/payments/${paymentId}`),
 
-  getRevenueSummary: (gymId: string) => api.get<any>(`/gyms/${gymId}/payments/revenue-summary`),
+  getRevenueSummary: (gymId: string) => api.get<Record<string, unknown>>(`/gyms/${gymId}/payments/revenue-summary`),
 
-  getMyPayments: (gymId: string) => api.get<any>(`/gyms/${gymId}/payments/me`),
+  getMyPayments: (gymId: string) => api.get<{ payments: IPayment[] }>(`/gyms/${gymId}/payments/me`),
 
-  getPlatformBilling: () => api.get<any>("/billing/platform/invoices"),
+  getPlatformBilling: () => api.get<Record<string, unknown>>("/billing/platform/invoices"),
 
-  upgradePlatformTier: (planId: string) => api.post<any>("/billing/platform/upgrade", { planId }),
+  upgradePlatformTier: (planId: string) => api.post<Record<string, unknown>>("/billing/platform/upgrade", { planId }),
 
-  getPlatformAnalyticsOverview: () => api.get<any>("/billing/platform/analytics/overview"),
+  getPlatformAnalyticsOverview: () => api.get<Record<string, unknown>>("/billing/platform/analytics/overview"),
 
-  recordManualPlatformPayment: (gymId: string, data: any) =>
-    api.post<any>(`/billing/platform/gyms/${gymId}/manual-payment`, data),
+  recordManualPlatformPayment: (gymId: string, data: Record<string, unknown>) =>
+    api.post<Record<string, unknown>>(`/billing/platform/gyms/${gymId}/manual-payment`, data),
 
   requestUpgrade: (gymId: string, data: { requestedPlan: string; billingCycle?: string; notes?: string }) =>
-    api.post<any>(`/billing/platform/gyms/${gymId}/upgrade-request`, data),
+    api.post<Record<string, unknown>>(`/billing/platform/gyms/${gymId}/upgrade-request`, data),
 
-  listUpgradeRequests: () => api.get<any>("/billing/platform/upgrade-requests"),
+  cancelUpgradeRequest: (gymId: string) =>
+    api.delete<{ success: boolean; count?: number }>(`/billing/platform/gyms/${gymId}/upgrade-request`),
+
+  listUpgradeRequests: () => api.get<Array<Record<string, unknown>>>("/billing/platform/upgrade-requests"),
+  getPlatformSettings: () => api.get<{ settings: Record<string, any> }>("/billing/platform/settings"),
+  updatePlatformSettings: (data: Record<string, any>) => api.put<{ settings: Record<string, any> }>("/billing/platform/settings", data),
 };
 
 export const aiApi = {
   getWeeklyDigest: (gymId: string) => api.get<{ weeklyDigest: string }>(`/ai/gyms/${gymId}/insights/weekly-digest`),
 
   getAtRiskMembers: (gymId: string, riskLevel?: string) =>
-    api.get<any>(`/ai/gyms/${gymId}/at-risk-members${riskLevel ? `?riskLevel=${riskLevel}` : ""}`),
+    api.get<Array<Record<string, unknown>>>(`/ai/gyms/${gymId}/at-risk-members${riskLevel ? `?riskLevel=${riskLevel}` : ""}`),
 
-  getTrainerPerformance: (gymId: string) => api.get<any>(`/ai/gyms/${gymId}/insights/trainer-performance`),
+  getTrainerPerformance: (gymId: string) => api.get<Array<Record<string, unknown>>>(`/ai/gyms/${gymId}/insights/trainer-performance`),
 
-  getPeakHours: (gymId: string) => api.get<any>(`/ai/gyms/${gymId}/insights/peak-hours`),
+  getPeakHours: (gymId: string) => api.get<Record<string, unknown>>(`/ai/gyms/${gymId}/insights/peak-hours`),
 
-  getRevenueForecast: (gymId: string) => api.get<any>(`/ai/gyms/${gymId}/insights/revenue-forecast`),
+  getRevenueForecast: (gymId: string) => api.get<Record<string, unknown>>(`/ai/gyms/${gymId}/insights/revenue-forecast`),
 
-  getPlanProfitability: (gymId: string) => api.get<any>(`/ai/gyms/${gymId}/insights/plan-profitability`),
+  getPlanProfitability: (gymId: string) => api.get<Record<string, unknown>>(`/ai/gyms/${gymId}/insights/plan-profitability`),
 
-  getSuggestions: (memberId: string) => api.get<any>(`/ai/members/${memberId}/suggestions`),
+  getSuggestions: (memberId: string) => api.get<Record<string, unknown>>(`/ai/members/${memberId}/suggestions`),
 
-  getDietRecommendation: (memberId: string) => api.get<any>(`/ai/members/${memberId}/diet-recommendation`),
+  getDietRecommendation: (memberId: string) => api.get<Record<string, unknown>>(`/ai/members/${memberId}/diet-recommendation`),
 
-  getReports: (memberId: string) => api.get<any>(`/ai/members/${memberId}/reports`),
+  getReports: (memberId: string) => api.get<Array<Record<string, unknown>>>(`/ai/members/${memberId}/reports`),
 
-  generateReport: (memberId: string) => api.post<any>(`/ai/members/${memberId}/reports`),
+  generateReport: (memberId: string) => api.post<Record<string, unknown>>(`/ai/members/${memberId}/reports`),
 
-  getGoalPrediction: (memberId: string) => api.get<any>(`/ai/members/${memberId}/goal-prediction`),
+  getGoalPrediction: (memberId: string) => api.get<Record<string, unknown>>(`/ai/members/${memberId}/goal-prediction`),
 
   startConversation: (firstMessage: string) =>
     api.post<{
@@ -474,13 +528,13 @@ export const aiApi = {
     api.get<{ conversations: { _id: string; title: string; lastMessageAt: string }[] }>("/ai/chat/conversations"),
 
   archiveConversation: (conversationId: string) =>
-    api.patch<any>(`/ai/chat/conversations/${conversationId}/archive`),
+    api.patch<{ success: boolean }>(`/ai/chat/conversations/${conversationId}/archive`),
 
   getUpsellRecommendation: (memberId?: string) =>
-    api.get<any>(`/ai/members/${memberId || "me"}/upsell-recommendation`),
+    api.get<Record<string, unknown>>(`/ai/members/${memberId || "me"}/upsell-recommendation`),
 
   getRecoveryStatus: (memberId?: string) =>
-    api.get<any>(`/ai/members/${memberId || "me"}/recovery-status`),
+    api.get<IRecoveryStatus>(`/ai/members/${memberId || "me"}/recovery-status`),
 
   getChatDailyLimit: () =>
     api.get<{ isExceeded: boolean; todayCount: number; limit: number; remaining: number }>("/ai/chat/daily-limit"),
@@ -513,9 +567,11 @@ export const expenseApi = {
 };
 
 export const leadApi = {
-  list: (gymId: string, branchId: string) => api.get<any[]>(`/gyms/${gymId}/branches/${branchId}/leads`),
+  list: (gymId: string, branchId?: string) =>
+    api.get<any[]>(branchId ? `/gyms/${gymId}/branches/${branchId}/leads` : `/gyms/${gymId}/leads`),
 
-  create: (gymId: string, branchId: string, data: any) => api.post<any>(`/gyms/${gymId}/branches/${branchId}/leads`, data),
+  create: (gymId: string, branchId?: string, data?: any) =>
+    api.post<any>(branchId ? `/gyms/${gymId}/branches/${branchId}/leads` : `/gyms/${gymId}/leads`, data),
 
   updateStatus: (_gymId: string, _branchId: string, leadId: string, status: string) =>
     api.patch<any>(`/leads/${leadId}/status`, { status }),
@@ -530,13 +586,14 @@ export const leadApi = {
 };
 
 export const equipmentApi = {
-  list: (gymId: string, branchId: string) =>
-    api.get<any[]>(`/gyms/${gymId}/branches/${branchId}/equipment`),
+  list: (gymId: string, branchId?: string) =>
+    api.get<any[]>(branchId ? `/gyms/${gymId}/branches/${branchId}/equipment` : `/gyms/${gymId}/equipment`),
 
-  getMaintenanceDue: (gymId: string) => api.get<any[]>(`/gyms/${gymId}/equipment/maintenance-due`),
+  getMaintenanceDue: (gymId: string, branchId?: string) =>
+    api.get<any[]>(`/gyms/${gymId}/equipment/maintenance-due${branchId ? `?branchId=${branchId}` : ""}`),
 
-  add: (gymId: string, branchId: string, data: any) =>
-    api.post<any>(`/gyms/${gymId}/branches/${branchId}/equipment`, data),
+  add: (gymId: string, branchId?: string, data?: any) =>
+    api.post<any>(branchId ? `/gyms/${gymId}/branches/${branchId}/equipment` : `/gyms/${gymId}/equipment`, data),
 
   updateStatus: (id: string, status: string) => api.patch<any>(`/equipment/${id}`, { status }),
 
@@ -596,9 +653,10 @@ export const notificationApi = {
     api.post<any>(`/gyms/${gymId}/notifications/broadcast`, data),
 
   getWhatsAppLogs: (gymId?: string) =>
-    api.get<any>(`/notifications/whatsapp-logs${gymId ? `?gymId=${gymId}` : ""}`),
+    api.get<{ logs: IWhatsAppLog[] }>(`/notifications/whatsapp-logs${gymId ? `?gymId=${gymId}` : ""}`),
 
-  getWhatsAppLog: (gymId: string) => api.get<any>(`/gyms/${gymId}/whatsapp-log`),
+  getWhatsAppLog: (gymId: string) =>
+    api.get<{ logs: IWhatsAppLog[] }>(`/notifications/whatsapp-logs?gymId=${gymId}`),
 };
 
 export const privacyApi = {

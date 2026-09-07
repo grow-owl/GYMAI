@@ -395,7 +395,7 @@ export class AuthService {
     if (branchId && mongoose.Types.ObjectId.isValid(branchId)) {
       filter.branchId = new mongoose.Types.ObjectId(branchId);
     }
-    return User.find(filter).select('-password').sort({ createdAt: -1 });
+    return User.find(filter).populate('branchId', 'name address').select('-password').sort({ createdAt: -1 });
   }
 
   /**

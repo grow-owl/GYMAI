@@ -10,6 +10,7 @@ import { useGymBranch } from "@/hooks/useGymBranch";
 import { trainerApi, memberApi, authApi } from "@/lib/endpoints";
 import { useSearchStore } from "../../store/searchStore";
 import { toast } from "sonner";
+import { showApiErrorToast } from "@/lib/api";
 
 interface TrainerRow {
   _id: string;
@@ -159,7 +160,9 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
         const res = await memberApi.list(gymId, branchId);
         const mList = Array.isArray(res) ? res : (res as any)?.members || [];
         setMembersList(mList);
-      } catch {}
+      } catch (err: any) {
+        showApiErrorToast(err, "Failed to load members for client assignment");
+      }
     }
   };
 

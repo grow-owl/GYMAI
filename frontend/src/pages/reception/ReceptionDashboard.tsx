@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import KpiCard from "@/components/ui/KpiCard";
 import QuickAccessCard from "@/components/ui/QuickAccessCard";
 import Card from "@/components/ui/Card";
 import BarChart from "@/components/ui/BarChart";
 import { useAuthStore } from "@/store/authStore";
 import { reportApi, attendanceApi, leadApi } from "@/lib/endpoints";
+import { formatApiError, showApiErrorToast } from "@/lib/api";
 
 const quickAccess = [
   { label: "Add & Manage Members", path: "/reception/members", icon: "Users", tone: "accent" as const },
@@ -21,15 +22,17 @@ const stageOrder = ["NEW", "CONTACTED", "TRIAL", "CONVERTED"];
 export default function ReceptionDashboard() {
   const user = useAuthStore((s) => s.user);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [todayCheckIns, setTodayCheckIns] = useState(0);
   const [currentlyIn, setCurrentlyIn] = useState(0);
   const [leadsList, setLeadsList] = useState<any[]>([]);
 
-  useEffect(() => {
+  const fetchOverview = () => {
     if (!user?.gymId) return;
     setLoading(true);
+    setError(null);
     Promise.all([
-      reportApi.getOverview(user.gymId, user.branchId ?? undefined).catch(() => null),
+      reportApi.getOverview(user.gymId, user.branchId ?? undefined),
       user.branchId ? attendanceApi.getToday(user.gymId, user.branchId).catch(() => null) : Promise.resolve(null),
       user.branchId ? leadApi.list(user.gymId, user.branchId).catch(() => []) : Promise.resolve([]),
     ])
@@ -44,7 +47,16 @@ export default function ReceptionDashboard() {
         );
         setLeadsList(Array.isArray(leadRes) ? leadRes : []);
       })
+      .catch((err: any) => {
+        const msg = formatApiError(err, "Failed to load reception desk overview");
+        setError(msg);
+        showApiErrorToast(err, "Failed to load reception desk overview");
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchOverview();
   }, [user]);
 
   const pipelineData = stageOrder.map((stage, i) => ({
@@ -62,6 +74,18 @@ export default function ReceptionDashboard() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <Card className="text-center py-4 border-rose-500/20 bg-rose-500/5">
+          <p className="text-xs text-(--color-danger) mb-2">{error}</p>
+          <button
+            onClick={fetchOverview}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-(--color-surface-2) text-(--color-text) hover:bg-(--color-surface-3)"
+          >
+            <RefreshCw size={13} /> Retry Overview
+          </button>
+        </Card>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center p-8 text-sm text-(--color-text-muted) gap-2">
           <Loader2 className="w-4 h-4 animate-spin text-(--color-accent)" /> Loading reception desk overview...

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { GymService } from './gym.service';
 import { sendSuccess } from '../../common/utils/ApiResponse';
 import { asyncHandler } from '../../common/utils/asyncHandler';
+import { AppError } from '../../common/utils/AppError';
 import { Role } from '../../common/constants/roles.enum';
 
 export class GymController {
@@ -96,5 +97,24 @@ export class GymController {
   public static listAllGyms = asyncHandler(async (_req: Request, res: Response) => {
     const result = await GymService.listAllGyms();
     return sendSuccess(res, result, 'All gyms retrieved successfully');
+  });
+
+  public static getMembershipPlans = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    if (!gymId) {
+      throw AppError.badRequest('Gym ID is required');
+    }
+    const plans = await GymService.getMembershipPlans(gymId.toString());
+    return sendSuccess(res, { plans }, 'Gym membership plans retrieved successfully');
+  });
+
+  public static updateMembershipPlans = asyncHandler(async (req: Request, res: Response) => {
+    const gymId = req.params.gymId || req.user?.gymId;
+    if (!gymId) {
+      throw AppError.badRequest('Gym ID is required');
+    }
+    const { plans } = req.body;
+    const updatedPlans = await GymService.updateMembershipPlans(gymId.toString(), plans);
+    return sendSuccess(res, { plans: updatedPlans }, 'Gym membership plans updated successfully');
   });
 }

@@ -17,6 +17,11 @@ export interface BranchSeries {
   branchId: string;
   branchName: string;
   points: BranchPoint[];
+  metricValue?: number;
+  activeMembers?: number;
+  totalMembers?: number;
+  attendanceRate?: number;
+  revenue?: number;
 }
 
 export interface BranchComparisonResult {
@@ -169,7 +174,50 @@ export class BranchAnalyticsService {
       });
     }
 
-    // 4. Zero-fill missing dates for every branch
+    // 4. Fetch active member counts and total member counts per branch
+    const [activeCounts, totalCounts] = await Promise.all([
+      Member.aggregate([
+        {
+          $match: {
+            gymId: gymObjectId,
+            isDeleted: false,
+            membershipStatus: MembershipStatus.ACTIVE,
+          },
+        },
+        {
+          $group: {
+            _id: '$branchId',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      Member.aggregate([
+        {
+          $match: {
+            gymId: gymObjectId,
+            isDeleted: false,
+          },
+        },
+        {
+          $group: {
+            _id: '$branchId',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    const activeMap: Record<string, number> = {};
+    activeCounts.forEach((c) => {
+      if (c._id) activeMap[c._id.toString()] = c.count;
+    });
+
+    const totalMap: Record<string, number> = {};
+    totalCounts.forEach((c) => {
+      if (c._id) totalMap[c._id.toString()] = c.count;
+    });
+
+    // 5. Zero-fill missing dates for every branch and compute summary metrics
     const branchSeriesList: BranchSeries[] = branches.map((b) => {
       const bId = b._id.toString();
       const points: BranchPoint[] = dateBuckets.map((dStr) => ({
@@ -177,10 +225,26 @@ export class BranchAnalyticsService {
         value: branchDataMap[bId]?.[dStr] || 0,
       }));
 
+      const pointsSum = points.reduce((acc, p) => acc + (p.value || 0), 0);
+      const pointsAvg = points.length > 0 ? pointsSum / points.length : 0;
+
+      let metricVal = Math.round(pointsSum * 100) / 100;
+      if (metric === 'attendance_rate' || metric === 'churn_rate') {
+        metricVal = Math.round(pointsAvg * 10) / 10;
+      }
+
+      const activeCount = activeMap[bId] || 0;
+      const totalCount = totalMap[bId] || 0;
+
       return {
         branchId: bId,
         branchName: b.name,
         points,
+        metricValue: metricVal,
+        activeMembers: activeCount,
+        totalMembers: totalCount,
+        revenue: metric === 'revenue' ? metricVal : undefined,
+        attendanceRate: (metric === 'attendance' || metric === 'attendance_rate') ? metricVal : undefined,
       };
     });
 

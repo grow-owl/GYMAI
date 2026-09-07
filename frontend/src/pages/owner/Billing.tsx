@@ -69,17 +69,19 @@ export default function Billing() {
 
   const handleConfirmRequest = async () => {
     if (!selectedPlanForUpgrade) return;
-    const gymId = user?.gymId;
+    const targetGymId = gymId || user?.gymId;
+    if (!targetGymId) {
+      toast.error("No active gym selected. Please select a gym to request an upgrade.");
+      return;
+    }
     const requestedPlanEnum = CARD_ID_TO_GYM_PLAN[selectedPlanForUpgrade.id] || selectedPlanForUpgrade.id.toUpperCase();
 
     setSubmitting(true);
     try {
-      if (gymId) {
-        await paymentApi.requestUpgrade(gymId, {
-          requestedPlan: requestedPlanEnum,
-          billingCycle: "MONTHLY",
-        });
-      }
+      await paymentApi.requestUpgrade(targetGymId, {
+        requestedPlan: requestedPlanEnum,
+        billingCycle: "MONTHLY",
+      });
       if (selectedPlanForUpgrade.id === "starter" && currentPlanCardId !== "starter") {
         setPendingDowngrade(selectedPlanForUpgrade.name);
         toast.success(`Downgrade request for ${selectedPlanForUpgrade.name} submitted to Super Admin.`);
@@ -94,7 +96,16 @@ export default function Billing() {
     }
   };
 
-  const handleRevokeDowngrade = () => {
+  const handleRevokeDowngrade = async () => {
+    const activeGymId = gymId || user?.gymId;
+    if (activeGymId) {
+      try {
+        await paymentApi.cancelUpgradeRequest(activeGymId);
+      } catch (err: any) {
+        showApiErrorToast(err, "Failed to cancel request on server.");
+        return;
+      }
+    }
     setPendingDowngrade(null);
     toast.success("Downgrade request revoked successfully! Your active plan remains active.");
   };
