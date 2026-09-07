@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense, useMemo } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import RoleSelect from "@/pages/RoleSelect";
 import Landing from "@/pages/Landing";
 import DashboardShell from "@/components/layout/DashboardShell";
@@ -97,17 +97,52 @@ function OwnerShell() {
   const firstName = user?.fullName?.split(" ")[0] ?? "Owner";
   const initial = (user?.fullName?.[0] ?? "O").toUpperCase();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const secondaryNav = isSuperAdmin
-    ? [{ label: "Admin Panel", path: "/admin", icon: "ShieldCheck" }, ...ownerNavSecondary]
-    : ownerNavSecondary;
+  const isBranchManager = user?.role === "BRANCH_MANAGER";
+
+  const primaryNav = useMemo(() => {
+    if (isBranchManager) {
+      // BRANCH_MANAGER cannot access organization financial reports or expenses
+      return ownerNav.filter(
+        (item) => item.path !== "/owner/expenses" && item.path !== "/owner/reports"
+      );
+    }
+    return ownerNav;
+  }, [isBranchManager]);
+
+  const secondaryNav = useMemo(() => {
+    if (isBranchManager) {
+      // BRANCH_MANAGER cannot access SaaS billing or multi-branch settings
+      return ownerNavSecondary.filter(
+        (item) => item.path !== "/owner/billing" && item.path !== "/owner/settings"
+      );
+    }
+    if (isSuperAdmin) {
+      return [{ label: "Admin Panel", path: "/admin", icon: "ShieldCheck" }, ...ownerNavSecondary];
+    }
+    return ownerNavSecondary;
+  }, [isBranchManager, isSuperAdmin]);
+
+  const roleLabel = isSuperAdmin
+    ? "Super Admin"
+    : isBranchManager
+    ? "Branch Manager"
+    : "Owner / Admin";
+
+  const greeting = isBranchManager
+    ? `Branch Operations — ${firstName} 👋`
+    : getTimeBasedGreeting(firstName);
+
+  const subtitle = isBranchManager
+    ? String(user?.branchName || user?.gymName || "Branch Operations")
+    : String(user?.gymName || "My Gym");
 
   return (
     <DashboardShell
-      primary={ownerNav}
+      primary={primaryNav}
       secondary={secondaryNav}
-      roleLabel={isSuperAdmin ? "Super Admin" : "Owner / Admin"}
-      greeting={getTimeBasedGreeting(firstName)}
-      subtitle={String(user?.gymName || "My Gym")}
+      roleLabel={roleLabel}
+      greeting={greeting}
+      subtitle={subtitle}
       avatarInitial={initial}
     />
   );
@@ -199,16 +234,24 @@ export default function App() {
                   <Route path="payments" element={<OwnerPayments />} />
                   <Route path="leads" element={<OwnerLeads />} />
                   <Route path="inventory" element={<Inventory />} />
-                  <Route path="expenses" element={<Expenses />} />
                   <Route path="equipment" element={<Equipment />} />
-                  <Route path="billing" element={<Billing />} />
-                  <Route path="reports" element={<Reports />} />
                   <Route path="ai-insights" element={<AIInsights />} />
-                  <Route path="branch-comparison" element={<BranchComparison />} />
-                  <Route path="settings" element={<Settings />} />
                   <Route path="notifications" element={<Notifications />} />
+
+                  {/* Owner-Only Routes — Restricted from BRANCH_MANAGER */}
+                  <Route element={<ProtectedRoute allowedRoles={["GYM_OWNER", "SUPER_ADMIN"]} />}>
+                    <Route path="expenses" element={<Expenses />} />
+                    <Route path="billing" element={<Billing />} />
+                    <Route path="reports" element={<Reports />} />
+                    <Route path="branch-comparison" element={<BranchComparison />} />
+                    <Route path="settings" element={<Settings />} />
+                  </Route>
                 </Route>
               </Route>
+
+              {/* Scoped /manager portal alias redirects to /owner */}
+              <Route path="/manager" element={<Navigate to="/owner" replace />} />
+              <Route path="/manager/*" element={<Navigate to="/owner" replace />} />
 
               <Route element={<ProtectedRoute allowedRoles={["TRAINER"]} />}>
                 <Route path="/trainer" element={<TrainerShell />}>

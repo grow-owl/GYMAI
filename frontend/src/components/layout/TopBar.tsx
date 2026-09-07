@@ -134,7 +134,7 @@ export default function TopBar({
     const userBranchId = user?.branchId || "";
     const userBranchName = user?.branchName || (user?.gymName ? `${user.gymName} Branch` : "");
 
-    if (user?.role === "MEMBER" && userBranchId) {
+    if ((user?.role === "MEMBER" || user?.role === "BRANCH_MANAGER" || user?.role === "KIOSK") && userBranchId) {
       setBranches([{ _id: userBranchId, name: userBranchName || "My Branch" }]);
       return;
     }
@@ -316,7 +316,7 @@ export default function TopBar({
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Branch Selector or Member Branch Display */}
-          {user?.role === "MEMBER" ? (
+          {user?.role === "MEMBER" || user?.role === "BRANCH_MANAGER" || user?.role === "KIOSK" ? (
             activeBranch?.name ? (
               <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) shrink-0 max-w-[130px] sm:max-w-none">
                 <Building2 size={14} className="text-(--color-accent) shrink-0" />

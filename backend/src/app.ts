@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import mongoSanitize from 'express-mongo-sanitize';
 import { requestId } from './common/middlewares/requestId.middleware';
-import { defaultRateLimiter } from './common/middlewares/rateLimiter.middleware';
+import { defaultRateLimiter, authLimiter, publicLimiter, aiLimiter } from './common/middlewares/rateLimiter.middleware';
 import { errorHandler } from './common/middlewares/error.middleware';
 import { sendSuccess } from './common/utils/ApiResponse';
 import { AppError } from './common/utils/AppError';
@@ -101,7 +101,14 @@ app.get('/', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'GYM AI Backend is running' });
 });
 
-// 9. Rate Limiting for API routes
+// 9. Tiered Rate Limiting for API routes
+// - Auth routes: strict limit (15 req/15min) against brute-force attacks
+// - Public landing/lead forms: anti-spam / anti-scraping limit (30 req/15min)
+// - AI endpoints: quota protection (60 req/min)
+// - Authenticated APIs: general rate limiter (300 req/15min)
+app.use('/api/v1/auth', authLimiter);
+app.use('/api/v1/public', publicLimiter);
+app.use('/api/v1/ai', aiLimiter);
 app.use('/api', defaultRateLimiter);
 
 // Health Check Endpoint (Unauthenticated)

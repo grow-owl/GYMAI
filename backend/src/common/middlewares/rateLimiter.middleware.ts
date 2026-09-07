@@ -22,6 +22,10 @@ export const createRateLimiter = (
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => {
+      // If explicitly enabled for testing, enforce rate limits even in development
+      if (env.ENABLE_RATE_LIMIT_IN_DEV) {
+        return false;
+      }
       // Avoid locking out developers during development / local testing
       if (skipInDev && env.NODE_ENV === 'development') {
         return true;
@@ -36,24 +40,35 @@ export const createRateLimiter = (
 
 /**
  * Global default API Rate Limiter
- * Bypassed in development mode, and allows a generous 2,000 requests per 15 mins in production
+ * Allows up to 300 requests per 15 mins in production for authenticated APIs
  * so that SPA navigation and component refreshes never falsely lock out users.
  */
 export const defaultRateLimiter = createRateLimiter(
   env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
-  env.RATE_LIMIT_MAX || 2000,
+  env.RATE_LIMIT_MAX || 300,
   'Too many requests from this IP, please try again later.',
   true
 );
 
 /**
- * Stricter Rate Limiter for Authentication endpoints (login, register, forgot-password, reset-password)
- * Allows up to 30 authentication attempts per 15 minutes in production.
+ * Strict Rate Limiter for Authentication endpoints (login, register, forgot-password, reset-password)
+ * Allows up to 15 authentication attempts per 15 minutes in production to prevent brute-force attacks.
  */
 export const authLimiter = createRateLimiter(
   15 * 60 * 1000, // 15 minutes
-  30, // 30 login/register attempts
+  env.RATE_LIMIT_AUTH_MAX || 15,
   'Too many authentication requests, please try again after 15 minutes.',
+  true
+);
+
+/**
+ * Rate Limiter for Public endpoints (landing page inquiries, public leads)
+ * Allows up to 30 requests per 15 minutes in production to prevent automated spam and scraping.
+ */
+export const publicLimiter = createRateLimiter(
+  15 * 60 * 1000, // 15 minutes
+  env.RATE_LIMIT_PUBLIC_MAX || 30,
+  'Too many public requests from this IP, please try again later.',
   true
 );
 

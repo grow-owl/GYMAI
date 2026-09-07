@@ -46,6 +46,12 @@ export function useGymBranch() {
   const [gymId, setGymId] = useState<string>(rawGymId);
   const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : "gymai.selected_branch_id";
   const [branchId, setBranchId] = useState<string>(() => {
+    if (
+      (user?.role === "BRANCH_MANAGER" || user?.role === "KIOSK" || user?.role === "MEMBER") &&
+      isValidMongoId(rawBranchId)
+    ) {
+      return rawBranchId;
+    }
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored && isValidMongoId(stored)) return stored;
@@ -62,6 +68,16 @@ export function useGymBranch() {
 
     if (!activeGymId) {
       setBranchId("");
+      setLoading(false);
+      return;
+    }
+
+    // Branch managers, kiosks, and members are strictly scoped to their assigned branchId
+    if (
+      (user?.role === "BRANCH_MANAGER" || user?.role === "KIOSK" || user?.role === "MEMBER") &&
+      isValidMongoId(activeBranchId)
+    ) {
+      setBranchId(activeBranchId);
       setLoading(false);
       return;
     }

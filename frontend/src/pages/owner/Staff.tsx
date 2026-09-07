@@ -8,6 +8,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { staffApi, authApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 interface StaffProps {
@@ -17,6 +18,8 @@ interface StaffProps {
 }
 
 export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo = "/owner" }: StaffProps = {}) {
+  const currentUserRole = useAuthStore((s) => s.user?.role);
+  const isOwnerOrAdmin = currentUserRole === "GYM_OWNER" || currentUserRole === "SUPER_ADMIN";
   const { gymId: resolvedGymId, branchId: resolvedBranchId, loading: resolvingBranch } = useGymBranch();
   const gymId = overrideGymId || resolvedGymId;
   const branchId = overrideBranchId || resolvedBranchId;
@@ -143,12 +146,14 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
             >
               <RefreshCw size={14} className={loading ? "animate-spin text-(--color-accent)" : ""} />
             </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
-            >
-              <Plus size={15} /> Add Staff Member
-            </button>
+            {isOwnerOrAdmin && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
+              >
+                <Plus size={15} /> Add Staff Member
+              </button>
+            )}
           </div>
         }
       />
@@ -205,25 +210,27 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
                   </Badge>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border)">
-                  <button
-                    onClick={() => {
-                      setResetTargetUser(s);
-                      setShowResetModal(true);
-                    }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 cursor-pointer"
-                    title="Reset Staff Password"
-                  >
-                    <KeyRound size={13} /> Reset Password
-                  </button>
-                  <button
-                    onClick={() => handleDeleteStaff(s._id || s.id, name)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-semibold hover:bg-rose-500/20 cursor-pointer"
-                    title="Delete Staff Account"
-                  >
-                    <Trash2 size={13} /> Delete
-                  </button>
-                </div>
+                {isOwnerOrAdmin && (
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border)">
+                    <button
+                      onClick={() => {
+                        setResetTargetUser(s);
+                        setShowResetModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 cursor-pointer"
+                      title="Reset Staff Password"
+                    >
+                      <KeyRound size={13} /> Reset Password
+                    </button>
+                    <button
+                      onClick={() => handleDeleteStaff(s._id || s.id, name)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-semibold hover:bg-rose-500/20 cursor-pointer"
+                      title="Delete Staff Account"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
+                )}
               </Card>
             );
           })}

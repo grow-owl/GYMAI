@@ -6,7 +6,7 @@ import { Lead } from './lead.model';
 import { LeadStatus } from './lead.types';
 import { AppError } from '../../common/utils/AppError';
 import { sendSuccess } from '../../common/utils/ApiResponse';
-import { authLimiter } from '../../common/middlewares/rateLimiter.middleware';
+import { publicLimiter } from '../../common/middlewares/rateLimiter.middleware';
 import { z } from 'zod';
 
 export const publicLeadRouter = Router();
@@ -25,7 +25,7 @@ const publicLeadSchema = z.object({
  * GET /api/v1/public/branches/:branchId
  * Fetches publicly shareable branch information and gym branding for member join/trial page
  */
-publicLeadRouter.get('/branches/:branchId', authLimiter, async (req: Request, res: Response): Promise<void> => {
+publicLeadRouter.get('/branches/:branchId', publicLimiter, async (req: Request, res: Response): Promise<void> => {
   const { branchId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(branchId)) {
@@ -68,7 +68,7 @@ publicLeadRouter.get('/branches/:branchId', authLimiter, async (req: Request, re
  * POST /api/v1/public/leads
  * Allows prospective gym members to submit a trial pass request from the branded /join/:branchId link
  */
-publicLeadRouter.post('/leads', authLimiter, async (req: Request, res: Response): Promise<void> => {
+publicLeadRouter.post('/leads', publicLimiter, async (req: Request, res: Response): Promise<void> => {
   const validated = publicLeadSchema.parse(req.body);
 
   if (!mongoose.Types.ObjectId.isValid(validated.branchId)) {

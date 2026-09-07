@@ -41,7 +41,7 @@ interface AuthState {
 export const roleHome: Record<string, string> = {
   GYM_OWNER: "/owner",
   SUPER_ADMIN: "/admin",
-  BRANCH_MANAGER: "/reception",
+  BRANCH_MANAGER: "/owner",
   TRAINER: "/trainer",
   MEMBER: "/member",
   KIOSK: "/reception",

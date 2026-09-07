@@ -9,6 +9,7 @@ import Heatmap, { type HeatmapCell } from "@/components/ui/Heatmap";
 import { ownerQuickAccess } from "@/data/nav";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { reportApi, memberApi, aiApi, attendanceApi, type DashboardOverview } from "@/lib/endpoints";
+import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
 
 const kpiTones = ["blue", "orange", "purple", "amber"] as const;
@@ -73,6 +74,8 @@ function getChurnRisk(riskData: any): { value: string; note: string } {
 }
 
 export default function OwnerDashboard() {
+  const user = useAuthStore((s) => s.user);
+  const isBranchManager = user?.role === "BRANCH_MANAGER";
   const { gymId, branchId, loading: resolvingBranch, error: branchError } = useGymBranch();
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [memberList, setMemberList] = useState<any[]>([]);
@@ -234,7 +237,12 @@ export default function OwnerDashboard() {
       <div>
         <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Quick access</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {ownerQuickAccess.map((item) => (
+          {(isBranchManager
+            ? ownerQuickAccess.filter(
+                (item) => item.path !== "/owner/expenses" && item.path !== "/owner/reports"
+              )
+            : ownerQuickAccess
+          ).map((item) => (
             <QuickAccessCard key={item.path} {...item} />
           ))}
         </div>

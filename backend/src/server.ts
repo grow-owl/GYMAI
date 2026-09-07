@@ -15,7 +15,7 @@ const startServer = async () => {
     // 2. Initialize Cron Schedulers
     initCronJobs();
 
-    // 3. Start Express HTTP Server
+    // 3. Start Express HTTP Server (Tiered Rate Limiting active)
     server = app.listen(env.PORT, () => {
       logger.info(
         `🚀 Server running in [${env.NODE_ENV}] mode on http://localhost:${env.PORT}`
