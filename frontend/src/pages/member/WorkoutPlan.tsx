@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Dumbbell, Loader2, Calendar, Play } from "lucide-react";
+import { Dumbbell, Loader2, Calendar, Play, Lock } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { memberApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useAttendanceStore } from "@/store/attendanceStore";
+import { toast } from "sonner";
 import WorkoutTracking from "./WorkoutTracking";
 import WorkoutHistory from "./WorkoutHistory";
 import TodayWorkoutChecklist from "@/components/member/TodayWorkoutChecklist";
@@ -46,7 +48,27 @@ export default function WorkoutPlan() {
     loadPlan();
   }, [user]);
 
+  const { isCheckedIn, fetchCurrentSession, initialized } = useAttendanceStore();
+
+  useEffect(() => {
+    if (!initialized) {
+      fetchCurrentSession();
+    }
+  }, [initialized, fetchCurrentSession]);
+
   const handleStartWorkout = (day: any, dayIdx: number) => {
+    if (!isCheckedIn) {
+      toast.warning("🔒 Gym Check-In Required! Please check in at your gym before tracking workout sessions.", {
+        action: {
+          label: "Check-In",
+          onClick: () => {
+            window.location.href = "/member/attendance";
+          },
+        },
+      });
+      return;
+    }
+
     const dayTitle = day.title || day.dayLabel || day.dayName || `Day ${dayIdx + 1}`;
     const exercises = (day.exercises || []).map((ex: any) => ({
       exerciseId: ex.exerciseId?._id || ex.exerciseId || undefined,
@@ -73,24 +95,26 @@ export default function WorkoutPlan() {
       <button 
         onClick={() => setSearchParams({ tab: "today" })}
         className={clsx(
-          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate",
+          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate flex items-center justify-center gap-1",
           activeTab === "today"
             ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
             : "text-(--color-text-muted) hover:text-(--color-text)"
         )}
       >
-        ⚡ Today's Workout
+        <span>⚡ Today's Workout</span>
+        {!isCheckedIn && <Lock size={10} className="text-amber-500 shrink-0" />}
       </button>
       <button 
         onClick={() => setSearchParams({ tab: "tracking" })}
         className={clsx(
-          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate",
+          "text-center py-2.5 px-2 text-xs font-bold rounded-xl transition-all cursor-pointer truncate flex items-center justify-center gap-1",
           activeTab === "tracking"
             ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
             : "text-(--color-text-muted) hover:text-(--color-text)"
         )}
       >
-        🏋️ Detailed Logger
+        <span>🏋️ Detailed Logger</span>
+        {!isCheckedIn && <Lock size={10} className="text-amber-500 shrink-0" />}
       </button>
       <button 
         onClick={() => setSearchParams({ tab: "routine" })}
@@ -210,9 +234,22 @@ export default function WorkoutPlan() {
                         {exercises.length > 0 && (
                           <button 
                             onClick={() => handleStartWorkout(d, idx)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--color-accent) text-white text-xs font-bold hover:brightness-110 transition-all cursor-pointer"
+                            className={clsx(
+                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                              !isCheckedIn
+                                ? "bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25"
+                                : "bg-(--color-accent) text-white hover:brightness-110"
+                            )}
                           >
-                            <Play size={12} className="fill-white" /> Start
+                            {!isCheckedIn ? (
+                              <>
+                                <Lock size={12} /> Start (Locked)
+                              </>
+                            ) : (
+                              <>
+                                <Play size={12} className="fill-white" /> Start
+                              </>
+                            )}
                           </button>
                         )}
                       </div>

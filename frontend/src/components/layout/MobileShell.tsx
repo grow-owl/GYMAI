@@ -5,8 +5,10 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { memberNav } from "@/data/nav";
 import { useAuth } from "@/store/authStore";
+import { useAttendanceStore } from "@/store/attendanceStore";
+import { Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function MobileShell() {
   const [collapsed, setCollapsed] = useState(false);
@@ -14,6 +16,13 @@ export default function MobileShell() {
   const location = useLocation();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { isCheckedIn, fetchCurrentSession, initialized } = useAttendanceStore();
+
+  useEffect(() => {
+    if (!initialized) {
+      fetchCurrentSession();
+    }
+  }, [initialized, fetchCurrentSession]);
 
   const handleLogout = () => {
     logout();
@@ -45,6 +54,9 @@ export default function MobileShell() {
             <nav className="space-y-1 flex-1 overflow-y-auto max-h-[calc(100vh-140px)]">
               {memberNav.map((item) => {
                 const Icon = (icons as unknown as Record<string, icons.LucideIcon>)[item.icon] ?? icons.Circle;
+                const isWorkout = item.path === "/member/workout-plan" || item.path.includes("workout");
+                const isLocked = isWorkout && !isCheckedIn;
+
                 return (
                   <NavLink
                     key={item.path}
@@ -53,15 +65,22 @@ export default function MobileShell() {
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       clsx(
-                        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                        "group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                         isActive
                           ? "bg-(--color-accent) text-(--color-navbar) shadow-md font-semibold"
                           : "text-(--color-navbar-text-muted) hover:text-(--color-navbar-text) hover:bg-white/10 hover:translate-x-1"
                       )
                     }
                   >
-                    <Icon size={18} className="icon-hover-pop shrink-0" />
-                    {item.label}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon size={18} className="icon-hover-pop shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    {isLocked && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                        <Lock size={10} /> Locked
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}
@@ -96,6 +115,9 @@ export default function MobileShell() {
               .filter((item) => ["/member", "/member/workout-plan", "/member/ai-coach", "/member/progress"].includes(item.path))
               .map((item) => {
                 const Icon = (icons as unknown as Record<string, icons.LucideIcon>)[item.icon] ?? icons.Circle;
+                const isWorkout = item.path === "/member/workout-plan" || item.path.includes("workout");
+                const isLocked = isWorkout && !isCheckedIn;
+
                 return (
                   <NavLink
                     key={item.path}
@@ -112,11 +134,16 @@ export default function MobileShell() {
                       <>
                         <span
                           className={clsx(
-                            "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 icon-hover-pop",
+                            "relative flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 icon-hover-pop",
                             isActive ? "bg-(--color-accent-soft) text-(--color-accent)" : "group-hover:bg-white/10"
                           )}
                         >
                           <Icon size={18} strokeWidth={2} />
+                          {isLocked && (
+                            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] text-white font-bold shadow-xs">
+                              <Lock size={8} />
+                            </span>
+                          )}
                         </span>
                         <span className="truncate max-w-[64px]">{item.label}</span>
                       </>

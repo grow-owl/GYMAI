@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import QRScanner from "@/components/member/QRScanner";
 import { attendanceApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useAttendanceStore } from "@/store/attendanceStore";
 import { toast } from "sonner";
 import { showApiErrorToast } from "@/lib/api";
 
@@ -49,10 +50,13 @@ export default function Attendance() {
         : { gymId: user.gymId, branchId: user.branchId, qrToken: data };
 
       const res = await attendanceApi.checkIn(payload);
-      if (res?.checkIn || (res as any)?.attendance) {
-        setCurrentSession(res?.checkIn || (res as any)?.attendance);
+      const sessionData = res?.checkIn || (res as any)?.attendance;
+      if (sessionData) {
+        setCurrentSession(sessionData);
+        useAttendanceStore.getState().setSession(sessionData);
+        window.dispatchEvent(new CustomEvent("gymai:attendance-updated"));
         setView("success");
-        toast.success("Checked in successfully!");
+        toast.success("Checked in successfully! Workout logging unlocked 💪");
       } else {
         setView("invalid");
       }
@@ -69,6 +73,8 @@ export default function Attendance() {
       await attendanceApi.checkOut(currentSession._id || currentSession.id);
       toast.success("Checked out! Workout session ended.");
       setCurrentSession(null);
+      useAttendanceStore.getState().setSession(null);
+      window.dispatchEvent(new CustomEvent("gymai:attendance-updated"));
       setView("idle");
     } catch (err: any) {
       showApiErrorToast(err, "Failed to check out. Please try again.");

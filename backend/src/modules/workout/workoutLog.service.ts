@@ -10,6 +10,8 @@ import { validateMemberAccess, ActingUser } from '../../common/utils/authorizati
 import { getDayKeyForBranch } from '../../common/utils/timezone';
 import { getPaginationParams, buildPaginationMeta, ParsedPagination } from '../../common/utils/pagination';
 import { logger } from '../../config/logger';
+import { Attendance } from '../attendance/attendance.model';
+import { AttendanceStatus } from '../attendance/attendance.types';
 
 /**
  * Spec Section 4 — Server-side daily completion percentage calculation.
@@ -571,6 +573,35 @@ export class WorkoutLogService {
     };
   }
 
+  /**
+   * Enforce that a member is actively checked in at their gym branch.
+   * Throws 403 Forbidden if no active session is found.
+   */
+  public static async assertMemberCheckedIn(memberId: string): Promise<void> {
+    const member = await Member.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+        { userId: mongoose.Types.ObjectId.isValid(memberId) ? memberId : undefined },
+      ],
+      isDeleted: false,
+    });
+
+    if (!member) {
+      throw AppError.notFound('Member profile not found');
+    }
+
+    const activeSession = await Attendance.findOne({
+      memberId: member._id,
+      status: AttendanceStatus.CHECKED_IN,
+    });
+
+    if (!activeSession) {
+      throw AppError.forbidden(
+        'Gym Check-In Required: You must be actively checked in at your gym to update, log, or complete workout exercises. Please scan the QR code at your gym kiosk.'
+      );
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SPEC STEP C — PATCH /api/v1/workout-logs/today
   // Toggle a single exercise as completed/uncompleted in today's log.
@@ -592,6 +623,9 @@ export class WorkoutLogService {
     if (gymId) memberFilter.gymId = new mongoose.Types.ObjectId(gymId);
     const member = await Member.findOne(memberFilter);
     if (!member) throw AppError.notFound('Member profile not found');
+
+    // 2. Strict Check-In Guard: Member must be actively checked in
+    await WorkoutLogService.assertMemberCheckedIn(memberId);
 
     // 2. Get active plan
     const plan = await WorkoutPlan.findOne({

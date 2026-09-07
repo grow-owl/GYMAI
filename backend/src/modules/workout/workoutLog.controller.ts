@@ -9,11 +9,17 @@ export class WorkoutLogController {
   public static startWorkoutLog = asyncHandler(async (req: Request, res: Response) => {
     const requestedMemberId = req.body.memberId || (req.user!.role === Role.MEMBER ? req.user!.id : undefined);
     const validatedMember = await validateMemberAccess(req.user!, requestedMemberId);
+    if (req.user!.role === Role.MEMBER) {
+      await WorkoutLogService.assertMemberCheckedIn(validatedMember._id.toString());
+    }
     const log = await WorkoutLogService.startWorkoutLog(validatedMember._id.toString(), req.body);
     return sendSuccess(res, { log }, 'Workout log started successfully', 201);
   });
 
   public static logSetProgress = asyncHandler(async (req: Request, res: Response) => {
+    if (req.user!.role === Role.MEMBER) {
+      await WorkoutLogService.assertMemberCheckedIn(req.user!.id);
+    }
     const { logId, exerciseId, setNumber } = req.params;
     const gymId = req.user?.gymId?.toString();
     const log = await WorkoutLogService.logSetProgress(
@@ -32,6 +38,9 @@ export class WorkoutLogController {
   });
 
   public static markExerciseComplete = asyncHandler(async (req: Request, res: Response) => {
+    if (req.user!.role === Role.MEMBER) {
+      await WorkoutLogService.assertMemberCheckedIn(req.user!.id);
+    }
     const { logId, exerciseId } = req.params;
     const gymId = req.user?.gymId?.toString();
     const log = await WorkoutLogService.markExerciseComplete(logId, exerciseId, gymId, req.user!);
@@ -39,6 +48,9 @@ export class WorkoutLogController {
   });
 
   public static completeWorkoutLog = asyncHandler(async (req: Request, res: Response) => {
+    if (req.user!.role === Role.MEMBER) {
+      await WorkoutLogService.assertMemberCheckedIn(req.user!.id);
+    }
     const gymId = req.user?.gymId?.toString();
     const log = await WorkoutLogService.completeWorkoutLog(req.params.logId, gymId, req.user!);
     return sendSuccess(res, { log }, 'Workout session completed successfully');
@@ -82,6 +94,9 @@ export class WorkoutLogController {
     const { exerciseId } = req.body;
     if (!exerciseId) {
       return sendSuccess(res, null, 'exerciseId is required', 400);
+    }
+    if (req.user!.role === Role.MEMBER) {
+      await WorkoutLogService.assertMemberCheckedIn(memberId);
     }
     const gymId = req.user?.gymId?.toString();
     const today = await WorkoutLogService.toggleExerciseCompleteToday(memberId, exerciseId, gymId);

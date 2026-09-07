@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Shield, AlertCircle } from "lucide-react";
+import { ShieldCheck, Lock, AlertCircle } from "lucide-react";
 import { memberApi, progressApi, attendanceApi, paymentApi, workoutApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useAttendanceStore } from "@/store/attendanceStore";
 import { showApiErrorToast } from "@/lib/api";
 import PerformanceCharts from "@/components/member/PerformanceCharts";
 import ConsistencyProgressTracker from "@/components/member/ConsistencyProgressTracker";
@@ -12,6 +13,13 @@ import QuickActionDrawer from "@/components/member/QuickActionDrawer";
 
 export default function MemberHome() {
   const user = useAuthStore((s) => s.user);
+  const { isCheckedIn, fetchCurrentSession, initialized } = useAttendanceStore();
+
+  useEffect(() => {
+    if (!initialized) {
+      fetchCurrentSession();
+    }
+  }, [initialized, fetchCurrentSession]);
   
   // Primary States
   const [loading, setLoading] = useState(true);
@@ -175,12 +183,26 @@ export default function MemberHome() {
               </div>
             </div>
 
-            <Link
-              to="/member/attendance"
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-(--color-accent) hover:brightness-105 text-white font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
-            >
-              <Shield className="h-4 w-4" /> Check-In
-            </Link>
+            {isCheckedIn ? (
+              <Link
+                to="/member/attendance"
+                className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0 hover:bg-emerald-500/20"
+              >
+                <span className="relative flex h-2 w-2 mr-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                <span>Currently Checked In</span>
+              </Link>
+            ) : (
+              <Link
+                to="/member/attendance"
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-(--color-accent) hover:brightness-105 text-white font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
+              >
+                <Lock className="h-4 w-4" /> Check-In
+              </Link>
+            )}
           </div>
         </div>
       </div>

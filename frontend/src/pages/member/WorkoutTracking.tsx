@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Dumbbell, Plus, CheckCircle, Loader2, RefreshCw, Trophy, Sparkles, ArrowRight, Activity, History } from "lucide-react";
+import { Dumbbell, Plus, CheckCircle, Loader2, RefreshCw, Trophy, Sparkles, ArrowRight, Activity, History, Lock, ShieldCheck } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { workoutApi, memberApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
+import { useAttendanceStore } from "@/store/attendanceStore";
 import { toast } from "sonner";
+import clsx from "clsx";
 
 interface ExerciseSet {
   exerciseId?: string;
@@ -63,6 +65,14 @@ export interface WorkoutTrackingProps {
 
 export default function WorkoutTracking({ isEmbedded = false, initialRoutine = null, onWorkoutComplete, onNavigateToPlan }: WorkoutTrackingProps = {}) {
   const user = useAuthStore((s) => s.user);
+  const { isCheckedIn, fetchCurrentSession, initialized } = useAttendanceStore();
+
+  useEffect(() => {
+    if (!initialized) {
+      fetchCurrentSession();
+    }
+  }, [initialized, fetchCurrentSession]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exercises, setExercises] = useState<any[]>([]);
@@ -162,6 +172,18 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
   };
 
   const handleSaveWorkout = async () => {
+    if (!isCheckedIn) {
+      toast.warning("🔒 Gym Check-In Required! You must be actively checked in at your gym to save this workout.", {
+        action: {
+          label: "Check-In",
+          onClick: () => {
+            window.location.href = "/member/attendance";
+          },
+        },
+      });
+      return;
+    }
+
     if (loggedSets.length === 0) {
       toast.error("Please add at least one exercise to log.");
       return;
@@ -231,6 +253,29 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
             </Link>
           }
         />
+      )}
+
+      {/* Gym Check-In Required Warning Banner */}
+      {!isCheckedIn && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Lock className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold leading-tight">Gym Check-In Required to Save Workouts</p>
+              <p className="text-[11px] text-(--color-text-muted) mt-0.5">
+                You must be actively checked in at your gym to record sets, save workouts, and earn XP.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/member/attendance"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-all shrink-0 cursor-pointer"
+          >
+            <ShieldCheck className="h-4 w-4" /> Check-In Now
+          </Link>
+        </div>
       )}
 
       {loading ? (
@@ -439,9 +484,22 @@ export default function WorkoutTracking({ isEmbedded = false, initialRoutine = n
           <button
             onClick={handleSaveWorkout}
             disabled={submitting}
-            className="w-full mt-4 flex items-center justify-center gap-2 rounded-full bg-(--color-accent) hover:brightness-110 text-white font-bold text-sm py-3.5 shadow-lg disabled:opacity-50 transition-all cursor-pointer"
+            className={clsx(
+              "w-full mt-4 flex items-center justify-center gap-2 rounded-full font-bold text-sm py-3.5 shadow-lg transition-all cursor-pointer",
+              !isCheckedIn
+                ? "bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25"
+                : "bg-(--color-accent) hover:brightness-110 text-white disabled:opacity-50"
+            )}
           >
-            <CheckCircle size={18} /> {submitting ? "Saving Workout..." : "Log Complete Workout Session"}
+            {!isCheckedIn ? (
+              <>
+                <Lock size={18} /> Check-In at Gym to Save Workout
+              </>
+            ) : (
+              <>
+                <CheckCircle size={18} /> {submitting ? "Saving Workout..." : "Log Complete Workout Session"}
+              </>
+            )}
           </button>
         </Card>
       )}

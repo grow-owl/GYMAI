@@ -10,8 +10,11 @@ import {
   ArrowUpRight,
   RotateCcw,
   SlidersHorizontal,
+  Lock,
+  ShieldCheck,
 } from "lucide-react";
 import { workoutApi } from "@/lib/endpoints";
+import { useAttendanceStore } from "@/store/attendanceStore";
 import { toast } from "sonner";
 import clsx from "clsx";
 
@@ -53,6 +56,13 @@ export default function TodayWorkoutChecklist({
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [todayData, setTodayData] = useState<TodayWorkoutData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { isCheckedIn, fetchCurrentSession, initialized } = useAttendanceStore();
+
+  useEffect(() => {
+    if (!initialized) {
+      fetchCurrentSession();
+    }
+  }, [initialized, fetchCurrentSession]);
 
   const fetchTodayWorkout = useCallback(async () => {
     setLoading(true);
@@ -74,6 +84,18 @@ export default function TodayWorkoutChecklist({
   }, [fetchTodayWorkout]);
 
   const handleToggle = async (exerciseId: string, currentCompleted: boolean) => {
+    if (!isCheckedIn) {
+      toast.warning("🔒 Gym Check-In Required! Please scan the QR code at your gym kiosk to unlock exercise completion.", {
+        action: {
+          label: "Check-In",
+          onClick: () => {
+            window.location.href = "/member/attendance";
+          },
+        },
+      });
+      return;
+    }
+
     if (togglingId) return; // Prevent double-clicks
     setTogglingId(exerciseId);
 
@@ -245,6 +267,29 @@ export default function TodayWorkoutChecklist({
         </div>
       )}
 
+      {/* Gym Check-In Required Alert Banner */}
+      {!isCheckedIn && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-8 w-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold leading-tight">Gym Check-In Required to Log Exercises</p>
+              <p className="text-[11px] text-(--color-text-muted) mt-0.5">
+                Scan the QR code at your gym kiosk to unlock exercise completion & streaks.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/member/attendance"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" /> Check-In Now
+          </Link>
+        </div>
+      )}
+
       {/* Exercises Checklist (Mobile Touch Friendly) */}
       <div className="space-y-2">
         {exercises.map((exercise, idx) => {
@@ -262,6 +307,8 @@ export default function TodayWorkoutChecklist({
                 "group min-h-[56px] flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none",
                 isDone
                   ? "bg-emerald-500/5 border-emerald-500/30 text-(--color-text)"
+                  : !isCheckedIn
+                  ? "bg-(--color-surface-2)/40 border-(--color-border-soft) hover:border-amber-500/40"
                   : "bg-(--color-surface-2)/60 border-(--color-border-soft) hover:border-(--color-border) hover:bg-(--color-surface-2)"
               )}
             >
@@ -272,6 +319,8 @@ export default function TodayWorkoutChecklist({
                     "h-8 w-8 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-all",
                     isDone
                       ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 scale-100"
+                      : !isCheckedIn
+                      ? "border-2 border-dashed border-amber-500/40 bg-amber-500/5 text-amber-500"
                       : "border-2 border-(--color-border) bg-(--color-surface) text-transparent group-hover:border-(--color-accent)"
                   )}
                 >
@@ -279,6 +328,8 @@ export default function TodayWorkoutChecklist({
                     <Loader2 className="h-4 w-4 animate-spin text-(--color-accent)" />
                   ) : isDone ? (
                     <CheckCircle2 className="h-5 w-5 stroke-[2.5]" />
+                  ) : !isCheckedIn ? (
+                    <Lock className="h-3.5 w-3.5 text-amber-500/80" />
                   ) : (
                     <Circle className="h-4 w-4 text-transparent" />
                   )}
@@ -330,13 +381,23 @@ export default function TodayWorkoutChecklist({
               <div className="shrink-0 pl-2">
                 <span
                   className={clsx(
-                    "text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-lg transition-colors",
+                    "text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1",
                     isDone
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : !isCheckedIn
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
                       : "bg-(--color-surface-3) text-(--color-text-muted) group-hover:text-(--color-text)"
                   )}
                 >
-                  {isDone ? "Completed" : "Tap to Complete"}
+                  {isDone ? (
+                    "Completed"
+                  ) : !isCheckedIn ? (
+                    <>
+                      <Lock size={10} /> Check-In to Log
+                    </>
+                  ) : (
+                    "Tap to Complete"
+                  )}
                 </span>
               </div>
             </div>
@@ -346,24 +407,41 @@ export default function TodayWorkoutChecklist({
 
       {/* Bottom Action Footer */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-(--color-border-soft)">
-        <p className="text-xs text-(--color-text-muted) text-center sm:text-left">
-          💡 Tap any exercise when done to build your daily workout streak.
+        <p className="text-xs text-(--color-text-muted) text-center sm:text-left flex items-center gap-1.5">
+          {!isCheckedIn ? (
+            <>
+              <Lock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <span>Workout logging is locked. Check in at your gym to record sets.</span>
+            </>
+          ) : (
+            <span>💡 Tap any exercise when done to build your daily workout streak.</span>
+          )}
         </p>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           {onOpenDetailedTracker ? (
             <button
               onClick={onOpenDetailedTracker}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) text-(--color-text) text-xs font-bold border border-(--color-border-soft) transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) text-(--color-text) text-xs font-bold border border-(--color-border-soft) transition-all cursor-pointer"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5 text-(--color-accent)" /> Detailed Logger
+              {isCheckedIn ? (
+                <SlidersHorizontal className="h-3.5 w-3.5 text-(--color-accent)" />
+              ) : (
+                <Lock className="h-3.5 w-3.5 text-amber-500" />
+              )}
+              <span>Detailed Logger {!isCheckedIn && "(Locked)"}</span>
             </button>
           ) : (
             <Link
               to="/member/workout-plan?tab=tracking"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) text-(--color-text) text-xs font-bold border border-(--color-border-soft) transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) text-(--color-text) text-xs font-bold border border-(--color-border-soft) transition-all cursor-pointer"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5 text-(--color-accent)" /> Detailed Logger
+              {isCheckedIn ? (
+                <SlidersHorizontal className="h-3.5 w-3.5 text-(--color-accent)" />
+              ) : (
+                <Lock className="h-3.5 w-3.5 text-amber-500" />
+              )}
+              <span>Detailed Logger {!isCheckedIn && "(Locked)"}</span>
             </Link>
           )}
 

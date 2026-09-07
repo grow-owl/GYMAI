@@ -1,8 +1,10 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import * as icons from "lucide-react";
 import clsx from "clsx";
-import { Dumbbell, ChevronsLeft, LogOut } from "lucide-react";
+import { Dumbbell, ChevronsLeft, LogOut, Lock } from "lucide-react";
 import { useAuth } from "@/store/authStore";
+import { useAttendanceStore } from "@/store/attendanceStore";
+import { useEffect } from "react";
 
 interface NavEntry {
   label: string;
@@ -25,6 +27,13 @@ export default function Sidebar({
 }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { isCheckedIn, fetchCurrentSession, initialized } = useAttendanceStore();
+
+  useEffect(() => {
+    if (roleLabel === "Member" && !initialized) {
+      fetchCurrentSession();
+    }
+  }, [roleLabel, initialized, fetchCurrentSession]);
 
   const handleSwitchRole = () => {
     logout();
@@ -33,6 +42,9 @@ export default function Sidebar({
 
   const renderItem = (item: NavEntry, accent?: boolean) => {
     const Icon = (icons as unknown as Record<string, icons.LucideIcon>)[item.icon] ?? icons.Circle;
+    const isWorkoutItem = item.path === "/member/workout-plan" || item.path.includes("workout");
+    const isWorkoutLocked = roleLabel === "Member" && isWorkoutItem && !isCheckedIn;
+
     return (
       <NavLink
         key={item.path}
@@ -40,7 +52,7 @@ export default function Sidebar({
         end={["/owner", "/trainer", "/reception", "/member", "/admin"].includes(item.path)}
         className={({ isActive }) =>
           clsx(
-            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+            "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
             collapsed && "justify-center px-0",
             isActive
               ? accent
@@ -49,10 +61,28 @@ export default function Sidebar({
               : "text-(--color-sidebar-text-muted) hover:text-(--color-sidebar-text) hover:bg-white/10 hover:translate-x-1"
           )
         }
-        title={collapsed ? item.label : undefined}
+        title={
+          collapsed
+            ? isWorkoutLocked
+              ? `${item.label} (Check-in Required)`
+              : item.label
+            : undefined
+        }
       >
         <Icon size={18} strokeWidth={2} className="icon-hover-pop shrink-0" />
-        {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && (
+          <div className="flex items-center justify-between flex-1 min-w-0">
+            <span className="truncate">{item.label}</span>
+            {isWorkoutLocked && (
+              <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 ml-1">
+                <Lock size={10} /> Locked
+              </span>
+            )}
+          </div>
+        )}
+        {collapsed && isWorkoutLocked && (
+          <span className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-amber-400 ring-2 ring-(--color-sidebar)" />
+        )}
       </NavLink>
     );
   };
