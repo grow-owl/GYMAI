@@ -31,15 +31,17 @@ export default function MobileShell() {
 
   return (
     <div className="min-h-screen flex bg-(--color-base)">
-      <Sidebar
-        primary={memberNav}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((value) => !value)}
-        roleLabel="Member"
-      />
+      <div className="hidden lg:block">
+        <Sidebar
+          primary={memberNav}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((value) => !value)}
+          roleLabel="Member"
+        />
+      </div>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-0 h-full w-72 bg-(--color-navbar) border-r border-(--color-navbar-border) p-4 flex flex-col">
             <div className="flex items-center justify-between mb-6">
@@ -103,14 +105,14 @@ export default function MobileShell() {
           onLogout={handleLogout}
         />
 
-        <main className="px-4 sm:px-6 py-6 max-w-[1400px] w-full pb-24 md:pb-6">
+        <main className="px-4 sm:px-6 py-6 max-w-[1400px] w-full pb-24 lg:pb-6">
           <div key={location.pathname} className="page-enter">
             <Outlet />
           </div>
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-(--color-navbar-border) bg-(--color-navbar)/95 backdrop-blur-md px-2 py-1.5 md:hidden shadow-lg">
-          <div className="flex items-center justify-around">
+        <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800/80 bg-[#0F172A]/95 backdrop-blur-xl px-2 py-2 lg:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.25)]">
+          <div className="flex items-center justify-around max-w-md mx-auto">
             {memberNav
               .filter((item) => ["/member", "/member/workout-plan", "/member/ai-coach", "/member/progress"].includes(item.path))
               .map((item) => {
@@ -125,8 +127,8 @@ export default function MobileShell() {
                     end={item.path === "/member"}
                     className={({ isActive }) =>
                       clsx(
-                        "group flex flex-col items-center gap-1 rounded-xl py-1 px-1.5 text-[10px] font-medium transition-all duration-200",
-                        isActive ? "text-(--color-accent) font-semibold" : "text-(--color-navbar-text-muted) hover:text-(--color-navbar-text)"
+                        "group flex flex-col items-center gap-1 rounded-xl py-1 px-2 text-[10px] transition-all duration-200",
+                        isActive ? "text-amber-400 font-bold" : "text-slate-400 hover:text-slate-200 font-medium"
                       )
                     }
                   >
@@ -134,18 +136,18 @@ export default function MobileShell() {
                       <>
                         <span
                           className={clsx(
-                            "relative flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 icon-hover-pop",
-                            isActive ? "bg-(--color-accent-soft) text-(--color-accent)" : "group-hover:bg-white/10"
+                            "relative flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
+                            isActive ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30 shadow-xs" : "group-hover:bg-white/5"
                           )}
                         >
-                          <Icon size={18} strokeWidth={2} />
+                          <Icon size={19} strokeWidth={isActive ? 2.5 : 2} />
                           {isLocked && (
                             <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] text-white font-bold shadow-xs">
                               <Lock size={8} />
                             </span>
                           )}
                         </span>
-                        <span className="truncate max-w-[64px]">{item.label}</span>
+                        <span className="truncate max-w-[64px] tracking-tight">{item.label}</span>
                       </>
                     )}
                   </NavLink>
@@ -154,27 +156,27 @@ export default function MobileShell() {
             <button
               onClick={() => setMobileOpen(true)}
               className={clsx(
-                "group flex flex-col items-center gap-1 rounded-xl py-1 px-1.5 text-[10px] font-medium transition-all duration-200",
+                "group flex flex-col items-center gap-1 rounded-xl py-1 px-2 text-[10px] transition-all duration-200",
                 memberNav
                   .filter((item) => !["/member", "/member/workout-plan", "/member/ai-coach", "/member/progress"].includes(item.path))
                   .some((item) => location.pathname.startsWith(item.path))
-                  ? "text-(--color-accent) font-semibold"
-                  : "text-(--color-navbar-text-muted) hover:text-(--color-navbar-text)"
+                  ? "text-amber-400 font-bold"
+                  : "text-slate-400 hover:text-slate-200 font-medium"
               )}
             >
               <span
                 className={clsx(
-                  "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 icon-hover-pop",
+                  "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
                   memberNav
                     .filter((item) => !["/member", "/member/workout-plan", "/member/ai-coach", "/member/progress"].includes(item.path))
                     .some((item) => location.pathname.startsWith(item.path))
-                    ? "bg-(--color-accent-soft) text-(--color-accent)"
-                    : "group-hover:bg-white/10"
+                    ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30 shadow-xs"
+                    : "group-hover:bg-white/5"
                 )}
               >
-                <icons.Menu size={18} strokeWidth={2} />
+                <icons.Menu size={19} strokeWidth={2} />
               </span>
-              <span>More</span>
+              <span className="tracking-tight">More</span>
             </button>
           </div>
         </nav>

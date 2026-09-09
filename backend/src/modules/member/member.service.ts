@@ -254,7 +254,8 @@ export class MemberService {
   public static async getMemberByUserId(userId: string): Promise<IMember> {
     const member = await Member.findOne({ userId, isDeleted: false })
       .populate('userId', 'fullName email phone isActive')
-      .populate('branchId', 'name');
+      .populate('branchId', 'name')
+      .populate({ path: 'assignedTrainerId', populate: { path: 'userId', select: 'fullName email phone profilePicture' } });
 
     if (!member) throw AppError.notFound('Member profile not found for user');
     return member;

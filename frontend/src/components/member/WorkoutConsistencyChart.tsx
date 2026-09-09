@@ -7,6 +7,8 @@ import {
   TrendingUp,
   BarChart2,
   CheckCircle2,
+  Activity,
+  Award,
 } from "lucide-react";
 import { workoutApi } from "@/lib/endpoints";
 import clsx from "clsx";
@@ -158,12 +160,12 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
     return { avgPct, activeDays, perfectDays };
   }, [dataPoints]);
 
-  // Format short date (e.g., "1 Tue" or "6 Sun")
+  // Format short date (numeric day only, e.g. "3" or "28" without weekday text)
   const formatTickDate = (isoString: string) => {
     try {
-      const [year, month, day] = isoString.split("-").map(Number);
-      const d = new Date(Date.UTC(year, month - 1, day));
-      return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" });
+      const parts = isoString.split("-");
+      const day = parseInt(parts[2] || parts[0], 10);
+      return isNaN(day) ? isoString : String(day);
     } catch {
       return isoString;
     }
@@ -185,11 +187,11 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
     if (dataPoints.length === 0) return { pathString: "", areaString: "", points: [], baselineY: 170 };
 
     const width = 680;
-    const height = 210;
+    const height = 240;
     const padLeft = 46;
     const padRight = 24;
-    const padTop = 24;
-    const baselineY = 175;
+    const padTop = 20;
+    const baselineY = 205;
     const graphWidth = width - padLeft - padRight;
     const graphHeight = baselineY - padTop;
 
@@ -245,7 +247,7 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-(--color-border-soft)">
         <div>
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-(--color-accent-soft) flex items-center justify-center text-(--color-accent-text)">
+            <div className="h-7 w-7 rounded-lg bg-(--color-accent-soft) flex items-center justify-center text-(--color-accent-text) shrink-0">
               <Flame className="h-4 w-4" />
             </div>
             <h4 className="font-display text-sm sm:text-base font-extrabold text-(--color-text)">
@@ -257,83 +259,114 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <div className="grid grid-cols-2 lg:flex lg:items-center gap-2 w-full lg:w-auto">
           {/* View Mode Toggle (Graph vs Bar) */}
-          <div className="flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border)">
+          <div className="grid grid-cols-2 gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border) lg:flex lg:items-center">
             <button
               onClick={() => setViewMode("graph")}
               className={clsx(
-                "flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                "flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
                 viewMode === "graph"
                   ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
                   : "text-(--color-text-muted) hover:text-(--color-text)"
               )}
               title="Line Graph View"
             >
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
               <span>Graph</span>
             </button>
             <button
               onClick={() => setViewMode("bar")}
               className={clsx(
-                "flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                "flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
                 viewMode === "bar"
                   ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
                   : "text-(--color-text-muted) hover:text-(--color-text)"
               )}
               title="Bar Chart View"
             >
-              <BarChart2 className="h-3.5 w-3.5 text-(--color-accent)" />
+              <BarChart2 className="h-3.5 w-3.5 text-(--color-accent) shrink-0" />
               <span>Bars</span>
             </button>
           </div>
 
-          {/* Day Range Filter Buttons */}
-          <div className="flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border)">
-            {([7, 14, 30] as const).map((d) => (
-              <button
-                key={d}
-                onClick={() => setDays(d)}
-                className={clsx(
-                  "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
-                  days === d
-                    ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
-                    : "text-(--color-text-muted) hover:text-(--color-text)"
-                )}
-              >
-                {d} Days
-              </button>
-            ))}
+          {/* Day Range Filter Buttons - Strictly 7D & 14D on Mobile & Tablet (30D Hidden on Mobile & Tablet) */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border) lg:flex lg:items-center">
+            <button
+              onClick={() => setDays(7)}
+              className={clsx(
+                "text-center px-2 lg:px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                days === 7
+                  ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
+                  : "text-(--color-text-muted) hover:text-(--color-text)"
+              )}
+            >
+              <span className="lg:hidden">7D</span>
+              <span className="hidden lg:inline">7 Days</span>
+            </button>
+            <button
+              onClick={() => setDays(14)}
+              className={clsx(
+                "text-center px-2 lg:px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                days === 14
+                  ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
+                  : "text-(--color-text-muted) hover:text-(--color-text)"
+              )}
+            >
+              <span className="lg:hidden">14D</span>
+              <span className="hidden lg:inline">14 Days</span>
+            </button>
+            <button
+              onClick={() => setDays(30)}
+              className={clsx(
+                "hidden lg:block text-center px-2 lg:px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                days === 30
+                  ? "bg-(--color-surface) text-(--color-text) shadow-sm border border-(--color-border-soft)"
+                  : "text-(--color-text-muted) hover:text-(--color-text)"
+              )}
+            >
+              <span>30 Days</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
+      {/* Summary KPI Cards - Mobile Ergonomic with Zero Text Truncation */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border)">
-          <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block truncate">
-            Avg Consistency
-          </span>
-          <p className="font-mono text-base sm:text-xl font-extrabold text-(--color-text) mt-0.5">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border) flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block leading-tight">
+              Avg Score
+            </span>
+            <Activity className="h-3 w-3 text-sky-500 shrink-0 opacity-75 hidden xs:block" />
+          </div>
+          <p className="font-mono text-base sm:text-xl font-extrabold text-(--color-text) mt-1">
             {stats.avgPct}%
           </p>
         </div>
 
-        <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border)">
-          <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block truncate">
-            Active Days
-          </span>
-          <p className="font-mono text-base sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
-            {stats.activeDays} <span className="text-xs font-medium text-(--color-text-muted)">/ {days}</span>
+        <div className="p-2.5 sm:p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border) flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block leading-tight">
+              Active Days
+            </span>
+            <Flame className="h-3 w-3 text-orange-500 shrink-0 opacity-75 hidden xs:block" />
+          </div>
+          <p className="font-mono text-base sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
+            {stats.activeDays} <span className="text-[10px] sm:text-xs font-medium text-(--color-text-muted)">/ {days}</span>
           </p>
         </div>
 
-        <div className="p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border)">
-          <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block truncate">
-            100% Workouts
-          </span>
-          <p className="font-mono text-base sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
-            {stats.perfectDays} <span className="text-xs font-medium text-(--color-text-muted)">days</span>
+        <div className="p-2.5 sm:p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border) flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block leading-tight">
+              <span className="xs:hidden">Perfect</span>
+              <span className="hidden xs:inline">100% Score</span>
+            </span>
+            <Award className="h-3 w-3 text-amber-500 shrink-0 opacity-75 hidden xs:block" />
+          </div>
+          <p className="font-mono text-base sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
+            {stats.perfectDays} <span className="text-[10px] sm:text-xs font-medium text-(--color-text-muted)">days</span>
           </p>
         </div>
       </div>
@@ -409,11 +442,11 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
               )}
 
               {/* Main SVG Area & Curve */}
-              <div className="w-full overflow-x-auto select-none">
-                <div className="min-w-[340px] w-full">
+              <div className="w-full overflow-hidden select-none">
+                <div className="w-full">
                   <svg
-                    viewBox={`0 0 ${svgData.width || 680} ${svgData.height || 210}`}
-                    className="w-full h-56 overflow-visible"
+                    viewBox={`0 0 ${svgData.width || 680} ${svgData.height || 240}`}
+                    className="w-full h-56 sm:h-64 overflow-visible"
                     onMouseLeave={() => setHoveredIdx(null)}
                   >
                     <defs>
@@ -609,28 +642,34 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
                   </svg>
 
                   {/* X-Axis Date Labels */}
-                  <div className="flex items-center justify-between gap-1 mt-2 text-[10px] font-semibold text-(--color-text-muted) px-6">
+                  <div
+                    className="flex items-center justify-between mt-2 text-[10px] font-semibold text-(--color-text-muted)"
+                    style={{ paddingLeft: "6.8%", paddingRight: "3.5%" }}
+                  >
                     {dataPoints.map((point, idx) => {
                       const showLabel =
                         days === 7 ||
-                        (days === 14 && idx % 2 === 0) ||
-                        (days === 30 && idx % 5 === 0) ||
-                        idx === dataPoints.length - 1;
+                        (days === 14 && (dataPoints.length - 1 - idx) % 2 === 0) ||
+                        (days === 30 && (dataPoints.length - 1 - idx) % 5 === 0);
 
                       return (
-                        <div key={idx} className="flex-1 text-center truncate">
+                        <div key={idx} className="flex-1 text-center min-w-0">
                           {showLabel ? (
                             <span
                               className={clsx(
-                                "block truncate transition-colors",
+                                "block text-[10px] sm:text-[11px] font-mono transition-colors",
                                 hoveredIdx === idx
-                                  ? "text-(--color-text) font-bold"
-                                  : "text-(--color-text-muted)"
+                                  ? "text-(--color-text) font-black scale-110"
+                                  : "text-(--color-text-muted) font-bold"
                               )}
                             >
                               {formatTickDate(point.date)}
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="block text-[8px] text-(--color-text-faint)/30 select-none">
+                              ·
+                            </span>
+                          )}
                         </div>
                       );
                     })}
@@ -642,8 +681,8 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
             /* ======================================================== */
             /*  TIERED BAR CHART VIEW (FALLBACK/ALTERNATIVE)            */
             /* ======================================================== */
-            <div className="min-w-[320px] w-full">
-              <div className="h-48 flex items-end gap-1.5 sm:gap-2 pt-6 pb-2 border-b border-(--color-border)">
+            <div className="w-full">
+              <div className="h-56 sm:h-64 flex items-end gap-1 sm:gap-2 pt-6 pb-2 border-b border-(--color-border)">
                 {dataPoints.map((point, idx) => {
                   const pct = Math.min(100, Math.max(0, point.completionPercentage || 0));
                   const tier = getCompletionTier(pct);
@@ -652,17 +691,17 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
                   return (
                     <div
                       key={idx}
-                      className="flex-1 flex flex-col items-center justify-end h-full group relative"
+                      className="flex-1 flex flex-col items-center justify-end h-full group relative min-w-0"
                     >
                       {/* Tooltip on hover */}
                       <div className="absolute -top-8 opacity-0 group-hover:opacity-100 transition-opacity bg-(--color-navbar) text-(--color-navbar-text) text-[10px] font-bold px-2 py-0.5 rounded shadow-lg pointer-events-none whitespace-nowrap z-20">
-                        {formatTickDate(point.date)}: {pct}% ({tier.shortLabel})
+                        {formatFullDate(point.date)}: {pct}% ({tier.shortLabel})
                       </div>
 
                       {/* Percentage Label on top */}
                       <span
                         className={clsx(
-                          "text-[10px] font-mono font-bold mb-1 transition-colors",
+                          "text-[9px] sm:text-[10px] font-mono font-bold mb-1 transition-colors truncate",
                           tier.textColor
                         )}
                       >
@@ -685,19 +724,24 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
               </div>
 
               {/* X-Axis Date Labels for Bars */}
-              <div className="flex items-center justify-between gap-1 mt-2 text-[10px] font-semibold text-(--color-text-muted)">
+              <div className="flex items-center justify-between gap-0.5 mt-2 text-[10px] font-semibold text-(--color-text-muted)">
                 {dataPoints.map((point, idx) => {
                   const showLabel =
                     days === 7 ||
-                    (days === 14 && idx % 2 === 0) ||
-                    (days === 30 && idx % 5 === 0) ||
-                    idx === dataPoints.length - 1;
+                    (days === 14 && (dataPoints.length - 1 - idx) % 2 === 0) ||
+                    (days === 30 && (dataPoints.length - 1 - idx) % 5 === 0);
 
                   return (
-                    <div key={idx} className="flex-1 text-center truncate">
+                    <div key={idx} className="flex-1 text-center min-w-0">
                       {showLabel ? (
-                        <span className="block truncate">{formatTickDate(point.date)}</span>
-                      ) : null}
+                        <span className="block text-[10px] sm:text-[11px] font-mono font-bold text-(--color-text-muted)">
+                          {formatTickDate(point.date)}
+                        </span>
+                      ) : (
+                        <span className="block text-[8px] text-(--color-text-faint)/30 select-none">
+                          ·
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -706,30 +750,30 @@ export default function WorkoutConsistencyChart({ memberId }: WorkoutConsistency
           )}
 
           {/* Tiered Legend based on User's requested ranges */}
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-(--color-border-soft) text-[11px] text-(--color-text-muted)">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
-              <span className="font-semibold text-(--color-text)">100% Completed</span>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-4 pt-3 border-t border-(--color-border-soft) text-[10px] sm:text-[11px] text-(--color-text-muted)">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20 shrink-0" />
+              <span className="font-semibold text-(--color-text) truncate">100% Completed</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
-              <span className="font-medium">95–99%</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="h-2.5 w-2.5 rounded-full bg-cyan-500 shrink-0" />
+              <span className="font-medium truncate">95–99%</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
-              <span className="font-medium">90–94%</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shrink-0" />
+              <span className="font-medium truncate">90–94%</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <span className="font-medium">75–89%</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+              <span className="font-medium truncate">75–89%</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />
-              <span className="font-medium">1–74% Partial</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="h-2.5 w-2.5 rounded-full bg-orange-500 shrink-0" />
+              <span className="font-medium truncate">1–74% Partial</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-              <span className="font-medium">Rest / 0%</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="h-2.5 w-2.5 rounded-full bg-slate-400 shrink-0" />
+              <span className="font-medium truncate">Rest / 0%</span>
             </div>
           </div>
         </div>

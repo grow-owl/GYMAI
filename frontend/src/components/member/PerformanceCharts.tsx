@@ -121,11 +121,13 @@ export default function PerformanceCharts({
   }, [workoutVolumeLogs]);
 
   const maxVolume = useMemo(() => Math.max(1000, ...volumeData.map((v) => v.volume)), [volumeData]);
+  const totalWeekVolume = useMemo(() => volumeData.reduce((sum, v) => sum + (v.volume || 0), 0), [volumeData]);
+  const activeVolumeDays = useMemo(() => volumeData.filter((v) => v.volume > 0).length, [volumeData]);
 
   return (
-    <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
+    <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-3.5 sm:p-5 shadow-xl">
       {/* Top Controls Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-(--color-border-soft)">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5 pb-4 border-b border-(--color-border-soft)">
         <div>
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-(--color-accent)" />
@@ -138,9 +140,9 @@ export default function PerformanceCharts({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between sm:justify-start">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-between sm:justify-start">
           {/* Tab Buttons - Grid on mobile for equal width */}
-          <div className="grid grid-cols-2 sm:flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border) w-full sm:w-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex items-center gap-1 bg-(--color-surface-2) p-1 rounded-xl border border-(--color-border) w-full lg:w-auto">
             <button
               onClick={() => setActiveTab("consistency")}
               className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -372,32 +374,71 @@ export default function PerformanceCharts({
       {/* Workout Volume Tab */}
       {activeTab === "volume" && (
         <div className="space-y-4">
-          <p className="text-xs text-(--color-text-muted)">Daily estimated weight lifted (kg) over current week</p>
-          <div className="overflow-x-auto pb-1">
-            <div className="grid grid-cols-7 gap-2 h-44 items-end pt-6 pb-2 px-3 bg-(--color-surface-2) rounded-2xl border border-(--color-border) min-w-[380px] sm:min-w-0">
+          <div>
+            <h4 className="font-display text-sm sm:text-base font-extrabold text-(--color-text)">
+              Weekly Workout Volume (kg)
+            </h4>
+            <p className="text-xs text-(--color-text-muted) mt-0.5">
+              Daily estimated weight lifted over the current week
+            </p>
+          </div>
+
+          {/* Volume Summary KPI Cards */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border) flex flex-col justify-between">
+              <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block">
+                Total Week Volume
+              </span>
+              <p className="font-mono text-base sm:text-xl font-extrabold text-(--color-text) mt-1">
+                {totalWeekVolume > 0 ? `${totalWeekVolume.toLocaleString()} kg` : "0 kg"}
+              </p>
+            </div>
+            <div className="p-2.5 sm:p-3 rounded-xl bg-(--color-surface-2) border border-(--color-border) flex flex-col justify-between">
+              <span className="text-[10px] sm:text-[11px] font-bold text-(--color-text-muted) uppercase tracking-wider block">
+                Active Lifting Days
+              </span>
+              <p className="font-mono text-base sm:text-xl font-extrabold text-amber-500 mt-1">
+                {activeVolumeDays} <span className="text-[10px] sm:text-xs font-medium text-(--color-text-muted)">/ 7 days</span>
+              </p>
+            </div>
+          </div>
+
+          {/* 7-Day Responsive Volume Bars (NO horizontal overflow, all 7 days fit 100%) */}
+          <div className="w-full bg-(--color-surface-2) rounded-2xl border border-(--color-border) p-3 sm:p-4">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2 h-48 sm:h-56 items-end pt-6 pb-1">
               {volumeData.map((item, idx) => {
                 const heightPct = item.volume > 0 ? Math.round((item.volume / maxVolume) * 100) : 0;
                 return (
-                  <div key={idx} className="flex flex-col items-center h-full justify-end group">
-                    <span className="text-[10px] text-(--color-text-muted) font-mono mb-1 opacity-80 group-hover:opacity-100 transition-opacity font-bold">
-                      {item.volume >= 1000 ? `${(item.volume / 1000).toFixed(1)}k` : item.volume > 0 ? item.volume : "Rest"}
+                  <div key={idx} className="flex flex-col items-center h-full justify-end group min-w-0">
+                    {/* Value on top of bar */}
+                    <span className="text-[9px] sm:text-[10px] text-(--color-text-muted) font-mono mb-1 font-bold truncate">
+                      {item.volume >= 1000
+                        ? `${(item.volume / 1000).toFixed(1)}k`
+                        : item.volume > 0
+                        ? item.volume
+                        : "—"}
                     </span>
-                    <div className="w-full max-w-[36px] bg-(--color-surface-3) rounded-t-lg overflow-hidden flex flex-col justify-end h-full border border-(--color-border)/40">
+                    {/* The bar */}
+                    <div className="w-full max-w-[28px] sm:max-w-[38px] bg-(--color-surface-3) rounded-t-lg overflow-hidden flex flex-col justify-end h-full border border-(--color-border)/40">
                       <div
                         className={`w-full rounded-t-lg transition-all duration-500 ${
                           item.volume > 0
-                            ? "bg-(--color-accent) shadow-md"
+                            ? "bg-gradient-to-t from-amber-500 to-amber-400 shadow-sm"
                             : "bg-(--color-surface-3)"
                         }`}
-                        style={{ height: `${item.volume > 0 ? Math.max(15, heightPct) : 8}%` }}
+                        style={{ height: `${item.volume > 0 ? Math.max(15, heightPct) : 6}%` }}
                       />
                     </div>
-                    <span className="text-xs font-bold text-(--color-text) mt-2">{item.day}</span>
+                    {/* Day label */}
+                    <span className="text-[10px] sm:text-xs font-extrabold text-(--color-text) mt-2">
+                      {item.day}
+                    </span>
                   </div>
                 );
               })}
             </div>
           </div>
+
           {volumeData.every((v) => v.volume === 0) && (
             <p className="text-[11px] text-(--color-text-muted) text-center bg-(--color-surface-2) p-2.5 rounded-xl border border-(--color-border-soft)">
               No workout volume recorded this week yet. Complete your logged workout sessions to track weekly volume progression!

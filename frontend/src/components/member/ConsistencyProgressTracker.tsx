@@ -34,7 +34,7 @@ export default function ConsistencyProgressTracker({
   const programProgress = Math.min(100, Math.round((currentProgramCompleted / totalProgramWorkouts) * 100));
 
   return (
-    <Card className="h-full flex flex-col justify-between border border-(--color-border) bg-(--color-surface) p-5 sm:p-6 shadow-xl relative overflow-hidden">
+    <Card className="border border-(--color-border) bg-(--color-surface) p-5 sm:p-6 shadow-xl relative overflow-hidden">
       <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
         <Activity className="h-32 w-32" />
       </div>

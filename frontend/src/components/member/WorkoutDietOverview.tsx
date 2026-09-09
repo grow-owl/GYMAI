@@ -142,14 +142,14 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
     : "-- g";
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
       {/* Left: Active Today's Workout Checklist */}
-      <div className="md:col-span-7">
+      <div className="lg:col-span-7">
         <TodayWorkoutChecklist memberId={memberId} compact={true} />
       </div>
 
       {/* Right: Diet Plan & Water Tracker */}
-      <Card className="md:col-span-5 relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">
+      <Card className="lg:col-span-5 relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
@@ -186,41 +186,36 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
         </div>
 
         {/* Water Hydration Tracker */}
-        <div className="p-4 rounded-2xl bg-white border border-(--color-border) shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
-                <Droplets size={16} className="fill-sky-500/20" />
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-sky-500/[0.06] via-(--color-surface) to-blue-500/[0.04] border border-sky-500/20 dark:border-sky-500/30 shadow-xs space-y-3.5">
+          {/* Header Row: Icon + Full Title + Clean 1/8 Pill (No target 3.0L, No Liters below) */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 text-white flex items-center justify-center shadow-sm shadow-sky-500/25 shrink-0">
+                <Droplets size={19} className="fill-white/80" />
               </div>
-              <div>
-                <span className="text-xs font-extrabold text-(--color-text) block leading-tight">
+              <div className="min-w-0">
+                <h4 className="font-display text-sm sm:text-base font-extrabold text-(--color-text) leading-tight">
                   Daily Water Hydration
-                </span>
-                <span className="text-[10px] text-(--color-text-faint)">
-                  Target: 3.0 Liters (8 Glasses)
-                </span>
+                </h4>
               </div>
             </div>
-            <div className="text-right">
-              <span className="text-xs font-display font-extrabold text-(--color-text)">
-                {waterGlasses} <span className="text-[10px] font-normal text-(--color-text-faint)">/ 8 Glasses</span>
-              </span>
-              <span className="text-[10px] block font-mono font-bold text-sky-600">
-                {(waterGlasses * 0.375).toFixed(2)} L
-              </span>
+
+            {/* Clean 1 / 8 Pill (Only 1 / 8, zero liters text underneath) */}
+            <div className="shrink-0 bg-sky-500/10 dark:bg-sky-500/20 px-3 py-1.5 rounded-xl border border-sky-500/25 font-mono text-xs sm:text-sm font-black text-sky-600 dark:text-sky-400">
+              {waterGlasses} <span className="text-[11px] font-semibold text-(--color-text-muted)">/ 8</span>
             </div>
           </div>
 
           {/* Smooth Progress Bar */}
-          <div className="h-2 w-full rounded-full bg-(--color-surface-2) border border-(--color-border-soft) overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-sky-100/80 dark:bg-sky-950/60 border border-sky-200/50 dark:border-sky-800/40 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all duration-300 shadow-xs"
+              className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-600 transition-all duration-500 ease-out shadow-xs"
               style={{ width: `${Math.min(100, (waterGlasses / 8) * 100)}%` }}
             />
           </div>
 
           {/* 8 Interactive Glass Buttons */}
-          <div className="grid grid-cols-8 gap-1.5 py-0.5">
+          <div className="grid grid-cols-8 gap-1.5 sm:gap-2 py-0.5">
             {Array.from({ length: 8 }).map((_, i) => (
               <button
                 key={i}
@@ -230,39 +225,59 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
                   const diff = next - waterGlasses;
                   handleWaterAdd(diff);
                 }}
-                className={`h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer border ${
+                className={`h-8 sm:h-9 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer border active:scale-95 ${
                   i < waterGlasses
-                    ? "bg-sky-500 text-white border-sky-600 shadow-xs font-bold scale-102"
-                    : "bg-(--color-surface-2) text-(--color-text-faint) border-(--color-border-soft) hover:border-sky-300"
+                    ? "bg-gradient-to-b from-sky-400 to-blue-600 text-white border-sky-400 shadow-sm shadow-sky-500/25 scale-[1.02]"
+                    : "bg-(--color-surface-2) hover:bg-sky-500/10 text-sky-400/40 hover:text-sky-600 border-(--color-border-soft) hover:border-sky-300"
                 }`}
-                title={`Glass ${i + 1} (${((i + 1) * 0.375).toFixed(2)}L)`}
+                title={`Glass ${i + 1}`}
               >
-                <Droplets size={12} className={i < waterGlasses ? "fill-white" : "opacity-35"} />
+                <Droplets size={13} className={i < waterGlasses ? "fill-white" : "opacity-35"} />
               </button>
             ))}
           </div>
 
-          {/* Action Row */}
-          <div className="flex items-center justify-between pt-2 border-t border-(--color-border-soft) text-[11px]">
-            <span className="text-(--color-text-muted) font-medium">
-              {waterGlasses >= 8 ? "🎉 Daily Goal Reached!" : `${Math.max(0, 8 - waterGlasses)} glasses left to reach 3.0L`}
-            </span>
-            <div className="flex items-center gap-1.5">
+          {/* Action Section: Status Line + Fits-within-Card Stepper Buttons */}
+          <div className="pt-2.5 border-t border-(--color-border-soft) space-y-2.5">
+            {/* Status Line: "X glasses left" (No "to reach 3.0L") */}
+            <div className="flex items-center justify-between text-xs">
+              {waterGlasses >= 8 ? (
+                <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+                  🎉 Daily Goal Reached!
+                </span>
+              ) : (
+                <span className="text-(--color-text-muted) font-medium">
+                  <strong className="font-bold text-(--color-text)">{Math.max(0, 8 - waterGlasses)}</strong> glasses left
+                </span>
+              )}
+              <span className="font-mono text-[11px] font-bold text-sky-600 dark:text-sky-400">
+                {Math.round((waterGlasses / 8) * 100)}%
+              </span>
+            </div>
+
+            {/* Stepper Buttons: Strictly Fits Inside Card Without Any Overflow */}
+            <div className="flex items-center gap-2 w-full">
               <button
+                type="button"
                 onClick={() => handleWaterAdd(-1)}
                 disabled={waterGlasses <= 0}
-                className="h-7 px-2.5 rounded-lg bg-(--color-surface-2) text-(--color-text) hover:bg-(--color-surface-3) disabled:opacity-40 text-xs font-bold border border-(--color-border) cursor-pointer transition-colors"
+                className="h-9 px-3 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) text-(--color-text) flex items-center justify-center gap-1 disabled:opacity-30 disabled:pointer-events-none text-xs font-bold border border-(--color-border-soft) cursor-pointer transition-all active:scale-95 shrink-0"
                 title="Remove glass"
+                aria-label="Remove glass"
               >
-                <Minus className="h-3 w-3" />
+                <Minus size={13} className="stroke-[2.5]" />
+                <span>Remove</span>
               </button>
               <button
+                type="button"
                 onClick={() => handleWaterAdd(1)}
                 disabled={waterGlasses >= 12}
-                className="h-7 px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1"
+                className="flex-1 min-w-0 h-9 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-extrabold shadow-sm shadow-sky-500/25 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
                 title="Add glass"
+                aria-label="Add glass"
               >
-                <Plus className="h-3 w-3" /> Add Glass
+                <Plus size={14} className="stroke-[2.5] shrink-0" />
+                <span className="truncate">Add 1 Glass</span>
               </button>
             </div>
           </div>

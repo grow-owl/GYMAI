@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Lock,
   ShieldCheck,
+  ChevronRight,
 } from "lucide-react";
 import { workoutApi } from "@/lib/endpoints";
 import { useAttendanceStore } from "@/store/attendanceStore";
@@ -153,33 +154,68 @@ export default function TodayWorkoutChecklist({
 
   if (error || !todayData) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 px-5 bg-(--color-surface) rounded-2xl border border-dashed border-(--color-border) text-center space-y-3">
-        <div className="h-12 w-12 rounded-2xl bg-(--color-surface-2) flex items-center justify-center text-(--color-text-faint)">
-          <Dumbbell className="h-6 w-6" />
+      <>
+        {/* Mobile & Tablet View: Merged Unified Workout Card (No Dumbbell Icon) */}
+        <div className="lg:hidden bg-white dark:bg-(--color-surface) p-4 sm:p-5 rounded-2xl border border-(--color-border) shadow-xs space-y-3.5">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-(--color-text-faint) block">
+              Daily Focus
+            </span>
+            <h4 className="font-display text-base sm:text-lg font-extrabold text-(--color-text) mt-0.5">
+              No Active Workout Plan
+            </h4>
+            <p className="text-xs text-(--color-text-muted) mt-1 leading-relaxed">
+              There is no active workout plan scheduled for today. Ask your trainer to assign a routine or browse available plans.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-0.5">
+            <Link
+              to="/member/workout-plan?tab=routine"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-xs sm:text-sm tracking-wide shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer"
+            >
+              <span>VIEW FULL WORKOUT ROUTINE</span>
+              <ChevronRight size={16} />
+            </Link>
+            <button
+              onClick={fetchTodayWorkout}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) text-(--color-text) text-xs font-semibold transition-all border border-(--color-border-soft) cursor-pointer"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-(--color-text-muted)" />
+              <span>Refresh Status</span>
+            </button>
+          </div>
         </div>
-        <div>
-          <h4 className="font-display text-sm sm:text-base font-bold text-(--color-text)">
-            No Active Workout Plan
-          </h4>
-          <p className="text-xs text-(--color-text-muted) max-w-sm mt-1">
-            There is no active workout plan scheduled for today. Ask your trainer to assign a routine or browse available plans.
-          </p>
+
+        {/* Desktop View: Original Empty State Preserved */}
+        <div className="hidden lg:flex flex-col items-center justify-center py-8 px-5 bg-(--color-surface) rounded-2xl border border-dashed border-(--color-border) text-center space-y-3">
+          <div className="h-12 w-12 rounded-2xl bg-(--color-surface-2) flex items-center justify-center text-(--color-text-faint)">
+            <Dumbbell className="h-6 w-6" />
+          </div>
+          <div>
+            <h4 className="font-display text-sm sm:text-base font-bold text-(--color-text)">
+              No Active Workout Plan
+            </h4>
+            <p className="text-xs text-(--color-text-muted) max-w-sm mt-1">
+              There is no active workout plan scheduled for today. Ask your trainer to assign a routine or browse available plans.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Link
+              to="/member/workout-plan?tab=routine"
+              className="px-4 py-2 rounded-xl bg-(--color-navbar) text-(--color-navbar-text) text-xs font-bold hover:brightness-110 transition-all shadow-sm"
+            >
+              Browse Routines
+            </Link>
+            <button
+              onClick={fetchTodayWorkout}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:bg-(--color-surface-3) transition-all border border-(--color-border-soft)"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Refresh
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Link
-            to="/member/workout-plan?tab=routine"
-            className="px-4 py-2 rounded-xl bg-(--color-navbar) text-(--color-navbar-text) text-xs font-bold hover:brightness-110 transition-all shadow-sm"
-          >
-            Browse Routines
-          </Link>
-          <button
-            onClick={fetchTodayWorkout}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-(--color-surface-2) text-(--color-text) text-xs font-semibold hover:bg-(--color-surface-3) transition-all border border-(--color-border-soft)"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Refresh
-          </button>
-        </div>
-      </div>
+      </>
     );
   }
 

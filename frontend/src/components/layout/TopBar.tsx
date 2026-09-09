@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink, Building2 } from "lucide-react";
+import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink, Building2, MapPin } from "lucide-react";
 import { notificationApi, gymApi } from "@/lib/endpoints";
 import type { INotificationItem } from "@/lib/endpoints";
 import { useAuthStore, roleHome } from "@/store/authStore";
@@ -151,6 +151,11 @@ export default function TopBar({
     return branches[0] || null;
   }, [branches, activeBranchId, user?.branchName, user?.branchId]);
 
+  const displayBranchName = useMemo(() => {
+    if (!activeBranch?.name) return "";
+    return activeBranch.name.replace(/\s*\(.*?\)/g, "").trim();
+  }, [activeBranch?.name]);
+
   const handleSelectBranch = (bId: string) => {
     const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : 'gymai.selected_branch_id';
     setActiveBranchId(bId);
@@ -241,13 +246,17 @@ export default function TopBar({
 
   // Close any open dropdown on outside click
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
+    function handleClick(e: MouseEvent | TouchEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+    };
   }, []);
 
   function goTo(path: string) {
@@ -257,32 +266,63 @@ export default function TopBar({
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-(--color-border) bg-(--color-surface) backdrop-blur px-3 sm:px-6 py-3 sm:py-4">
-      <div className="flex items-center justify-between gap-2 sm:gap-4">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <button
-            onClick={onMenuClick}
-            className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-2) transition-all hover:scale-105"
-          >
-            <Menu size={18} className="icon-hover-pop" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <h1 className="font-display text-base sm:text-xl font-semibold text-(--color-text) truncate">{greeting}</h1>
-            {subtitle && (
-              <p className="text-xs text-(--color-text-muted) mt-0.5 truncate hidden sm:block">
-                {subtitle}
-              </p>
+    <header className="sticky top-0 relative z-20 border-b border-(--color-border) bg-(--color-surface)/95 backdrop-blur-md px-2.5 sm:px-6 py-2.5 sm:py-3.5 transition-all">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {user?.role !== "MEMBER" && (
+            <button
+              onClick={onMenuClick}
+              className="md:hidden flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-2) transition-all hover:scale-105"
+            >
+              <Menu size={18} className="icon-hover-pop" />
+            </button>
+          )}
+          <div className="min-w-0">
+            {user?.role === "MEMBER" ? (
+              <>
+                {/* Mobile & Tablet: 2-line title */}
+                <div className="leading-tight py-0.5 lg:hidden">
+                  <span className="block font-display text-sm font-extrabold text-(--color-text) tracking-tight">
+                    Member
+                  </span>
+                  <span className="block font-display text-[10px] font-bold text-(--color-text-muted) uppercase tracking-wide">
+                    Dashboard
+                  </span>
+                </div>
+                {/* Desktop: Original single-line header */}
+                <div className="hidden lg:block">
+                  <h1 className="font-display text-base sm:text-xl font-semibold text-(--color-text) truncate">
+                    {greeting}
+                  </h1>
+                  {subtitle && (
+                    <p className="text-xs text-(--color-text-muted) mt-0.5 truncate hidden sm:block">
+                      {subtitle}
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <h1 className="font-display text-sm sm:text-base md:text-xl font-extrabold text-(--color-text) whitespace-nowrap">
+                  {greeting}
+                </h1>
+                {subtitle && (
+                  <p className="text-xs text-(--color-text-muted) mt-0.5 truncate hidden md:block">
+                    {subtitle}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Branch Selector or Member Branch Display */}
           {user?.role === "MEMBER" || user?.role === "BRANCH_MANAGER" || user?.role === "KIOSK" ? (
-            activeBranch?.name ? (
-              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) shrink-0 max-w-[130px] sm:max-w-none">
-                <Building2 size={14} className="text-(--color-accent) shrink-0" />
-                <span className="truncate">{activeBranch.name}</span>
+            displayBranchName || activeBranch?.name ? (
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-[11px] sm:text-xs font-semibold text-(--color-text) shrink-0 max-w-[140px] xs:max-w-[180px] sm:max-w-none shadow-2xs">
+                <MapPin size={12} className="text-amber-500 shrink-0" />
+                <span className="truncate">{displayBranchName || activeBranch?.name}</span>
               </div>
             ) : null
           ) : (
@@ -343,16 +383,16 @@ export default function TopBar({
           )}
 
           {/* Notifications Dropdown */}
-          <div ref={notifRef} className="relative">
+          <div ref={notifRef} className="static sm:relative">
             <button
               onClick={() => {
                 setNotifOpen((o) => !o);
                 setProfileOpen(false);
               }}
               aria-label="Notifications"
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-text) hover:border-(--color-accent) hover:bg-(--color-surface-2) transition-all hover:scale-105"
+              className="relative flex h-8.5 w-8.5 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-text) hover:border-(--color-accent) hover:bg-(--color-surface-2) transition-all hover:scale-105"
             >
-              <Bell size={17} className="icon-hover-pop" />
+              <Bell size={16} className="icon-hover-pop sm:w-[17px] sm:h-[17px]" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-(--color-accent) text-[10px] font-bold text-white shadow-xs animate-pulse">
                   {unreadCount > 9 ? "9+" : unreadCount}
@@ -360,7 +400,7 @@ export default function TopBar({
               )}
             </button>
             {notifOpen && (
-              <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-(--color-border) bg-(--color-surface) shadow-xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute left-3 right-3 top-full mt-2 sm:left-auto sm:right-0 sm:w-80 rounded-2xl border border-(--color-border) bg-(--color-surface) shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-(--color-border) bg-(--color-surface-2)/50">
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-semibold text-(--color-text)">Notifications</p>
@@ -439,7 +479,7 @@ export default function TopBar({
           </div>
 
           {/* Profile */}
-          <div ref={profileRef} className="relative">
+          <div ref={profileRef} className="relative hidden sm:block">
             <button
               onClick={() => {
                 setProfileOpen((o) => !o);
