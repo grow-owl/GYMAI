@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ShieldCheck, AlertCircle, CreditCard, ChevronRight, QrCode, Camera, MapPin, Lock } from "lucide-react";
-import { memberApi, progressApi, attendanceApi, paymentApi, workoutApi, feedbackApi } from "@/lib/endpoints";
+import { memberApi, progressApi, attendanceApi, paymentApi, workoutApi, feedbackApi, gamificationApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { useAttendanceStore } from "@/store/attendanceStore";
 import { showApiErrorToast } from "@/lib/api";
@@ -26,6 +26,7 @@ export default function MemberHome() {
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [memberProfile, setMemberProfile] = useState<any | null>(null);
+  const [gameProfile, setGameProfile] = useState<any | null>(null);
   const [weightLogs, setWeightLogs] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState<any | null>(null);
   const [completedWorkoutsCount, setCompletedWorkoutsCount] = useState<number>(0);
@@ -56,12 +57,13 @@ export default function MemberHome() {
       }
 
       // 2. Fetch parallel endpoints
-      const [weightRes, attStatsRes, payRes, workoutStatsRes, feedbackRes] = await Promise.all([
+      const [weightRes, attStatsRes, payRes, workoutStatsRes, feedbackRes, gameProfRes] = await Promise.all([
         memberId ? progressApi.getHistory(memberId).catch(() => null) : null,
         attendanceApi.getMyStats().catch(() => null),
         gymId ? paymentApi.getMyPayments(gymId).catch(() => null) : null,
         memberId ? workoutApi.getCompletionStats(memberId).catch(() => null) : null,
         memberId ? feedbackApi.list(memberId).catch(() => null) : null,
+        gamificationApi.getMyProfile().catch(() => null),
       ]);
 
       if (weightRes) {
@@ -69,6 +71,10 @@ export default function MemberHome() {
         setWeightLogs(logs);
       }
       if (attStatsRes) setAttendanceStats(attStatsRes);
+      if (gameProfRes) {
+        const gProf = (gameProfRes as any)?.profile || (gameProfRes as any)?.gameProfile || gameProfRes;
+        setGameProfile(gProf);
+      }
       if (payRes) {
         const pList = Array.isArray(payRes) ? payRes : payRes?.payments || [];
         setMyPayments(pList);
@@ -131,6 +137,18 @@ export default function MemberHome() {
   const shortBranchName = useMemo(() => {
     return getShortBranchName(branchName, user?.gymName, branchCity);
   }, [branchName, user?.gymName, branchCity]);
+
+  // Single Source of Truth for Streak & Level
+  const streakDays =
+    gameProfile?.currentStreakDays ??
+    attendanceStats?.currentStreak ??
+    memberProfile?.currentStreakDays ??
+    0;
+
+  const gymLevel =
+    gameProfile?.level ??
+    memberProfile?.gamificationLevel ??
+    1;
 
   // Strict Membership Validity Calculation
   const remainingInfo = useMemo(() => {
@@ -318,7 +336,7 @@ export default function MemberHome() {
                 <div>
                   <span className="text-[9px] text-(--color-text-faint) block uppercase font-bold leading-none">Streak</span>
                   <span className="font-mono text-xs font-bold text-(--color-text)">
-                    {attendanceStats?.currentStreak ?? memberProfile?.currentStreakDays ?? 0}d
+                    {streakDays}d
                   </span>
                 </div>
               </div>
@@ -328,7 +346,7 @@ export default function MemberHome() {
                 <div>
                   <span className="text-[9px] text-(--color-text-faint) block uppercase font-bold leading-none">Rank</span>
                   <span className="font-mono text-xs font-bold text-amber-600">
-                    Lvl {memberProfile?.gamificationLevel ?? 1}
+                    Lvl {gymLevel}
                   </span>
                 </div>
               </div>
@@ -397,7 +415,7 @@ export default function MemberHome() {
               <div>
                 <span className="text-[9px] text-(--color-text-faint) block uppercase font-bold leading-none">Day Streak</span>
                 <span className="font-mono text-xs font-extrabold text-(--color-text)">
-                  {attendanceStats?.currentStreak ?? memberProfile?.currentStreakDays ?? 0} Days
+                  {streakDays} {streakDays === 1 ? "Day" : "Days"}
                 </span>
               </div>
             </div>
@@ -406,7 +424,7 @@ export default function MemberHome() {
               <div>
                 <span className="text-[9px] text-(--color-text-faint) block uppercase font-bold leading-none">Gym Level</span>
                 <span className="font-mono text-xs font-extrabold text-amber-600">
-                  Level {memberProfile?.gamificationLevel ?? 1}
+                  Level {gymLevel}
                 </span>
               </div>
             </div>

@@ -22,13 +22,17 @@ export class GamificationService {
     if (!stats) {
       const member = await Member.findById(memberId);
       if (!member) throw AppError.notFound('Member not found');
+      const initialXp = member.totalXpPoints || 0;
+      const initialLevel = member.gamificationLevel || calculateLevel(initialXp);
+      const initialStreak = member.currentStreakDays || 0;
+      const initialLongest = member.longestStreakDays || initialStreak;
       stats = await MemberGameStats.create({
         memberId: member._id,
         gymId: member.gymId,
-        xp: 0,
-        level: 1,
-        currentStreak: 0,
-        longestStreak: 0,
+        xp: initialXp,
+        level: initialLevel,
+        currentStreak: initialStreak,
+        longestStreak: initialLongest,
         badges: [],
         restDays: [],
         streakGracePending: false,
@@ -99,6 +103,12 @@ export class GamificationService {
       gymId: new mongoose.Types.ObjectId(effectiveGymId),
       amount: xp,
       reason,
+    });
+
+    // Synchronize Member doc with Single Source of Truth
+    await Member.findByIdAndUpdate(member._id, {
+      totalXpPoints: stats.xp,
+      gamificationLevel: stats.level,
     });
 
     logger.info(`✨ XP Awarded: [Member: ${member._id}] [+${xp} XP] [Reason: ${reason}]`);
@@ -179,7 +189,27 @@ export class GamificationService {
     });
 
     if (!dayKeysRaw || dayKeysRaw.length === 0) {
-      return stats.currentStreak;
+      let activeStreak = 0;
+      if (stats.lastActivityDayKey) {
+        const refDate = referenceDateArg
+          ? (typeof referenceDateArg === 'string' ? new Date(referenceDateArg) : referenceDateArg)
+          : new Date();
+        const refDateStr = refDate.toISOString().split('T')[0];
+        const refUtc = new Date(`${refDateStr}T00:00:00.000Z`).getTime();
+        const latestUtc = new Date(`${stats.lastActivityDayKey}T00:00:00.000Z`).getTime();
+        const daysSince = Math.round((refUtc - latestUtc) / (1000 * 60 * 60 * 24));
+        if (daysSince <= 1) {
+          activeStreak = stats.currentStreak;
+        }
+      }
+
+      if (stats.currentStreak !== activeStreak || member.currentStreakDays !== activeStreak) {
+        stats.currentStreak = activeStreak;
+        if (activeStreak === 0) stats.lastActivityDayKey = undefined;
+        await stats.save();
+        await Member.findByIdAndUpdate(member._id, { currentStreakDays: activeStreak });
+      }
+      return activeStreak;
     }
 
     const sortedDays = dayKeysRaw.filter(Boolean).sort();
@@ -215,26 +245,32 @@ export class GamificationService {
     const daysSinceLatest = Math.round((refUtc - latestUtc) / (1000 * 60 * 60 * 24));
 
     if (daysSinceLatest > 1) {
-      // More than 1 day since reference date check-in -> streak broken
-      calculatedStreak = 0;
+      let gapPreserved = false;
+      if (daysSinceLatest === 2) {
+        const skippedDate = new Date(latestUtc + 24 * 60 * 60 * 1000);
+        const skippedWeekday = skippedDate.getUTCDay();
+        if ((stats.restDays || []).includes(skippedWeekday)) {
+          gapPreserved = true;
+        }
+      }
+      if (!gapPreserved) {
+        calculatedStreak = 0;
+      }
     }
 
-    const updatedStreak = Math.max(stats.currentStreak, calculatedStreak);
-    const updatedBest = Math.max(updatedStreak, stats.longestStreak);
+    const updatedBest = Math.max(stats.longestStreak || 0, calculatedStreak);
 
-    if (updatedStreak !== stats.currentStreak || latestDayKey !== stats.lastActivityDayKey) {
-      stats.currentStreak = updatedStreak;
-      stats.longestStreak = updatedBest;
-      stats.lastActivityDayKey = latestDayKey;
-      await stats.save();
+    stats.currentStreak = calculatedStreak;
+    stats.longestStreak = updatedBest;
+    stats.lastActivityDayKey = latestDayKey;
+    await stats.save();
 
-      await Member.findByIdAndUpdate(member._id, {
-        currentStreakDays: updatedStreak,
-        longestStreakDays: updatedBest,
-      });
-    }
+    await Member.findByIdAndUpdate(member._id, {
+      currentStreakDays: calculatedStreak,
+      longestStreakDays: updatedBest,
+    });
 
-    return updatedStreak;
+    return calculatedStreak;
   }
 
   /**
@@ -270,7 +306,7 @@ export class GamificationService {
 
     // Idempotency check
     if (stats.lastActivityDayKey === todayStr) {
-      await this.syncStreakFromAttendance(member._id.toString());
+      await this.syncStreakFromAttendance(member._id.toString(), checkInDate);
       const refreshedStats = await this.getOrCreateMemberGameStats(member._id.toString());
       return { currentStreak: refreshedStats.currentStreak, bestStreak: refreshedStats.longestStreak };
     }
@@ -323,7 +359,7 @@ export class GamificationService {
     });
 
     // Also sync from Attendance records to ensure full consistency
-    await this.syncStreakFromAttendance(member._id.toString());
+    await this.syncStreakFromAttendance(member._id.toString(), checkInDate);
 
     // Badge thresholds
     if (newStreak >= 7) {
@@ -561,16 +597,18 @@ export class GamificationService {
 
     const ranked = members.map((m) => {
       const s = statsMap.get(m._id.toString());
-      const xpVal = s?.xp || 0;
+      const xpVal = s?.xp ?? m.totalXpPoints ?? 0;
+      const streakVal = s?.currentStreak ?? m.currentStreakDays ?? 0;
+      const levelVal = s?.level ?? m.gamificationLevel ?? 1;
       return {
         memberId: m._id,
         name: (m.userId as any)?.fullName || 'Member',
         avatarUrl: (m.userId as any)?.avatarUrl,
-        score: metric === 'streak' ? (s?.currentStreak || 0) : xpVal,
+        score: metric === 'streak' ? streakVal : xpVal,
         xp: xpVal,
         points: xpVal,
-        level: s?.level || 1,
-        currentStreakDays: s?.currentStreak || 0,
+        level: levelVal,
+        currentStreakDays: streakVal,
       };
     });
 

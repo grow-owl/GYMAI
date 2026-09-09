@@ -517,11 +517,24 @@ export class AttendanceService {
 
     const averageSessionMinutes = totalVisits > 0 ? Math.round(totalWorkoutMinutes / totalVisits) : 0;
 
+    let currentStreak = 0;
+    let longestStreak = 0;
+    try {
+      currentStreak = await GamificationService.syncStreakFromAttendance(member._id.toString());
+      const stats = await GamificationService.getOrCreateMemberGameStats(member._id.toString());
+      longestStreak = stats.longestStreak || 0;
+    } catch {
+      currentStreak = member.currentStreakDays || 0;
+      longestStreak = member.longestStreakDays || 0;
+    }
+
     return {
       totalVisits,
       totalWorkoutMinutes,
       averageSessionMinutes,
       dayOfWeekDistribution,
+      currentStreak,
+      longestStreak,
     };
   }
 

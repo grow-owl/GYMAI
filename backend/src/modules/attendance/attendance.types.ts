@@ -32,4 +32,6 @@ export interface AttendanceStats {
   totalWorkoutMinutes: number;
   averageSessionMinutes: number;
   dayOfWeekDistribution: Record<string, number>;
+  currentStreak?: number;
+  longestStreak?: number;
 }

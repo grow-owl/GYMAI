@@ -15,6 +15,7 @@ import { NotificationType } from '../notification/notification.types';
 import { notificationTemplates } from '../notification/notificationTemplates';
 import { WhatsAppNotificationService } from '../notification/whatsapp/whatsappNotification.service';
 import { logger } from '../../config/logger';
+import { GamificationService } from '../gamification/gamification.service';
 
 export class MemberService {
   public static async createMember(
@@ -248,6 +249,18 @@ export class MemberService {
       .populate({ path: 'assignedTrainerId', populate: { path: 'userId', select: 'fullName email phone' } });
 
     if (!member) throw AppError.notFound('Member profile not found');
+
+    try {
+      const stats = await GamificationService.getOrCreateMemberGameStats(member._id.toString());
+      const streak = await GamificationService.syncStreakFromAttendance(member._id.toString());
+      member.currentStreakDays = streak;
+      member.longestStreakDays = stats.longestStreak || streak;
+      member.totalXpPoints = stats.xp || 0;
+      member.gamificationLevel = stats.level || 1;
+    } catch {
+      // Retain existing member fields if gamification sync encounters an edge case
+    }
+
     return member;
   }
 
@@ -258,6 +271,18 @@ export class MemberService {
       .populate({ path: 'assignedTrainerId', populate: { path: 'userId', select: 'fullName email phone profilePicture' } });
 
     if (!member) throw AppError.notFound('Member profile not found for user');
+
+    try {
+      const stats = await GamificationService.getOrCreateMemberGameStats(member._id.toString());
+      const streak = await GamificationService.syncStreakFromAttendance(member._id.toString());
+      member.currentStreakDays = streak;
+      member.longestStreakDays = stats.longestStreak || streak;
+      member.totalXpPoints = stats.xp || 0;
+      member.gamificationLevel = stats.level || 1;
+    } catch {
+      // Retain existing member fields if gamification sync encounters an edge case
+    }
+
     return member;
   }
 

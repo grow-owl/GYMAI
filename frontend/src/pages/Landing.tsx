@@ -279,9 +279,9 @@ export default function Landing() {
         <img
           src={heroImg}
           alt="GYMAI Gym member training"
-          // Mandatory LCP Optimization: fetchpriority="high" for hero image
+          // Mandatory LCP Optimization: fetchPriority="high" for hero image
           // @ts-ignore
-          fetchpriority="high"
+          fetchPriority="high"
           decoding="async"
           width={1200}
           height={800}
