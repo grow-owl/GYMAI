@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Sparkles,
   Send,
@@ -73,6 +73,8 @@ export default function AICoach() {
 
   useEffect(() => {
     scrollToBottom();
+    const t = setTimeout(scrollToBottom, 320);
+    return () => clearTimeout(t);
   }, [messages, loading]);
 
   const loadAiData = async () => {
@@ -312,8 +314,20 @@ export default function AICoach() {
     return s;
   })();
 
+  // Dynamic height on mobile & tablet: starts compact for 1 message, expands smoothly as chat progresses so 4-6 messages fit cleanly
+  const chatHeightClass = useMemo(() => {
+    if (messages.length <= 1) {
+      return "min-h-[390px] h-[48vh] max-h-[460px]";
+    }
+    if (messages.length <= 3) {
+      return "min-h-[520px] h-[64vh] max-h-[600px]";
+    }
+    // 4 or more messages (active conversation)
+    return "min-h-[650px] h-[78vh] max-h-[760px]";
+  }, [messages.length]);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-135px)] md:h-[calc(100vh-115px)] max-w-5xl mx-auto w-full">
+    <div className="flex flex-col min-h-[calc(100vh-140px)] lg:h-[calc(100vh-115px)] max-w-5xl mx-auto w-full pb-6 lg:pb-0">
       {/* Top Header with Live Daily Chat Quota Counter */}
       <PageHeader
         title="AI Fitness Coach"
@@ -342,7 +356,7 @@ export default function AICoach() {
       />
 
       {/* Compact / Collapsible AI Insights & Recovery Bar */}
-      <div className="mb-2 shrink-0">
+      <div className="mb-3 sm:mb-4 shrink-0">
         {/* MOBILE & TABLET VIEW (< lg) */}
         <div className="lg:hidden p-3 rounded-2xl bg-white border border-(--color-border) shadow-xs space-y-2.5">
           {recoveryLoading ? (
@@ -589,7 +603,9 @@ export default function AICoach() {
       </div>
 
       {/* Main Interactive Chat Window */}
-      <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-(--color-border-soft) bg-(--color-surface)/70 backdrop-blur-sm overflow-hidden shadow-sm">
+      <div
+        className={`w-full flex flex-col rounded-2xl border border-(--color-border-soft) bg-(--color-surface)/70 backdrop-blur-sm overflow-hidden shadow-sm transition-[height] duration-300 ease-out lg:flex-1 lg:min-h-0 lg:h-auto lg:max-h-none ${chatHeightClass}`}
+      >
         {/* Messages List Area */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
           {messages.map((m, i) => (
