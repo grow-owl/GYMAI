@@ -12,6 +12,8 @@ export const updateProductSchema = createProductSchema.partial();
 
 export const purchaseProductSchema = z.object({
   memberId: z.string().optional(), // required if initiated by staff for a member
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
   quantity: z.number().int().positive().optional().default(1),
   paymentMethod: z.enum(['cash', 'card', 'upi', 'bank_transfer', 'online']).optional().default('cash'),
   notes: z.string().optional(),

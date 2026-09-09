@@ -139,6 +139,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { user: loggedInUser, accessToken } = await authApi.login(email, password);
       setAccessToken(accessToken);
       set({ user: loggedInUser, isAuthenticated: true });
+      // Clear cached AI weekly digest so fresh login generates/fetches new data
+      try {
+        const gId = loggedInUser?.gymId;
+        if (gId) {
+          localStorage.removeItem(`gymai.weekly_digest.${gId}`);
+          sessionStorage.removeItem(`gymai.weekly_digest.${gId}`);
+        }
+      } catch {}
+
       return loggedInUser;
     } catch (e) {
       const { message, fieldErrors } = describeApiError(e, "Login failed. Please check your email and password.");
@@ -174,6 +183,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // ignore storage errors
     }
+
+    // Clear weekly digest AI caches
+    try {
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith("gymai.weekly_digest")) localStorage.removeItem(k);
+      });
+      Object.keys(sessionStorage).forEach((k) => {
+        if (k.startsWith("gymai.weekly_digest")) sessionStorage.removeItem(k);
+      });
+    } catch {}
 
     // Attempt to clear httpOnly refresh-token cookie on the backend first.
     // Even if this fails (e.g. network error), we still tear down the local

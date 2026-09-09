@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Sparkles, TrendingUp, Clock, Users2, Send, Loader2, AlertTriangle, Phone, MessageCircle } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -42,6 +42,44 @@ export default function AIInsights() {
   const [revenueForecastData, setRevenueForecastData] = useState<any>(null);
   const [planProfitabilityData, setPlanProfitabilityData] = useState<any>(null);
   const [insightsError, setInsightsError] = useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+    const t = setTimeout(scrollToBottom, 300);
+    return () => clearTimeout(t);
+  }, [messages, loading]);
+
+  // Track desktop vs mobile/tablet viewport to preserve 100% desktop UI
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth >= 1024;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Dynamic height on mobile & tablet: starts compact for 1 message, expands smoothly as chat progresses
+  const chatHeightClass = useMemo(() => {
+    if (messages.length <= 1) {
+      return "min-h-[380px] h-[48vh] max-h-[450px]";
+    }
+    if (messages.length <= 3) {
+      return "min-h-[500px] h-[62vh] max-h-[580px]";
+    }
+    // 4 or more messages (active conversation)
+    return "min-h-[620px] h-[75vh] max-h-[740px]";
+  }, [messages.length]);
 
   useEffect(() => {
     const loadOwnerAi = async () => {
@@ -134,16 +172,28 @@ export default function AIInsights() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="AI Business Advisor & Insights" subtitle="Automated weekly analysis & real-time business AI" backTo="/owner" />
+      <PageHeader title="AI Business Advisor & Insights" backTo="/owner" />
 
       {/* At-Risk Members (Churn Risk Prediction) Section */}
       <Card sweep className="border-amber-500/30 space-y-3">
-        <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={18} className="text-amber-400" />
-            <h3 className="text-sm font-semibold text-(--color-text)">At-Risk Members (AI Churn Risk Prediction)</h3>
+        <div className="flex items-start sm:items-center justify-between gap-2 border-b border-(--color-border-soft) pb-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-(--color-text) leading-snug">
+                At-Risk Members
+                <span className="hidden sm:inline font-normal text-xs text-(--color-text-muted) ml-1.5">
+                  (AI Churn Risk Prediction)
+                </span>
+              </h3>
+              <p className="text-[11px] text-(--color-text-muted) sm:hidden mt-0.5">
+                AI Churn Risk Prediction
+              </p>
+            </div>
           </div>
-          <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">{atRiskMembers.length} Flagged</span>
+          <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+            {atRiskMembers.length} Flagged
+          </span>
         </div>
 
         {loadingAtRisk ? (
@@ -211,7 +261,7 @@ export default function AIInsights() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="flex flex-col gap-2">
           <TrendingUp size={16} className="text-emerald-400" />
           <p className="text-sm font-medium text-(--color-text)">Revenue Forecast</p>
@@ -251,13 +301,14 @@ export default function AIInsights() {
       </div>
 
       {/* Interactive AI Owner Business Chat */}
-      <Card className="border border-(--color-border) flex flex-col h-[480px]">
+      <Card
+        className={`border border-(--color-border) flex flex-col transition-[height] duration-300 ease-out lg:h-[480px] ${chatHeightClass}`}
+      >
         <div className="flex items-center justify-between pb-3 border-b border-(--color-border) mb-3">
           <div className="flex items-center gap-2">
             <Sparkles size={18} className="text-(--color-accent)" />
             <h3 className="text-sm font-semibold text-(--color-text)">Ask Gym AI Business Advisor</h3>
           </div>
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">Live Business AI</span>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-1">
@@ -271,8 +322,8 @@ export default function AIInsights() {
               <div
                 className={
                   m.from === "user"
-                    ? "max-w-[80%] rounded-2xl rounded-tr-sm bg-(--color-accent) text-(--color-navbar) font-bold text-sm px-4 py-2.5 whitespace-pre-wrap"
-                    : "max-w-[80%] rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text) text-sm px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
+                    ? "max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-tr-sm bg-(--color-accent) text-(--color-navbar) font-bold text-sm px-4 py-2.5 whitespace-pre-wrap"
+                    : "max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-tl-sm bg-(--color-surface-2) text-(--color-text) text-sm px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
                 }
               >
                 {m.from === "user" ? (
@@ -294,14 +345,15 @@ export default function AIInsights() {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 no-scrollbar">
           {ownerQuickPrompts.map((p) => (
             <button
               key={p}
               onClick={() => send(p)}
-              className="shrink-0 rounded-full border border-(--color-border) text-(--color-text-muted) text-xs font-medium px-3.5 py-1.5 hover:border-(--color-accent)/50 hover:text-(--color-text)"
+              className="shrink-0 rounded-full border border-(--color-border) text-(--color-text-muted) text-xs font-medium px-3.5 py-1.5 hover:border-(--color-accent)/50 hover:text-(--color-text) active:scale-95 transition-all"
             >
               {p}
             </button>
@@ -318,7 +370,7 @@ export default function AIInsights() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask business advisor about revenue, leads, or inventory..."
+            placeholder={isDesktop ? "Ask business advisor about revenue, leads, or inventory..." : "Ask business advisor..."}
             className="flex-1 bg-transparent text-sm px-2 py-1.5 outline-none placeholder:text-(--color-text-faint)"
           />
           <button
@@ -330,6 +382,7 @@ export default function AIInsights() {
           </button>
         </form>
       </Card>
+
     </div>
   );
 }

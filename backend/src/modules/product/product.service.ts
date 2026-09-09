@@ -24,6 +24,7 @@ export interface PurchaseProductInput {
   quantity?: number;
   paymentMethod?: PaymentMethod;
   customerName?: string;
+  customerPhone?: string;
   notes?: string;
 }
 
@@ -166,14 +167,17 @@ export class ProductService {
 
     // 3. Member Resolution for Payment Record
     let validMemberId = targetMemberId;
-    const isTargetValidObjId = mongoose.Types.ObjectId.isValid(targetMemberId);
-    let memberDoc = await Member.findOne({
-      $or: [
-        { _id: isTargetValidObjId ? new mongoose.Types.ObjectId(targetMemberId) : undefined },
-        { userId: isTargetValidObjId ? new mongoose.Types.ObjectId(targetMemberId) : undefined },
-      ],
-      isDeleted: false,
-    });
+    let memberDoc: any = null;
+
+    if (targetMemberId && targetMemberId !== 'walk_in' && mongoose.Types.ObjectId.isValid(targetMemberId)) {
+      memberDoc = await Member.findOne({
+        $or: [
+          { _id: new mongoose.Types.ObjectId(targetMemberId) },
+          { userId: new mongoose.Types.ObjectId(targetMemberId) },
+        ],
+        isDeleted: false,
+      }).populate('userId', 'fullName');
+    }
 
     if (memberDoc) {
       validMemberId = memberDoc._id.toString();
@@ -242,7 +246,11 @@ export class ProductService {
         actingUser
       );
     } else {
-      const customerName = input.customerName || (memberDoc ? ((memberDoc as any).fullName || 'Member') : 'Walk-in Customer');
+      const memberNameFound = (memberDoc as any)?.userId?.fullName || (memberDoc as any)?.fullName;
+      let customerName = input.customerName || (memberDoc ? (memberNameFound || 'Member') : 'Walk-in Customer');
+      if (input.customerPhone && !customerName.includes(input.customerPhone)) {
+        customerName = `${customerName} (${input.customerPhone})`;
+      }
       paymentResult = await MemberPaymentService.recordManualPayment(
         {
           gymId: updatedProduct.gymId.toString(),

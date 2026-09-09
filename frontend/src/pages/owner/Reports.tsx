@@ -610,17 +610,27 @@ export default function Reports() {
     <div className="space-y-6 max-w-6xl mx-auto w-full">
       <PageHeader
         title="Reports & Visual Analytics"
-        subtitle="Interactive graphical performance metrics and backend export suite"
+        subtitle="Real-time performance, retention & financial records"
         backTo="/owner"
         action={
           <Link
             to="/owner/branch-comparison"
-            className="inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) text-(--color-text) text-xs font-semibold px-4 py-2 hover:bg-(--color-surface-3) transition-colors border border-(--color-border)"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-(--color-surface-2) text-(--color-text) text-xs font-semibold px-4 py-2 hover:bg-(--color-surface-3) transition-colors border border-(--color-border) whitespace-nowrap"
           >
             <Building2 size={14} /> Multi-Branch Analytics
           </Link>
         }
       />
+
+      {/* Mobile & Small Screen Action Button (Full space under header) */}
+      <div className="block sm:hidden w-full">
+        <Link
+          to="/owner/branch-comparison"
+          className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-(--color-text) text-xs font-semibold px-4 hover:bg-(--color-surface-3) active:scale-[0.99] transition-all shadow-2xs"
+        >
+          <Building2 size={15} className="text-(--color-accent)" /> Multi-Branch Analytics
+        </Link>
+      </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -794,18 +804,25 @@ export default function Reports() {
           </div>
 
           <Card className="mt-4">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center justify-center sm:justify-start gap-2 mb-3.5">
               <BarChart2 size={16} className="text-(--color-accent) icon-hover-pop" />
-              <p className="text-xs font-semibold tracking-wide text-(--color-text-muted) uppercase">Request New Backend Export</p>
+              <p className="text-xs font-semibold tracking-wide text-(--color-text-muted) uppercase text-center sm:text-left">
+                Request New Backend Export
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {["ATTENDANCE_SUMMARY", "REVENUE_COLLECTIONS", "MEMBER_CHURN_RISK", "TRAINER_PERFORMANCE"].map((type) => (
+            <div className="flex flex-col items-center justify-center sm:grid sm:grid-cols-2 lg:flex lg:flex-row lg:flex-wrap lg:justify-start gap-2.5 w-full">
+              {[
+                { type: "ATTENDANCE_SUMMARY", label: "Attendance Summary" },
+                { type: "REVENUE_COLLECTIONS", label: "Revenue Collections" },
+                { type: "MEMBER_CHURN_RISK", label: "Member Churn Risk" },
+                { type: "TRAINER_PERFORMANCE", label: "Trainer Performance" },
+              ].map(({ type, label }) => (
                 <button
                   key={type}
                   onClick={() => handleRequestReport(type)}
-                  className="px-3.5 py-2 text-xs font-medium rounded-full bg-(--color-surface-2) border border-(--color-border) text-(--color-text) hover:bg-(--color-accent-soft) hover:text-(--color-accent-text) hover:border-(--color-accent) transition-all duration-200 btn-press"
+                  className="w-full max-w-xs sm:max-w-none sm:w-auto px-4 py-2.5 sm:py-2 text-xs font-semibold rounded-full bg-(--color-surface-2) border border-(--color-border) text-(--color-text) hover:bg-(--color-accent-soft) hover:text-(--color-accent-text) hover:border-(--color-accent) transition-all duration-200 btn-press text-center inline-flex items-center justify-center shadow-2xs cursor-pointer"
                 >
-                  Generate {type.replace("_", " ")}
+                  Generate {label}
                 </button>
               ))}
             </div>

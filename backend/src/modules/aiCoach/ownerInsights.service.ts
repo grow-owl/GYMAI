@@ -10,7 +10,27 @@ import { ChurnPredictionService } from './churnPrediction.service';
 import { AIProviderFactory } from './providers/aiProvider.factory';
 import { logger } from '../../config/logger';
 
+interface WeeklyDigestCacheEntry {
+  digest: string;
+  generatedAt: number;
+}
+
+const weeklyDigestCache = new Map<string, WeeklyDigestCacheEntry>();
+const DIGEST_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours TTL
+
 export class OwnerInsightsService {
+  /**
+   * Clear weekly digest cache for a specific gym or all gyms
+   */
+  public static clearWeeklyDigestCache(gymId?: string): void {
+    if (gymId) {
+      weeklyDigestCache.delete(gymId);
+      logger.info(`🧹 Cleared Weekly Digest cache for gym: ${gymId}`);
+    } else {
+      weeklyDigestCache.clear();
+      logger.info(`🧹 Cleared all Weekly Digest caches`);
+    }
+  }
   /**
    * Aggregate gym-wide business context
    */
@@ -344,7 +364,15 @@ export class OwnerInsightsService {
   /**
    * Generate Plain-Language Weekly Executive Digest for Gym Owner using AI Provider
    */
-  public static async generateWeeklyOwnerDigest(gymId: string): Promise<string> {
+  public static async generateWeeklyOwnerDigest(gymId: string, forceRefresh: boolean = false): Promise<string> {
+    if (!forceRefresh) {
+      const cached = weeklyDigestCache.get(gymId);
+      if (cached && Date.now() - cached.generatedAt < DIGEST_TTL_MS) {
+        logger.info(`⚡ AI Weekly Owner Digest cache hit for gym: ${gymId}`);
+        return cached.digest;
+      }
+    }
+
     try {
       const [businessContext, atRiskMembers, revenueForecast] = await Promise.all([
         OwnerInsightsService.buildGymBusinessContext(gymId),
@@ -372,14 +400,28 @@ export class OwnerInsightsService {
         JSON.stringify(promptPayload)
       );
 
-      return (
+      const generatedDigest =
         aiResponse ||
-        `Weekly Summary: Total revenue is ₹${businessContext.totalRevenue} with a net profit of ₹${businessContext.netProfit}. High churn risk flagged for ${atRiskMembers.length} members. Projected next month revenue is ₹${revenueForecast.projectedRevenue}.`
-      );
+        `Weekly Summary: Total revenue is ₹${businessContext.totalRevenue} with a net profit of ₹${businessContext.netProfit}. High churn risk flagged for ${atRiskMembers.length} members. Projected next month revenue is ₹${revenueForecast.projectedRevenue}.`;
+
+      weeklyDigestCache.set(gymId, {
+        digest: generatedDigest,
+        generatedAt: Date.now(),
+      });
+
+      return generatedDigest;
     } catch (error) {
       logger.warn(`AI Weekly Owner Digest generation failed, using structured fallback: ${error}`);
       const businessContext = await OwnerInsightsService.buildGymBusinessContext(gymId);
-      return `Weekly Summary: Recorded ₹${businessContext.totalRevenue} in revenue against ₹${businessContext.totalExpenses} in expenses. Net profit stands at ₹${businessContext.netProfit}. Continue monitoring peak hours and trainer workloads.`;
+      const fallbackDigest = `Weekly Summary: Recorded ₹${businessContext.totalRevenue} in revenue against ₹${businessContext.totalExpenses} in expenses. Net profit stands at ₹${businessContext.netProfit}. Continue monitoring peak hours and trainer workloads.`;
+
+      // Cache fallback for a short 5-minute period so it can retry later without spamming
+      weeklyDigestCache.set(gymId, {
+        digest: fallbackDigest,
+        generatedAt: Date.now() - (DIGEST_TTL_MS - 5 * 60 * 1000),
+      });
+
+      return fallbackDigest;
     }
   }
 }

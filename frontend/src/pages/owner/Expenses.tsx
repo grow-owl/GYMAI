@@ -182,13 +182,23 @@ export default function Expenses() {
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90"
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90"
             >
               <Plus size={15} /> Add expense
             </button>
           </div>
         }
       />
+
+      {/* Mobile & Tablet Add Expense Button (Full space under header) */}
+      <div className="block lg:hidden w-full">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 hover:opacity-90 active:scale-[0.99] shadow-sm transition-all"
+        >
+          <Plus size={17} /> Add expense
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <Card sweep>
@@ -243,15 +253,15 @@ export default function Expenses() {
           <div className="divide-y divide-(--color-border-soft)">
             {expenseList.map((e) => (
               <div key={e._id || e.id} className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-(--color-surface-2)/50 transition-colors">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                   <Receipt className="w-5 h-5 text-(--color-text-muted) shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-(--color-text)">{e.description || e.title || e.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-(--color-text) truncate">{e.description || e.title || e.name}</p>
                     <p className="text-xs text-(--color-text-faint) capitalize">{e.category || "General"}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <p className="font-mono text-sm font-bold text-rose-400 mr-1">₹{(e.amount || 0).toLocaleString("en-IN")}</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <p className="font-mono text-sm font-bold text-rose-400 mr-1 whitespace-nowrap">₹{(e.amount || 0).toLocaleString("en-IN")}</p>
                   <button
                     onClick={() => handleEditExpense(e)}
                     className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"

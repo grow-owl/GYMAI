@@ -90,7 +90,7 @@ export default function Sidebar({
   return (
     <aside
       className={clsx(
-        "hidden md:flex h-screen sticky top-0 shrink-0 flex-col border-r border-(--color-sidebar-border) bg-(--color-sidebar) transition-all duration-200",
+        "hidden lg:flex h-screen sticky top-0 shrink-0 flex-col border-r border-(--color-sidebar-border) bg-(--color-sidebar) transition-all duration-200",
         collapsed ? "w-[76px]" : "w-64"
       )}
     >

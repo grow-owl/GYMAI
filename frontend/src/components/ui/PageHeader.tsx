@@ -7,16 +7,18 @@ export default function PageHeader({
   subtitleClassName,
   backTo,
   action,
+  titleClassName,
 }: {
   title: string;
   subtitle?: React.ReactNode;
   subtitleClassName?: string;
   backTo?: string;
   action?: React.ReactNode;
+  titleClassName?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 mb-5">
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         {backTo && (
           <Link
             to={backTo}
@@ -25,8 +27,8 @@ export default function PageHeader({
             <ChevronLeft size={18} />
           </Link>
         )}
-        <div className="min-w-0">
-          <h1 className="font-display text-lg sm:text-xl font-semibold text-(--color-text) truncate">{title}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className={`font-display font-semibold text-(--color-text) ${titleClassName || "text-lg sm:text-xl truncate"}`}>{title}</h1>
           {subtitle && (
             <p className={`text-xs sm:text-sm text-(--color-text-muted) mt-0.5 ${subtitleClassName || ""}`}>
               {subtitle}

@@ -75,7 +75,10 @@ export class ProductController {
         gymId: req.tenant?.gymId,
       };
 
-      const targetMemberId = req.body.memberId || req.user!.id;
+      const isStaffOrOwner = req.user!.role === 'GYM_OWNER' || req.user!.role === 'SUPER_ADMIN' || req.user!.role === 'BRANCH_MANAGER' || req.user!.role === 'KIOSK';
+      const targetMemberId = (req.body.memberId && req.body.memberId !== 'walk_in')
+        ? req.body.memberId
+        : (isStaffOrOwner ? undefined : req.user!.id);
       const result = await ProductService.purchaseProduct(productId, targetMemberId, actingUser, req.body);
 
       sendSuccess(res, result, 'Product purchase completed successfully', 200);

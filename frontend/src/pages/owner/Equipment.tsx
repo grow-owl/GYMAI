@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Wrench, Loader2, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import { Plus, Wrench, Loader2, RefreshCw, Pencil, Trash2, MapPin, CheckCircle2 } from "lucide-react";
 
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
@@ -8,6 +8,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
 import { equipmentApi, gymApi } from "@/lib/endpoints";
 import { useGymBranch } from "@/hooks/useGymBranch";
+import { getShortBranchName } from "@/lib/branchUtils";
 import { toast } from "sonner";
 
 const statusTone: Record<string, "good" | "warn" | "danger"> = {
@@ -191,7 +192,7 @@ export default function Equipment() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowMaintenanceDueOnly(!showMaintenanceDueOnly)}
-              className={`inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer ${
+              className={`hidden lg:inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer ${
                 showMaintenanceDueOnly
                   ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
                   : "bg-(--color-surface-2) text-(--color-text-muted) hover:text-(--color-text)"
@@ -209,13 +210,34 @@ export default function Equipment() {
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 cursor-pointer"
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 cursor-pointer"
             >
               <Plus size={15} /> Add equipment
             </button>
           </div>
         }
       />
+
+      {/* Mobile & Tablet Toolbar (Full width below header) */}
+      <div className="flex lg:hidden items-center gap-2 w-full">
+        <button
+          onClick={() => setShowMaintenanceDueOnly(!showMaintenanceDueOnly)}
+          className={`flex-1 h-10 inline-flex items-center justify-center gap-1.5 text-xs font-bold px-3 rounded-xl transition-all ${
+            showMaintenanceDueOnly
+              ? "bg-(--color-navbar) text-amber-400 border border-amber-400/40 shadow-xs"
+              : "bg-(--color-surface-2) text-(--color-text) border border-(--color-border)"
+          }`}
+        >
+          <Wrench size={14} className={showMaintenanceDueOnly ? "text-amber-400" : "text-(--color-text-muted)"} />
+          {showMaintenanceDueOnly ? "Due Only" : "All Equipment"}
+        </button>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex-1 h-10 inline-flex items-center justify-center gap-1.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3 hover:opacity-90 active:scale-[0.98] shadow-sm transition-all"
+        >
+          <Plus size={16} /> Add equipment
+        </button>
+      </div>
 
       {resolvingBranch || loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -233,54 +255,133 @@ export default function Equipment() {
             {equipmentList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((item) => {
               const eqId = item._id || item.id;
               const status = item.status || "WORKING";
+              const shortBranch = getShortBranchName(item.branchId?.name);
+
               return (
-                <div key={eqId} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="font-display text-sm font-semibold text-(--color-text)">{item.name}</h4>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-xs text-(--color-text-muted) capitalize">{item.category}</p>
-                      {item.branchId?.name && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 font-medium">
-                          📍 {item.branchId.name}
-                        </span>
+                <div key={eqId} className="p-3.5 rounded-xl border border-(--color-border) bg-(--color-surface-2)/40 flex flex-col justify-between gap-2.5">
+                  {/* Desktop Layout (100% Untouched) */}
+                  <div className="hidden lg:flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-display text-sm font-semibold text-(--color-text)">{item.name}</h4>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-(--color-text-muted) capitalize">{item.category}</p>
+                        {item.branchId?.name && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 font-medium">
+                            📍 {item.branchId.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Badge tone={statusTone[status] || "good"}>{status}</Badge>
+
+                      {status !== "WORKING" && (
+                        <button
+                          onClick={() => handleSetExactStatus(eqId, "WORKING")}
+                          className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium"
+                        >
+                          Mark Working
+                        </button>
                       )}
+                      {status !== "MAINTENANCE" && (
+                        <button
+                          onClick={() => handleSetExactStatus(eqId, "MAINTENANCE")}
+                          className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-xs font-medium"
+                        >
+                          Maintenance
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleEditEquipment(item)}
+                        className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"
+                        title="Edit Equipment"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEquipment(eqId, item.name)}
+                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
+                        title="Delete Equipment"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Badge tone={statusTone[status] || "good"}>{status}</Badge>
+                  {/* Mobile & Tablet Layout (Clean, properly spaced, hard colors, no overflow) */}
+                  <div className="lg:hidden space-y-3">
+                    {/* Top Row: Equipment Name + Hard Status Badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-display font-semibold text-sm text-(--color-text) break-words">{item.name}</h4>
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-(--color-surface-3) text-(--color-text-muted) border border-(--color-border) capitalize">
+                            {item.category}
+                          </span>
+                          {shortBranch && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-(--color-surface-3) text-(--color-text) border border-(--color-border)">
+                              <MapPin size={11} className="text-(--color-accent) shrink-0" />
+                              <span className="truncate max-w-[150px]">{shortBranch}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        {status === "WORKING" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-600 text-white shadow-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
+                            WORKING
+                          </span>
+                        ) : status === "MAINTENANCE" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-600 text-white shadow-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
+                            MAINTENANCE
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-600 text-white shadow-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
+                            BROKEN
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                    {status !== "WORKING" && (
-                      <button
-                        onClick={() => handleSetExactStatus(eqId, "WORKING")}
-                        className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium"
-                      >
-                        Mark Working
-                      </button>
-                    )}
-                    {status !== "MAINTENANCE" && (
-                      <button
-                        onClick={() => handleSetExactStatus(eqId, "MAINTENANCE")}
-                        className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-xs font-medium"
-                      >
-                        Maintenance
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleEditEquipment(item)}
-                      className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"
-                      title="Edit Equipment"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteEquipment(eqId, item.name)}
-                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
-                      title="Delete Equipment"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    {/* Bottom Row: Status Action Button + Edit & Delete Action Icons */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-(--color-border-soft)">
+                      {status !== "WORKING" ? (
+                        <button
+                          onClick={() => handleSetExactStatus(eqId, "WORKING")}
+                          className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold active:scale-[0.98] transition-all shadow-xs cursor-pointer"
+                        >
+                          <CheckCircle2 size={14} /> Mark Working
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleSetExactStatus(eqId, "MAINTENANCE")}
+                          className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) text-(--color-text) border border-(--color-border) text-xs font-bold active:scale-[0.98] transition-all cursor-pointer"
+                        >
+                          <Wrench size={14} className="text-amber-500" /> Mark Maintenance
+                        </button>
+                      )}
 
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleEditEquipment(item)}
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-(--color-surface-2) border border-(--color-border) text-amber-500 hover:bg-amber-500/10 active:scale-95 transition-all cursor-pointer"
+                          title="Edit Equipment"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEquipment(eqId, item.name)}
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-xl bg-(--color-surface-2) border border-(--color-border) text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all cursor-pointer"
+                          title="Delete Equipment"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Shield, Zap, Mail, PhoneCall, Loader2 } from "lucide-react";
+import { CheckCircle2, Zap, Mail, PhoneCall, Loader2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -114,39 +114,38 @@ export default function Billing() {
     <div className="space-y-4">
       <PageHeader
         title="Platform Subscription & Billing"
-        subtitle="Manage your Gym AI SaaS tier and billing plan"
+        titleClassName="text-base sm:text-xl font-semibold whitespace-normal break-words leading-tight"
         backTo="/owner"
       />
 
       <Card sweep className="mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-(--color-text-muted) mb-1">Active SaaS Plan</p>
-            {loadingPlan ? (
-              <div className="flex items-center gap-2 text-sm text-(--color-text-muted) py-1">
-                <Loader2 size={16} className="animate-spin text-(--color-accent)" /> Loading subscription tier...
-              </div>
-            ) : (
-              <p className="text-2xl font-bold text-(--color-text) capitalize flex items-center gap-2">
-                {currentPlanRaw} Plan <Badge tone="good">Active</Badge>
-              </p>
-            )}
-            {pendingDowngrade && (
-              <div className="mt-2 flex items-center gap-2">
-                <Badge tone="warn">Pending Downgrade: {pendingDowngrade}</Badge>
-                <button
-                  onClick={handleRevokeDowngrade}
-                  className="text-xs font-semibold text-rose-400 hover:underline"
-                >
-                  Revoke Downgrade Request
-                </button>
-              </div>
-            )}
-            <p className="text-xs text-(--color-text-faint) mt-1">Manual offline billing · Managed by Super Admin</p>
-          </div>
-          <div className="p-3 rounded-full bg-(--color-accent-soft) text-(--color-accent-text)">
-            <Shield size={24} />
-          </div>
+        <div className="w-full">
+          <p className="text-xs font-semibold text-(--color-text-muted) mb-1">Active Plan</p>
+          {loadingPlan ? (
+            <div className="flex items-center gap-2 text-sm text-(--color-text-muted) py-1">
+              <Loader2 size={16} className="animate-spin text-(--color-accent)" /> Loading subscription tier...
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-(--color-text) capitalize">
+                {currentPlanRaw} Plan
+              </h2>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-xs shrink-0 tracking-wide">
+                Active
+              </span>
+            </div>
+          )}
+          {pendingDowngrade && (
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+              <Badge tone="warn">Pending Downgrade: {pendingDowngrade}</Badge>
+              <button
+                onClick={handleRevokeDowngrade}
+                className="text-xs font-semibold text-rose-400 hover:underline cursor-pointer"
+              >
+                Revoke Downgrade Request
+              </button>
+            </div>
+          )}
         </div>
       </Card>
 

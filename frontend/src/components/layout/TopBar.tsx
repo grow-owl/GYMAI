@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Bell, Search, Menu, LogOut, User, X, Check, CheckCheck, ExternalLink, Building2, MapPin } from "lucide-react";
+import { Bell, Search, LogOut, User, X, Check, CheckCheck, ExternalLink, Building2, MapPin } from "lucide-react";
 import { notificationApi, gymApi } from "@/lib/endpoints";
 import type { INotificationItem } from "@/lib/endpoints";
 import { useAuthStore, roleHome } from "@/store/authStore";
@@ -19,7 +19,7 @@ interface NavEntry {
 export default function TopBar({
   greeting,
   subtitle,
-  onMenuClick,
+  onMenuClick: _onMenuClick,
   avatarInitial = "D",
   navItems = [],
   roleLabel,
@@ -275,50 +275,34 @@ export default function TopBar({
     <header className="sticky top-0 relative z-20 border-b border-(--color-border) bg-(--color-surface)/95 backdrop-blur-md px-2.5 sm:px-6 py-2.5 sm:py-3.5 transition-all">
       <div className="flex items-center justify-between gap-1.5 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {user?.role !== "MEMBER" && (
-            <button
-              onClick={onMenuClick}
-              className="md:hidden flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text) hover:bg-(--color-surface-2) transition-all hover:scale-105"
-            >
-              <Menu size={18} className="icon-hover-pop" />
-            </button>
-          )}
           <div className="min-w-0">
-            {user?.role === "MEMBER" ? (
-              <>
-                {/* Mobile & Tablet: 2-line title */}
-                <div className="leading-tight py-0.5 lg:hidden">
-                  <span className="block font-display text-sm font-extrabold text-(--color-text) tracking-tight">
-                    Member
-                  </span>
-                  <span className="block font-display text-[10px] font-bold text-(--color-text-muted) uppercase tracking-wide">
-                    Dashboard
-                  </span>
-                </div>
-                {/* Desktop: Original single-line header */}
-                <div className="hidden lg:block">
-                  <h1 className="font-display text-base sm:text-xl font-semibold text-(--color-text) truncate">
-                    {greeting}
-                  </h1>
-                  {subtitle && (
-                    <p className="text-xs text-(--color-text-muted) mt-0.5 truncate hidden sm:block">
-                      {subtitle}
-                    </p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <h1 className="font-display text-sm sm:text-base md:text-xl font-extrabold text-(--color-text) whitespace-nowrap">
-                  {greeting}
-                </h1>
-                {subtitle && (
-                  <p className="text-xs text-(--color-text-muted) mt-0.5 truncate hidden md:block">
-                    {subtitle}
-                  </p>
-                )}
-              </>
-            )}
+            {/* Mobile & Tablet: 2-line compact title (like Member) */}
+            <div className="leading-tight py-0.5 lg:hidden">
+              <span className="block font-display text-sm font-extrabold text-(--color-text) tracking-tight">
+                {user?.role === "MEMBER"
+                  ? "Member"
+                  : user?.role === "TRAINER"
+                  ? "Trainer"
+                  : user?.role === "BRANCH_MANAGER"
+                  ? "Branch"
+                  : "Admin"}
+              </span>
+              <span className="block font-display text-[10px] font-bold text-(--color-text-muted) uppercase tracking-wide">
+                Dashboard
+              </span>
+            </div>
+
+            {/* Desktop: Greeting & Subtitle (Unchanged for Desktop) */}
+            <div className="hidden lg:block">
+              <h1 className="font-display text-base sm:text-xl font-semibold text-(--color-text) truncate">
+                {greeting}
+              </h1>
+              {subtitle && (
+                <p className="text-xs text-(--color-text-muted) mt-0.5 truncate">
+                  {subtitle}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -340,16 +324,22 @@ export default function TopBar({
             ) : null
           ) : (
             branches.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) hover:border-(--color-accent) transition-all shrink-0 max-w-[160px] sm:max-w-none">
-                <Building2 size={14} className="text-(--color-accent) shrink-0 icon-hover-pop" />
+              <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-xs font-medium text-(--color-text) hover:border-(--color-accent) transition-all shrink min-w-0 max-w-[145px] xs:max-w-[180px] sm:max-w-none shadow-2xs">
+                <Building2 size={13} className="text-(--color-accent) shrink-0 icon-hover-pop" />
                 <CustomSelect
                   compact
                   value={activeBranchId || (branches[0]?._id || branches[0]?.id)}
                   onChange={handleSelectBranch}
-                  options={branches.map((b) => ({
-                    value: b._id || b.id,
-                    label: `${b.name}${b.city ? ` (${b.city})` : ""}`,
-                  }))}
+                  options={branches.map((b) => {
+                    const city = b.city || (typeof b.address === "object" ? b.address?.city : null);
+                    const shortName = getShortBranchName(b.name, user?.gymName, city);
+                    const fullName = `${b.name}${city ? ` (${city})` : ""}`;
+                    return {
+                      value: b._id || b.id,
+                      label: fullName,
+                      shortLabel: shortName || fullName,
+                    };
+                  })}
                 />
               </div>
             )
@@ -396,7 +386,7 @@ export default function TopBar({
           )}
 
           {/* Notifications Dropdown */}
-          <div ref={notifRef} className="static sm:relative">
+          <div ref={notifRef} className="static sm:relative shrink-0">
             <button
               onClick={() => {
                 setNotifOpen((o) => !o);

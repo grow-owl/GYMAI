@@ -25,7 +25,10 @@ export class MemberPaymentController {
         purpose: req.body.purpose,
         method: req.body.method,
         notes: req.body.notes,
+        customerName: req.body.customerName,
+        customerPhone: req.body.customerPhone,
         triggerRenewal: req.body.triggerRenewal,
+        renewMonths: req.body.renewMonths,
         newEndDate: req.body.newEndDate ? new Date(req.body.newEndDate) : undefined,
       },
       { id: req.user!.id, role: req.user!.role }

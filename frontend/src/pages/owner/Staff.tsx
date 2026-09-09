@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, KeyRound, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Users, KeyRound, Loader2, RefreshCw, Trash2, Mail, Phone, MapPin } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -167,7 +167,6 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
     <div className="space-y-4">
       <PageHeader
         title="Staff Management"
-        subtitle="Register and manage non-trainer staff (Branch Managers, Reception & Front Desk)"
         backTo="/owner"
         action={
           <div className="flex items-center gap-2">
@@ -181,7 +180,7 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
             {isOwnerOrAdmin && (
               <button
                 onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
+                className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
               >
                 <Plus size={15} /> Add Staff Member
               </button>
@@ -189,6 +188,18 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
           </div>
         }
       />
+
+      {/* Mobile & Tablet Add Staff Member Button (Full space under header) */}
+      {isOwnerOrAdmin && (
+        <div className="block lg:hidden w-full">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 hover:opacity-90 active:scale-[0.99] shadow-sm transition-all"
+          >
+            <Plus size={17} /> Add Staff Member
+          </button>
+        </div>
+      )}
 
       {resolvingBranch || loading ? (
         <Card className="flex items-center justify-center p-12 text-sm text-(--color-text-muted) gap-2">
@@ -226,50 +237,118 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
 
             return (
               <Card key={s._id || s.id} className="p-4 space-y-3 flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-2) font-display text-xs font-bold text-(--color-text)">
-                      {initials}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-display text-sm font-semibold text-(--color-text) truncate">{name}</p>
-                        {s.branchId?.name && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-(--color-surface-3) text-(--color-text-muted) border border-(--color-border)">
-                            📍 {s.branchId.name}
-                          </span>
-                        )}
+                {/* Desktop Layout (100% Untouched) */}
+                <div className="hidden lg:flex flex-col justify-between h-full space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-2) font-display text-xs font-bold text-(--color-text)">
+                        {initials}
                       </div>
-                      <p className="text-xs text-(--color-text-muted) truncate">{email}</p>
-                      <p className="text-xs text-(--color-text-faint) truncate">{phone}</p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-display text-sm font-semibold text-(--color-text) truncate">{name}</p>
+                          {s.branchId?.name && (
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-(--color-surface-3) text-(--color-text-muted) border border-(--color-border)">
+                              📍 {s.branchId.name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-(--color-text-muted) truncate">{email}</p>
+                        <p className="text-xs text-(--color-text-faint) truncate">{phone}</p>
+                      </div>
                     </div>
+                    <Badge tone={role === "BRANCH_MANAGER" ? "good" : "warn"}>
+                      {role === "BRANCH_MANAGER" ? "BRANCH MANAGER" : "RECEPTION / FRONT DESK"}
+                    </Badge>
                   </div>
-                  <Badge tone={role === "BRANCH_MANAGER" ? "good" : "warn"}>
-                    {role === "BRANCH_MANAGER" ? "BRANCH MANAGER" : "RECEPTION / FRONT DESK"}
-                  </Badge>
+
+                  {isOwnerOrAdmin && (
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border)">
+                      <button
+                        onClick={() => {
+                          setResetTargetUser(s);
+                          setShowResetModal(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 cursor-pointer"
+                        title="Reset Staff Password"
+                      >
+                        <KeyRound size={13} /> Reset Password
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStaff(s._id || s.id, name)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-semibold hover:bg-rose-500/20 cursor-pointer"
+                        title="Delete Staff Account"
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {isOwnerOrAdmin && (
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border)">
-                    <button
-                      onClick={() => {
-                        setResetTargetUser(s);
-                        setShowResetModal(true);
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 cursor-pointer"
-                      title="Reset Staff Password"
-                    >
-                      <KeyRound size={13} /> Reset Password
-                    </button>
-                    <button
-                      onClick={() => handleDeleteStaff(s._id || s.id, name)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-semibold hover:bg-rose-500/20 cursor-pointer"
-                      title="Delete Staff Account"
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
+                {/* Mobile & Tablet Layout (Vertically expanded, no overflow) */}
+                <div className="lg:hidden space-y-3">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-2) font-display text-xs font-bold text-(--color-text)">
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-display font-semibold text-sm text-(--color-text) break-words">{name}</h4>
+                        <div className="mt-1">
+                          <Badge tone={role === "BRANCH_MANAGER" ? "good" : "warn"}>
+                            {role === "BRANCH_MANAGER" ? "BRANCH MANAGER" : "RECEPTION"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
+
+                  {s.branchId?.name && (
+                    <div className="pt-0.5">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-(--color-surface-3) text-(--color-text-muted) border border-(--color-border) break-words">
+                        <MapPin size={12} className="text-(--color-text-faint) shrink-0" />
+                        <span>{s.branchId.name}</span>
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5 pt-1 text-xs text-(--color-text-muted) border-t border-(--color-border-soft)">
+                    {email && email !== "N/A" && (
+                      <div className="flex items-center gap-2 break-all">
+                        <Mail size={13} className="text-(--color-text-faint) shrink-0" />
+                        <span>{email}</span>
+                      </div>
+                    )}
+                    {phone && phone !== "N/A" && (
+                      <div className="flex items-center gap-2">
+                        <Phone size={13} className="text-(--color-text-faint) shrink-0" />
+                        <span className="font-mono text-(--color-text) font-medium">{phone}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {isOwnerOrAdmin && (
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border-soft)">
+                      <button
+                        onClick={() => {
+                          setResetTargetUser(s);
+                          setShowResetModal(true);
+                        }}
+                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 active:scale-95 transition-all"
+                        title="Reset Staff Password"
+                      >
+                        <KeyRound size={14} /> Reset Password
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStaff(s._id || s.id, name)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 text-rose-400 text-xs font-semibold hover:bg-rose-500/20 active:scale-95 transition-all"
+                        title="Delete Staff Account"
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </Card>
             );
           })}

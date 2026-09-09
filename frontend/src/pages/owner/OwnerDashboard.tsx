@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Sparkles, ArrowRight, TrendingUp, Clock, Award, AlertTriangle, Loader2, Users } from "lucide-react";
+import { Sparkles, ArrowRight, TrendingUp, Clock, Award, AlertTriangle, Loader2, Users, RefreshCw } from "lucide-react";
 import KpiCard from "@/components/ui/KpiCard";
 import QuickAccessCard from "@/components/ui/QuickAccessCard";
 import Card from "@/components/ui/Card";
 import DonutChart from "@/components/ui/DonutChart";
 import Heatmap, { type HeatmapCell } from "@/components/ui/Heatmap";
+import MarkdownRenderer from "@/components/common/MarkdownRenderer";
 import { ownerQuickAccess } from "@/data/nav";
 import { useGymBranch } from "@/hooks/useGymBranch";
 import { reportApi, memberApi, aiApi, attendanceApi, type DashboardOverview } from "@/lib/endpoints";
@@ -94,6 +95,49 @@ export default function OwnerDashboard() {
 
   const [overviewError, setOverviewError] = useState<string | null>(null);
 
+  const fetchWeeklyDigest = async (forceRefresh: boolean = false) => {
+    if (!gymId) return;
+
+    // Check client storage cache when not forcing refresh
+    if (!forceRefresh) {
+      try {
+        const cached =
+          sessionStorage.getItem(`gymai.weekly_digest.${gymId}`) ||
+          localStorage.getItem(`gymai.weekly_digest.${gymId}`);
+        if (cached) {
+          setWeeklyDigest(cached);
+          setDigestLoading(false);
+          return;
+        }
+      } catch {}
+    }
+
+    setDigestLoading(true);
+    try {
+      const res = await aiApi.getWeeklyDigest(gymId, forceRefresh);
+      const digestText =
+        res?.weeklyDigest ||
+        "No AI weekly digest available yet. Add members and check-ins to generate insights.";
+      setWeeklyDigest(digestText);
+      try {
+        sessionStorage.setItem(`gymai.weekly_digest.${gymId}`, digestText);
+        localStorage.setItem(`gymai.weekly_digest.${gymId}`, digestText);
+      } catch {}
+      if (forceRefresh) {
+        toast.success("AI Gym Co-Pilot digest updated successfully!");
+      }
+    } catch (err) {
+      console.error("Failed to fetch weekly digest:", err);
+      if (forceRefresh) {
+        toast.error("Failed to refresh AI digest. Keeping current summary.");
+      } else if (!weeklyDigest) {
+        setWeeklyDigest("AI executive digest currently offline. Check back shortly.");
+      }
+    } finally {
+      setDigestLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (branchError) {
       toast.error(`Branch error: ${branchError}`);
@@ -101,8 +145,10 @@ export default function OwnerDashboard() {
     if (!gymId) return;
 
     setLoadingOverview(true);
-    setDigestLoading(true);
     setOverviewError(null);
+
+    // Fetch weekly digest with client & server caching (bypasses LLM on page navigation)
+    fetchWeeklyDigest(false);
 
     Promise.all([
       reportApi.getOverview(gymId, branchId ?? undefined).catch((err) => {
@@ -112,7 +158,6 @@ export default function OwnerDashboard() {
         return null;
       }),
       branchId ? memberApi.list(gymId, branchId).catch(() => []) : Promise.resolve([]),
-      aiApi.getWeeklyDigest(gymId).catch(() => null),
       reportApi.getExpiringMemberships(gymId).catch(() => []),
       attendanceApi.getHeatmap(gymId, branchId ?? undefined).catch(() => null),
       aiApi.getRevenueForecast(gymId).catch(() => null),
@@ -120,7 +165,7 @@ export default function OwnerDashboard() {
       aiApi.getTrainerPerformance(gymId).catch(() => null),
       aiApi.getAtRiskMembers(gymId).catch(() => null),
     ])
-      .then(([ovRes, memRes, digestRes, expRes, heatRes, revRes, peakRes, perfRes, riskRes]) => {
+      .then(([ovRes, memRes, expRes, heatRes, revRes, peakRes, perfRes, riskRes]) => {
         const zeroOverview: DashboardOverview = {
           totalActiveMembers: 0,
           totalTrainers: 0,
@@ -137,12 +182,6 @@ export default function OwnerDashboard() {
         const expList = Array.isArray(expRes) ? expRes : (expRes as any)?.expiringMemberships || [];
         setExpiringList(expList);
 
-        if (digestRes?.weeklyDigest) {
-          setWeeklyDigest(digestRes.weeklyDigest);
-        } else {
-          setWeeklyDigest("No AI weekly digest available yet. Add members and check-ins to generate insights.");
-        }
-
         if (heatRes?.weeks) {
           setHeatmapWeeks(heatRes.weeks);
           setAvgActive30d(heatRes.avgAttendanceRate30d || 0);
@@ -158,7 +197,6 @@ export default function OwnerDashboard() {
       })
       .finally(() => {
         setLoadingOverview(false);
-        setDigestLoading(false);
       });
   }, [gymId, branchId]);
 
@@ -221,39 +259,80 @@ export default function OwnerDashboard() {
       )}
 
       {/* AI Assistant Banner */}
-      <Card sweep className="border-(--color-accent)/20 bg-gradient-to-r from-(--color-accent)/5 to-transparent">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md">
-              <Sparkles size={20} strokeWidth={2} />
-            </span>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-(--color-accent-text)">AI Gym Co-Pilot</span>
-                <span className="rounded-full bg-(--color-accent-soft) px-2 py-0.5 text-[10px] font-semibold text-(--color-accent-text)">LIVE</span>
-              </div>
-              {digestLoading ? (
-                <p className="text-xs text-(--color-text-muted) flex items-center gap-1.5 py-1">
-                  <Loader2 size={13} className="animate-spin text-(--color-accent)" /> Generating AI weekly digest...
+      <Card sweep className="relative overflow-hidden border-(--color-accent)/25 bg-gradient-to-br from-(--color-accent)/10 via-(--color-accent)/5 to-transparent p-4 sm:p-5 shadow-xs">
+        {/* Decorative ambient glow */}
+        <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-(--color-accent)/10 blur-2xl" />
+
+        <div className="flex flex-col gap-3 sm:gap-3.5 relative">
+          {/* Header Row: Branding on Left, Refresh & Action Button on Right */}
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-(--color-accent)/15">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <span className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-(--color-accent) text-(--color-navbar) shadow-md">
+                <Sparkles size={18} className="sm:w-5 sm:h-5" strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0">
+                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-(--color-accent-text)">
+                  AI Gym Co-Pilot
+                </span>
+                <p className="text-[11px] text-(--color-text-muted) hidden sm:block">
+                  Weekly Executive Business Digest
                 </p>
-              ) : (
-                <p className="text-sm font-medium text-(--color-text) leading-relaxed whitespace-pre-line">{weeklyDigest}</p>
-              )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => fetchWeeklyDigest(true)}
+                disabled={digestLoading}
+                className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-(--color-surface) text-(--color-text-muted) hover:text-(--color-accent-text) border border-(--color-border) hover:border-(--color-accent) active:scale-95 transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+                title="Refresh AI Digest with latest live data"
+                aria-label="Refresh AI Digest"
+              >
+                <RefreshCw size={16} className={digestLoading ? "animate-spin text-(--color-accent)" : ""} />
+              </button>
+
+              <Link
+                to="/owner/ai-insights"
+                className="hidden sm:inline-flex items-center gap-2 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-5 py-2 hover:opacity-90 active:scale-95 transition-all shadow-md shrink-0"
+              >
+                <span>AI Insights</span>
+                <ArrowRight size={16} />
+              </Link>
             </div>
           </div>
-          <Link
-            to="/owner/ai-insights"
-            className="flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90 transition-opacity shrink-0"
-          >
-            AI Insights <ArrowRight size={14} />
-          </Link>
+
+          {/* Digest Body: Spans full width across mobile, tablet, and desktop */}
+          <div className="pt-0.5">
+            {digestLoading ? (
+              <p className="text-xs sm:text-sm text-(--color-text-muted) flex items-center gap-2 py-1">
+                <Loader2 size={15} className="animate-spin text-(--color-accent)" />
+                Synthesizing executive business digest...
+              </p>
+            ) : (
+              <div className="text-xs sm:text-sm font-normal text-(--color-text)/90 leading-relaxed">
+                <MarkdownRenderer content={weeklyDigest} className="leading-relaxed" />
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Full-Width Button */}
+          <div className="pt-2 sm:hidden">
+            <Link
+              to="/owner/ai-insights"
+              className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-(--color-accent) text-(--color-navbar) text-sm font-bold py-3.5 px-5 hover:opacity-90 active:scale-98 transition-all shadow-md text-center"
+            >
+              <span>AI Insights</span>
+              <ArrowRight size={18} />
+            </Link>
+          </div>
         </div>
       </Card>
 
       {/* Quick Access */}
       <div>
         <p className="text-xs font-medium tracking-wide text-(--color-text-faint) uppercase mb-3">Quick access</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {(isBranchManager
             ? ownerQuickAccess.filter(
                 (item) => item.path !== "/owner/expenses" && item.path !== "/owner/reports"
@@ -266,26 +345,24 @@ export default function OwnerDashboard() {
       </div>
 
       {/* Charts section */}
-      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card className="flex flex-col justify-between">
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6 min-w-0">
+        <Card className="flex flex-col justify-between min-w-0 overflow-hidden">
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-(--color-border)/60">
             <div>
               <p className="text-xs font-bold tracking-wider text-(--color-text-faint) uppercase flex items-center gap-2">
                 <Users size={15} className="text-(--color-accent)" /> Member Status Distribution
               </p>
-              <p className="text-[11px] text-(--color-text-muted) mt-0.5">Live breakdown across active membership tiers</p>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-(--color-accent)/10 text-(--color-accent)">
-              {memberList.length} Members
-            </span>
           </div>
           <DonutChart segments={statusSegments} centerValue={String(memberList.length)} centerLabel="Total Members" />
         </Card>
 
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Check-in frequency (14 Weeks)</p>
-            <span className="font-mono text-xs text-(--color-text-muted)">
+        <Card className="min-w-0 overflow-hidden p-3.5 sm:p-5">
+          <div className="flex items-start sm:items-center justify-between gap-2 mb-2 sm:mb-3">
+            <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">
+              Check-in frequency (14 Weeks)
+            </p>
+            <span className="font-mono text-[10px] sm:text-xs text-(--color-text-muted) whitespace-nowrap shrink-0">
               Avg {avgActive30d || overview?.avgAttendanceRate30d || 0}% active
             </span>
           </div>
@@ -294,20 +371,26 @@ export default function OwnerDashboard() {
       </div>
 
       {/* Mini stats footer */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {miniStats.map(({ label, value, note, icon: Icon, tone }) => {
           const { bg, text } = miniStatClasses[tone];
           return (
-            <Card key={label} className="flex items-center gap-3">
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg} ${text}`}>
-                <Icon size={18} strokeWidth={2} />
+            <Card key={label} className="p-3 sm:p-4 flex items-start sm:items-center gap-2.5 sm:gap-3">
+              <span className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl ${bg} ${text} mt-0.5 sm:mt-0 shadow-2xs`}>
+                <Icon size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-display text-sm font-semibold text-(--color-text) truncate">{value}</p>
-                <p className="text-[11px] text-(--color-text-muted) truncate flex items-center justify-between">
-                  <span>{label}</span>
-                  {note && <span className="text-[10px] text-(--color-text-faint) font-normal ml-1">({note})</span>}
+                <p className="font-display text-xs sm:text-sm font-bold text-(--color-text) truncate" title={value}>
+                  {value}
                 </p>
+                <p className="text-[10px] sm:text-[11px] font-medium text-(--color-text-muted) truncate">
+                  {label}
+                </p>
+                {note && (
+                  <p className="text-[9px] sm:text-[10px] text-(--color-text-faint) truncate">
+                    {note}
+                  </p>
+                )}
               </div>
             </Card>
           );

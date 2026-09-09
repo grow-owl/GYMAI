@@ -23,6 +23,62 @@ const statusTone: Record<string, "good" | "warn" | "danger" | "accent"> = {
   FROZEN: "accent",
 };
 
+const getMembershipDaysLeft = (m: any) => {
+  const endDateStr = m.membershipEndDate || m.endDate;
+  if (!endDateStr) return null;
+  const end = new Date(endDateStr);
+  if (isNaN(end.getTime())) return null;
+
+  const now = new Date();
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const diffDays = Math.round((endDay - nowDay) / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
+const getMobileMembershipDisplay = (m: any) => {
+  const status = m.membershipStatus || "ACTIVE";
+  const daysLeft = getMembershipDaysLeft(m);
+
+  if (status === "CANCELLED") {
+    return { text: "CANCELLED", tone: "danger" as const };
+  }
+
+  if (status === "FROZEN") {
+    if (daysLeft !== null && daysLeft > 0) {
+      return { text: `${daysLeft}d left (Frozen)`, tone: "accent" as const };
+    }
+    return { text: "FROZEN", tone: "accent" as const };
+  }
+
+  if (daysLeft !== null) {
+    if (daysLeft > 1) {
+      return {
+        text: `${daysLeft} days left`,
+        tone: daysLeft <= 7 ? ("warn" as const) : ("good" as const),
+      };
+    }
+    if (daysLeft === 1) {
+      return { text: "1 day left", tone: "warn" as const };
+    }
+    if (daysLeft === 0) {
+      return { text: "Expires today", tone: "warn" as const };
+    }
+    return { text: "Expired", tone: "danger" as const };
+  }
+
+  return {
+    text: status,
+    tone: (statusTone[status] || "good") as "good" | "warn" | "danger" | "accent",
+  };
+};
+
+const cleanTrainerName = (t: string) => {
+  if (!t || t.toLowerCase() === "unassigned") return "Unassigned";
+  const cleaned = t.replace(/^Trainer\s+/i, "").trim();
+  return cleaned || t;
+};
+
 export interface GymPlanOption {
   id: string;
   name: string;
@@ -120,6 +176,20 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
 
   // Clear search on page unmount so query doesn't bleed into other pages (fix #34)
   useEffect(() => () => { clearSearchQuery(); }, [clearSearchQuery]);
+
+  // Track desktop vs mobile/tablet viewport to preserve 100% desktop UI
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth >= 1024;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -381,13 +451,23 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
             >
               <Plus size={15} /> Add member
             </button>
           </div>
         }
       />
+
+      {/* Mobile & Tablet Add Member Button (Full space under header) */}
+      <div className="block lg:hidden w-full">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 hover:opacity-90 active:scale-[0.99] shadow-sm transition-all"
+        >
+          <Plus size={17} /> Add member
+        </button>
+      </div>
 
       <Card className="p-3">
         <div className="relative">
@@ -396,7 +476,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone number, or QR ID..."
+            placeholder={isDesktop ? "Search by name, phone number, or QR ID..." : "Search"}
             className="w-full rounded-xl border border-(--color-border) bg-(--color-base) pl-9 pr-4 py-2 text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
           />
         </div>
@@ -430,6 +510,8 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
             const plan = m.planName || m.plan || "Monthly Fitness";
             const trainer = m.assignedTrainerId?.userId?.fullName || m.assignedTrainerId?.name || m.trainerName || "Unassigned";
             const status = m.membershipStatus || "ACTIVE";
+            const mobileBadge = getMobileMembershipDisplay(m);
+            const displayTrainer = cleanTrainerName(trainer);
             const initials = name
               .split(" ")
               .map((n: string) => n[0])
@@ -439,23 +521,38 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
 
             return (
               <Card key={mId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-2) font-display text-xs font-bold text-(--color-text)">
+                <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--color-surface-2) font-display text-xs font-bold text-(--color-text) mt-0.5 sm:mt-0">
                     {initials}
                   </div>
                   <div className="min-w-0">
                     <p className="font-display text-sm font-semibold text-(--color-text) truncate">{name}</p>
-                    <p className="text-xs text-(--color-text-muted) truncate mt-0.5">
+                    {/* Desktop layout: exact original single line */}
+                    <p className="hidden lg:block text-xs text-(--color-text-muted) truncate mt-0.5">
                       {plan} · Trainer: <span className="font-medium text-(--color-text)">{trainer}</span>
                     </p>
+                    {/* Mobile & Tablet layout: stacked cleanly with trainer below plan */}
+                    <div className="lg:hidden text-xs text-(--color-text-muted) mt-0.5 space-y-0.5">
+                      <p className="font-medium text-(--color-text-muted)">{plan}</p>
+                      <p className="text-(--color-text-muted)">
+                        Trainer:{" "}
+                        <span className={displayTrainer === "Unassigned" ? "text-(--color-text-muted)" : "font-medium text-(--color-text)"}>
+                          {displayTrainer}
+                        </span>
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                  <Badge tone={statusTone[status] || "good"}>{status}</Badge>
+                  {/* Desktop status badge (original) */}
+                  <Badge tone={statusTone[status] || "good"} className="hidden lg:inline-flex">{status}</Badge>
 
-                  {/* Desktop / Tablet action buttons */}
-                  <div className="hidden sm:flex items-center gap-1">
+                  {/* Mobile & Tablet badge: shows actual days left */}
+                  <Badge tone={mobileBadge.tone} className="lg:hidden">{mobileBadge.text}</Badge>
+
+                  {/* Desktop action buttons */}
+                  <div className="hidden lg:flex items-center gap-1">
                     <button
                       onClick={() => {
                         setSelectedMember(m);
@@ -539,7 +636,7 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                   </div>
 
                   {/* Mobile action buttons & overflow menu */}
-                  <div className="flex sm:hidden items-center gap-1 relative">
+                  <div className="flex lg:hidden items-center gap-1 relative">
                     <button
                       onClick={() => {
                         setSelectedMember(m);

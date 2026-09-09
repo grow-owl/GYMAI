@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search, KeyRound } from "lucide-react";
+import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search, KeyRound, Mail, Phone } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
@@ -52,6 +52,20 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
   const [submittingAdd, setSubmittingAdd] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTrainer, setSelectedTrainer] = useState<TrainerRow | null>(null);
+
+  // Track desktop vs mobile/tablet viewport to preserve 100% desktop UI
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth >= 1024;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Reset Password Modal
   const [showResetModal, setShowResetModal] = useState(false);
@@ -234,7 +248,6 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
     <div className="space-y-4">
       <PageHeader
         title="Trainers Management"
-        subtitle="Personal Trainers, Workloads & Client Assignments"
         backTo="/owner"
         action={
           <div className="flex items-center gap-2">
@@ -247,13 +260,23 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 py-2 hover:opacity-90 shadow-sm"
             >
               <Plus size={15} /> Add Trainer
             </button>
           </div>
         }
       />
+
+      {/* Mobile & Tablet Add Trainer Button (Full space under header) */}
+      <div className="block lg:hidden w-full">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl bg-(--color-accent) text-(--color-navbar) text-sm font-bold px-4 hover:opacity-90 active:scale-[0.99] shadow-sm transition-all"
+        >
+          <Plus size={17} /> Add Trainer
+        </button>
+      </div>
 
       <Card className="p-3">
         <div className="relative">
@@ -262,7 +285,7 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search trainers by name, phone, specialization..."
+            placeholder={isDesktop ? "Search trainers by name, phone, specialization..." : "Search"}
             className="w-full rounded-xl border border-(--color-border) bg-(--color-base) pl-9 pr-4 py-2 text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
           />
         </div>
@@ -303,66 +326,147 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
 
             return (
               <Card key={tId} className="p-4 space-y-3 flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-(--color-surface-2) flex items-center justify-center font-bold text-sm text-(--color-text) shrink-0">
-                      {name.charAt(0).toUpperCase()}
+                {/* Desktop Layout (100% Untouched) */}
+                <div className="hidden lg:flex flex-col justify-between h-full space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-(--color-surface-2) flex items-center justify-center font-bold text-sm text-(--color-text) shrink-0">
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-display font-semibold text-sm text-(--color-text) truncate">{name}</h4>
+                          {workloadVal !== undefined && workloadVal !== null ? (
+                            <Badge tone="accent">{workloadVal} active {workloadVal === 1 ? "client" : "clients"}</Badge>
+                          ) : (
+                            <span className="text-[10px] text-(--color-text-faint) animate-pulse">Loading workload...</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-(--color-accent) font-medium truncate">{specs}</p>
+                        {email && <p className="text-[11px] text-(--color-text-muted) truncate">{email}</p>}
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => {
+                          setResetTargetUser(t.userId?._id ? t.userId : { _id: t.userId || tId, fullName: name });
+                          setShowResetModal(true);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-amber-400"
+                        title="Reset Trainer Password"
+                      >
+                        <KeyRound size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleOpenAssign(t)}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-accent)"
+                        title="Assign Client"
+                      >
+                        <UserPlus size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTrainer(tId)}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-red-400"
+                        title="Delete Trainer"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                    <div className="p-2.5 rounded-xl bg-(--color-surface-2)/50">
+                      <Award className="w-4 h-4 mx-auto text-amber-400 mb-0.5" />
+                      <p className="font-bold text-(--color-text)">{clientsCount}</p>
+                      <p className="text-[10px] text-(--color-text-muted)">Clients assigned</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-(--color-surface-2)/50">
+                      <p className="font-mono text-xs font-semibold text-(--color-text) truncate mt-1">{phone}</p>
+                      <p className="text-[10px] text-(--color-text-muted)">Phone</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile & Tablet Layout (Vertically expanded, no overflow) */}
+                <div className="lg:hidden space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-(--color-surface-2) flex items-center justify-center font-bold text-sm text-(--color-text) shrink-0">
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
                         <h4 className="font-display font-semibold text-sm text-(--color-text) truncate">{name}</h4>
                         {workloadVal !== undefined && workloadVal !== null ? (
-                          <Badge tone="accent">{workloadVal} active {workloadVal === 1 ? "client" : "clients"}</Badge>
+                          <Badge tone="accent" className="mt-0.5">{workloadVal} active {workloadVal === 1 ? "client" : "clients"}</Badge>
                         ) : (
                           <span className="text-[10px] text-(--color-text-faint) animate-pulse">Loading workload...</span>
                         )}
                       </div>
-                      <p className="text-xs text-(--color-accent) font-medium truncate">{specs}</p>
-                      {email && <p className="text-[11px] text-(--color-text-muted) truncate">{email}</p>}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0 bg-(--color-surface-2)/60 p-1 rounded-xl border border-(--color-border-soft)">
+                      <button
+                        onClick={() => {
+                          setResetTargetUser(t.userId?._id ? t.userId : { _id: t.userId || tId, fullName: name });
+                          setShowResetModal(true);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-amber-400 active:scale-95"
+                        title="Reset Trainer Password"
+                      >
+                        <KeyRound size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleOpenAssign(t)}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-accent) active:scale-95"
+                        title="Assign Client"
+                      >
+                        <UserPlus size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTrainer(tId)}
+                        className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-red-400 active:scale-95"
+                        title="Delete Trainer"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => {
-                        setResetTargetUser(t.userId?._id ? t.userId : { _id: t.userId || tId, fullName: name });
-                        setShowResetModal(true);
-                      }}
-                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-amber-400"
-                      title="Reset Trainer Password"
-                    >
-                      <KeyRound size={15} />
-                    </button>
-                    <button
-                      onClick={() => handleOpenAssign(t)}
-                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-(--color-accent)"
-                      title="Assign Client"
-                    >
-                      <UserPlus size={15} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTrainer(tId)}
-                      className="p-1.5 rounded-lg hover:bg-(--color-surface-2) text-red-400"
-                      title="Delete Trainer"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
+                  <div className="space-y-2 pt-1 border-t border-(--color-border-soft) text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-(--color-text-muted) uppercase tracking-wider block mb-0.5">
+                        Specializations
+                      </span>
+                      <p className="text-xs text-(--color-accent) font-medium leading-relaxed break-words">
+                        {specs}
+                      </p>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="p-2.5 rounded-xl bg-(--color-surface-2)/50">
-                    <Award className="w-4 h-4 mx-auto text-amber-400 mb-0.5" />
-                    <p className="font-bold text-(--color-text)">{clientsCount}</p>
-                    <p className="text-[10px] text-(--color-text-muted)">Clients assigned</p>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-(--color-surface-2)/50">
-                    <p className="font-mono text-xs font-semibold text-(--color-text) truncate mt-1">{phone}</p>
-                    <p className="text-[10px] text-(--color-text-muted)">Phone</p>
+                    {email && (
+                      <div className="flex items-center gap-2 text-xs text-(--color-text-muted) break-all">
+                        <Mail size={13} className="text-(--color-text-faint) shrink-0" />
+                        <span>{email}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 text-xs text-(--color-text-muted)">
+                      <Phone size={13} className="text-(--color-text-faint) shrink-0" />
+                      <span className="font-mono font-medium text-(--color-text)">{phone}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-(--color-surface-2)/50 border border-(--color-border-soft)">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span className="text-xs text-(--color-text-muted)">Clients Assigned</span>
+                      </div>
+                      <span className="text-xs font-bold text-(--color-text)">{clientsCount}</span>
+                    </div>
                   </div>
                 </div>
               </Card>
             );
+
           })}
         </div>
       )}

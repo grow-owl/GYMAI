@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Building2, Users, Bell, ShieldCheck, CreditCard, Plus, Loader2, Download, Trash2, Megaphone, Send, RefreshCw } from "lucide-react";
+import { Building2, Bell, ShieldCheck, Plus, Loader2, Download, Trash2, Megaphone, Send, RefreshCw, KeyRound } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -9,19 +9,17 @@ import { gymApi, privacyApi, notificationApi, jobApi, authApi } from "@/lib/endp
 import { useAuthStore } from "@/store/authStore";
 import { invalidateBranchesCache } from "@/hooks/useGymBranch";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
 
 import { api } from "@/lib/api";
-import { KeyRound } from "lucide-react";
 import type { IBranch, IGym, IWhatsAppLog } from "@/types";
 
-type TabKey = "branches" | "staff" | "subscription" | "notifications" | "compliance" | "security";
+type TabKey = "branches" | "notifications" | "compliance" | "security";
 
 export default function Settings() {
   const user = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<TabKey>("branches");
   const [branches, setBranches] = useState<IBranch[]>([]);
-  const [gymInfo, setGymInfo] = useState<Partial<IGym>>(() => ({
+  const [, setGymInfo] = useState<Partial<IGym>>(() => ({
     name: user?.gymName || "My Gym Center",
   }));
   const [waLogs, setWaLogs] = useState<IWhatsAppLog[]>([]);
@@ -302,8 +300,6 @@ export default function Settings() {
 
   const tabs: { key: TabKey; icon: any; label: string; desc: string }[] = [
     { key: "branches", icon: Building2, label: "Gym & Branches", desc: "Branch locations & address setup" },
-    { key: "staff", icon: Users, label: "Staff Roles", desc: "Role permissions & staff access" },
-    { key: "subscription", icon: CreditCard, label: "Subscription Plan", desc: "SaaS tier details" },
     { key: "notifications", icon: Bell, label: "Notifications", desc: "Push & WhatsApp preferences" },
     { key: "compliance", icon: ShieldCheck, label: "Data & Compliance", desc: "Export data & deletion requests" },
     { key: "security", icon: KeyRound, label: "Security & Password", desc: "Change account password" },
@@ -311,21 +307,21 @@ export default function Settings() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Settings" subtitle="Gym configuration, staff roles & data privacy" backTo="/owner" />
+      <PageHeader title="Settings" backTo="/owner" />
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {tabs.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-medium transition-colors ${
+            className={`flex items-center gap-2 p-2.5 sm:p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
               activeTab === key
-                ? "bg-(--color-accent-soft) border-(--color-accent) text-(--color-accent-text)"
+                ? "bg-(--color-accent-soft) border-(--color-accent) text-(--color-accent-text) shadow-sm"
                 : "bg-(--color-surface) border-(--color-border) text-(--color-text-muted) hover:text-(--color-text)"
             }`}
           >
-            <Icon size={16} />
-            <span className="truncate">{label}</span>
+            <Icon size={16} className="shrink-0" />
+            <span className="text-left leading-tight break-words">{label}</span>
           </button>
         ))}
       </div>
@@ -339,16 +335,13 @@ export default function Settings() {
           {/* Gym & Branches Tab */}
           {activeTab === "branches" && (
             <Card className="space-y-4">
-              <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-3">
-                <div>
+              <div className="flex items-center justify-between gap-3 border-b border-(--color-border-soft) pb-3">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-(--color-text)">Gym Branches ({branches.length})</p>
-                  <p className="text-xs text-(--color-text-faint) mt-0.5">
-                    {gymInfo?.name || "Your Gym"} · Plan: {(gymInfo?.plan || "PRO").toUpperCase()}
-                  </p>
                 </div>
                 <button
                   onClick={() => setShowAddBranchModal(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-4 py-2 hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold px-3.5 sm:px-4 py-2 hover:opacity-90 shrink-0 whitespace-nowrap cursor-pointer shadow-sm"
                 >
                   <Plus size={14} /> Add Branch
                 </button>
@@ -362,9 +355,9 @@ export default function Settings() {
                 <div className="grid sm:grid-cols-2 gap-3">
                   {branches.map((b) => (
                     <div key={b._id || b.id} className="p-4 rounded-xl bg-(--color-surface-2) space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-(--color-text)">{b.name}</p>
-                        {b.isPrimary && <Badge tone="accent">Primary</Badge>}
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-(--color-text) min-w-0 truncate">{b.name}</p>
+                        {b.isPrimary && <Badge tone="accent" className="shrink-0">Primary</Badge>}
                       </div>
                       <p className="text-xs text-(--color-text-muted)">Phone: {b.contactPhone || "—"}</p>
                       <p className="text-xs text-(--color-text-faint)">Timezone: {b.timezone || "Asia/Kolkata"}</p>
@@ -390,7 +383,7 @@ export default function Settings() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-(--color-surface-2) border border-(--color-border)">
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 min-w-0">
                     <label className="text-xs font-semibold text-(--color-text)">
                       Free Pass Duration (Days)
                     </label>
@@ -398,20 +391,20 @@ export default function Settings() {
                       e.g., 1 day pass, 2 days pass, or 7 days workout trial.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                     <input
                       type="number"
                       min={1}
                       max={30}
                       value={trialPassDays}
                       onChange={(e) => setTrialPassDays(Math.max(1, Math.min(30, Number(e.target.value) || 1)))}
-                      className="w-20 px-3 py-2.5 sm:py-2 text-center text-sm font-bold rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) outline-none focus:border-(--color-accent)"
+                      className="w-16 sm:w-20 px-3 py-2 text-center text-sm font-bold rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) outline-none focus:border-(--color-accent) shrink-0"
                     />
                     <button
                       type="button"
                       onClick={handleSaveTrialPassDays}
                       disabled={savingTrialPass}
-                      className="flex-1 sm:flex-initial px-4 py-2.5 sm:py-2 text-xs font-semibold rounded-xl bg-(--color-accent) text-white hover:opacity-90 transition-all shadow-sm text-center disabled:opacity-50 inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-xl bg-(--color-accent) text-(--color-navbar) hover:opacity-90 transition-all shadow-sm text-center disabled:opacity-50 inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
                     >
                       {savingTrialPass ? (
                         <>
@@ -424,64 +417,6 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-            </Card>
-          )}
-
-          {/* Staff Roles Tab */}
-          {activeTab === "staff" && (
-            <Card className="space-y-4">
-              <p className="text-sm font-semibold text-(--color-text) border-b border-(--color-border-soft) pb-3">
-                Staff Access & Permission Hierarchy
-              </p>
-              <div className="space-y-3">
-                <div className="p-3.5 rounded-xl bg-(--color-surface-2) space-y-1">
-                  <p className="text-sm font-medium text-(--color-text)">GYM_OWNER</p>
-                  <p className="text-xs text-(--color-text-faint)">
-                    Full access across all branches, business reports, staff hiring, billing, and system settings.
-                  </p>
-                </div>
-                <div className="p-3.5 rounded-xl bg-(--color-surface-2) space-y-1">
-                  <p className="text-sm font-medium text-(--color-text)">BRANCH_MANAGER</p>
-                  <p className="text-xs text-(--color-text-faint)">
-                    Manages member registrations, check-ins, lead pipeline, and trainer allocations for assigned branch.
-                  </p>
-                </div>
-                <div className="p-3.5 rounded-xl bg-(--color-surface-2) space-y-1">
-                  <p className="text-sm font-medium text-(--color-text)">TRAINER</p>
-                  <p className="text-xs text-(--color-text-faint)">
-                    Access to assigned client roster, workout & diet plan creation, progress tracking, and session logs.
-                  </p>
-                </div>
-                <div className="p-3.5 rounded-xl bg-(--color-surface-2) space-y-1">
-                  <p className="text-sm font-medium text-(--color-text)">RECEPTION</p>
-                  <p className="text-xs text-(--color-text-faint)">
-                    QR check-in desk, manual cash/UPI payment recording, member lookup, and front-desk lead entry.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Subscription Plan Tab */}
-          {activeTab === "subscription" && (
-            <Card className="space-y-4">
-              <div className="flex items-center justify-between border-b border-(--color-border-soft) pb-3">
-                <div>
-                  <p className="text-sm font-semibold text-(--color-text)">Active SaaS Subscription</p>
-                  <p className="text-xs text-(--color-text-faint) mt-0.5">
-                    Plan: <span className="font-bold uppercase text-(--color-accent-text)">{gymInfo?.plan || "PRO"}</span>
-                  </p>
-                </div>
-                <Link
-                  to="/owner/billing"
-                  className="px-4 py-2 text-xs font-bold rounded-full bg-(--color-accent) text-(--color-navbar)"
-                >
-                  Manage SaaS Subscription
-                </Link>
-              </div>
-              <p className="text-xs text-(--color-text-muted)">
-                SaaS plans grant multi-branch quotas, AI business insights, and offline payment processing.
-              </p>
             </Card>
           )}
 
@@ -579,12 +514,12 @@ export default function Settings() {
               </div>
 
               <div className="pt-3 border-t border-(--color-border-soft) space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <p className="text-xs font-medium text-(--color-text-muted)">Recent WhatsApp Logs & Reminders</p>
                   <button
                     type="button"
                     onClick={handleRunReminders}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold hover:opacity-90 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-full bg-(--color-accent) text-(--color-navbar) text-xs font-bold hover:opacity-90 cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-auto shadow-sm"
                   >
                     <RefreshCw size={13} /> Run Reminders Job Now
                   </button>
@@ -596,26 +531,35 @@ export default function Settings() {
                     {waLogs.map((log: IWhatsAppLog, idx: number) => {
                       const memberName = log.memberId?.userId?.fullName || log.memberId?.name || log.phone || log.recipientPhone || "Member";
                       const errorMsg = log.status === "FAILED" ? (log.errorMessage || log.errorReason) : null;
+                      const hasDistinctName = memberName && memberName !== log.phone && memberName !== log.recipientPhone;
 
                       return (
                         <div key={log._id || idx} className="py-2.5 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-(--color-text)">{log.templateName || "Template Message"}</span>
-                                <span className="text-(--color-text-muted)">· {memberName}</span>
-                                <span className="font-mono text-(--color-text-faint)">({log.phone})</span>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                <span className="font-semibold text-(--color-text) break-all">{log.templateName || "Template Message"}</span>
+                                {hasDistinctName && (
+                                  <span className="text-(--color-text-muted) truncate max-w-[140px] sm:max-w-[200px]">· {memberName}</span>
+                                )}
+                                {(log.phone || log.recipientPhone) && (
+                                  <span className="font-mono text-[11px] text-(--color-text-faint)">
+                                    ({log.phone || log.recipientPhone})
+                                  </span>
+                                )}
                               </div>
                               <p className="text-[11px] text-(--color-text-faint) mt-0.5">
                                 {new Date(log.sentAt || log.createdAt).toLocaleString()}
                               </p>
                             </div>
-                            <Badge tone={log.status === "SENT" ? "good" : log.status === "FAILED" ? "danger" : "warn"}>
-                              {log.status}
-                            </Badge>
+                            <div className="shrink-0 pt-0.5">
+                              <Badge tone={log.status === "SENT" ? "good" : log.status === "FAILED" ? "danger" : "warn"}>
+                                {log.status}
+                              </Badge>
+                            </div>
                           </div>
                           {errorMsg && (
-                            <p className="text-[11px] text-rose-400 bg-rose-500/10 p-1.5 rounded-lg">
+                            <p className="text-[11px] text-rose-400 bg-rose-500/10 p-1.5 rounded-lg break-words">
                               Error: {errorMsg}
                             </p>
                           )}
@@ -719,18 +663,18 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="pt-2 flex items-center justify-between gap-2">
+                <div className="pt-2 flex flex-col sm:flex-row gap-2.5 sm:items-center sm:justify-between">
                   <button
                     type="button"
                     onClick={handleLogoutAll}
-                    className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer whitespace-nowrap text-center order-2 sm:order-1"
                   >
                     Logout from All Devices
                   </button>
                   <button
                     type="submit"
                     disabled={changingPass}
-                    className="px-5 py-2.5 text-xs font-bold rounded-xl bg-(--color-accent) text-(--color-navbar) hover:bg-(--color-accent-strong) disabled:opacity-50 cursor-pointer"
+                    className="w-full sm:w-auto px-5 py-2.5 text-xs font-bold rounded-xl bg-(--color-accent) text-(--color-navbar) hover:bg-(--color-accent-strong) disabled:opacity-50 cursor-pointer whitespace-nowrap text-center order-1 sm:order-2 shadow-sm"
                   >
                     {changingPass ? "Updating Password..." : "Update Password"}
                   </button>

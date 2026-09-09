@@ -485,7 +485,10 @@ export const paymentApi = {
 };
 
 export const aiApi = {
-  getWeeklyDigest: (gymId: string) => api.get<{ weeklyDigest: string }>(`/ai/gyms/${gymId}/insights/weekly-digest`),
+  getWeeklyDigest: (gymId: string, refresh?: boolean) =>
+    api.get<{ weeklyDigest: string }>(
+      `/ai/gyms/${gymId}/insights/weekly-digest${refresh ? "?refresh=true" : ""}`
+    ),
 
   getAtRiskMembers: (gymId: string, riskLevel?: string) =>
     api.get<Array<Record<string, unknown>>>(`/ai/gyms/${gymId}/at-risk-members${riskLevel ? `?riskLevel=${riskLevel}` : ""}`),

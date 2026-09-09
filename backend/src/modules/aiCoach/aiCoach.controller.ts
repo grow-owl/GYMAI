@@ -207,8 +207,9 @@ export class AICoachController {
 
   public static getWeeklyDigest = asyncHandler(async (req: Request, res: Response) => {
     const { gymId } = req.params;
-    const weeklyDigest = await OwnerInsightsService.generateWeeklyOwnerDigest(gymId);
-    return sendSuccess(res, { weeklyDigest }, 'Weekly owner digest generated successfully');
+    const forceRefresh = req.query.refresh === 'true';
+    const weeklyDigest = await OwnerInsightsService.generateWeeklyOwnerDigest(gymId, forceRefresh);
+    return sendSuccess(res, { weeklyDigest }, 'Weekly owner digest retrieved successfully');
   });
 
   public static getUpsellRecommendation = asyncHandler(async (req: Request, res: Response) => {

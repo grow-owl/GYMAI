@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { MemberPayment } from './memberPayment.model';
 import { Member } from '../member/member.model';
+import { User } from '../user/user.model';
+import { Branch } from '../gym/branch.model';
 import { MemberService } from '../member/member.service';
 import { generateGymInvoiceNumber } from './invoiceCounter.model';
 import { getPaymentGateway } from './gateway/paymentGateway.factory';
@@ -41,8 +43,12 @@ export class MemberPaymentService {
       purpose = gymIdOrData.purpose || gymIdOrData.category || 'membership_fee';
       description = gymIdOrData.notes || gymIdOrData.description;
       customerName = gymIdOrData.customerName;
+      if (gymIdOrData.customerPhone && customerName && !customerName.includes(gymIdOrData.customerPhone)) {
+        customerName = `${customerName} (${gymIdOrData.customerPhone})`;
+      }
       recordedByUserId = recordedByUserIdOrUser?.id || recordedByUserIdOrUser;
       renewMembership = gymIdOrData.triggerRenewal || gymIdOrData.renewMembership || false;
+      renewMonths = gymIdOrData.renewMonths || 1;
     } else {
       gymId = gymIdOrData;
       recordedByUserId = recordedByUserIdOrUser;
@@ -56,25 +62,80 @@ export class MemberPaymentService {
       renewMonths = paymentDataArg?.renewMonths || 1;
     }
 
-    // Strictly scoped to gymId — no cross-tenant fallback allowed
-    const member = await Member.findOne({
-      $or: [
-        { _id: mongoose.Types.ObjectId.isValid(memberId) ? new mongoose.Types.ObjectId(memberId) : undefined },
-        { userId: mongoose.Types.ObjectId.isValid(memberId) ? new mongoose.Types.ObjectId(memberId) : undefined },
-      ],
-      gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined,
-      isDeleted: false,
-    });
+    const customerPhone = paymentDataArg?.customerPhone;
+    if (customerPhone && customerName && !customerName.includes(customerPhone)) {
+      customerName = `${customerName} (${customerPhone})`;
+    }
+
+    const isWalkIn = !memberId || memberId === 'walk_in' || !mongoose.Types.ObjectId.isValid(memberId);
+    let member = !isWalkIn
+      ? await Member.findOne({
+          $or: [
+            { _id: new mongoose.Types.ObjectId(memberId) },
+            { userId: new mongoose.Types.ObjectId(memberId) },
+          ],
+          gymId: mongoose.Types.ObjectId.isValid(gymId) ? new mongoose.Types.ObjectId(gymId) : undefined,
+          isDeleted: false,
+        }).populate('userId', 'fullName')
+      : null;
 
     if (!member) {
-      throw AppError.notFound('Member profile not found in your gym');
+      if (!isWalkIn) {
+        throw AppError.notFound('Member profile not found in your gym');
+      }
+
+      // Resolve or create walk-in member profile scoped to this gym
+      let walkInMember = await Member.findOne({
+        fullName: 'Walk-in Customer',
+        gymId: new mongoose.Types.ObjectId(gymId),
+        isDeleted: false,
+      });
+
+      if (!walkInMember) {
+        let walkInUser = await User.findOne({ fullName: 'Walk-in Customer', isDeleted: false });
+        if (!walkInUser) {
+          walkInUser = await User.create({
+            fullName: 'Walk-in Customer',
+            email: `walkin_${Date.now()}@gymai.internal`,
+            phone: '0000000000',
+            role: 'MEMBER',
+            isActive: true,
+          });
+        }
+
+        let walkInBranchId = branchId;
+        if (!walkInBranchId) {
+          const primaryBranch = await Branch.findOne({
+            gymId: new mongoose.Types.ObjectId(gymId),
+            isPrimary: true,
+            isDeleted: false,
+          });
+          walkInBranchId = primaryBranch?._id?.toString();
+        }
+
+        walkInMember = await Member.create({
+          gymId: new mongoose.Types.ObjectId(gymId),
+          branchId: walkInBranchId || new mongoose.Types.ObjectId(),
+          userId: walkInUser._id,
+          fullName: 'Walk-in Customer',
+          phone: '0000000000',
+          membershipStatus: 'ACTIVE',
+          planName: 'Walk-in Store Purchase',
+          membershipStartDate: new Date(),
+          membershipEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        });
+      }
+
+      member = walkInMember;
     }
 
     const invoiceNumber = await generateGymInvoiceNumber();
-    const memFullName = (member as any)?.fullName;
+    const memFullName = (member as any)?.userId?.fullName || (member as any)?.fullName;
     const resolvedCustomerName =
+      (customerName && customerName !== 'Walk-in Customer' ? customerName : undefined) ||
+      (memFullName && memFullName !== 'N/A' && memFullName !== 'Walk-in Customer' ? memFullName : undefined) ||
       customerName ||
-      (memFullName && memFullName !== 'N/A' && memFullName !== 'Walk-in Customer' ? memFullName : 'Walk-in Customer');
+      'Walk-in Customer';
 
     const payment = new MemberPayment({
       gymId: new mongoose.Types.ObjectId(gymId),

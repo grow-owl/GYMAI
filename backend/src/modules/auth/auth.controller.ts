@@ -5,6 +5,7 @@ import { asyncHandler } from '../../common/utils/asyncHandler';
 import { AppError } from '../../common/utils/AppError';
 import { env } from '../../config/env';
 import { Branch } from '../gym/branch.model';
+import { OwnerInsightsService } from '../aiCoach/ownerInsights.service';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -59,6 +60,9 @@ export class AuthController {
     );
 
     setRefreshTokenCookie(res, refreshToken);
+    if (user.gymId) {
+      OwnerInsightsService.clearWeeklyDigestCache(user.gymId.toString());
+    }
 
     const safeUser = user.toSafeJSON ? user.toSafeJSON() : user;
     return sendSuccess(
