@@ -10,6 +10,7 @@ import ConsistencyProgressTracker from "@/components/member/ConsistencyProgressT
 import LeaderboardCard from "@/components/member/LeaderboardCard";
 import WorkoutDietOverview from "@/components/member/WorkoutDietOverview";
 import QuickActionDrawer from "@/components/member/QuickActionDrawer";
+import { getShortBranchName, getCleanDesktopBranchName } from "@/lib/branchUtils";
 
 export default function MemberHome() {
   const user = useAuthStore((s) => s.user);
@@ -120,12 +121,16 @@ export default function MemberHome() {
   
   const rawBranch = memberProfile?.branchId;
   const branchName = (typeof rawBranch === "object" && rawBranch !== null ? rawBranch.name : user?.branchName) || "";
+  const branchCity = (typeof rawBranch === "object" && rawBranch !== null ? rawBranch.city || rawBranch.address?.city : null) || user?.city || "";
   const memberId = memberProfile?._id || user?._id || "";
 
   const displayBranchName = useMemo(() => {
-    if (!branchName) return "";
-    return branchName.replace(/\s*\([^)]*\)/g, "").trim();
+    return getCleanDesktopBranchName(branchName);
   }, [branchName]);
+
+  const shortBranchName = useMemo(() => {
+    return getShortBranchName(branchName, user?.gymName, branchCity);
+  }, [branchName, user?.gymName, branchCity]);
 
   // Strict Membership Validity Calculation
   const remainingInfo = useMemo(() => {
@@ -375,10 +380,10 @@ export default function MemberHome() {
                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 ${remainingInfo.pillClass}`}>
                   {remainingInfo.status === "missing" || remainingInfo.status === "invalid" ? "⚠️" : "●"} {remainingInfo.text}
                 </span>
-                {displayBranchName && (
+                {(shortBranchName || displayBranchName) && (
                   <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1">
                     <MapPin size={11} className="text-amber-500 shrink-0" />
-                    <span>{displayBranchName}</span>
+                    <span>{shortBranchName || displayBranchName}</span>
                   </span>
                 )}
               </div>

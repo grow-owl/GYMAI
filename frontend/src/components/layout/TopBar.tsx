@@ -7,6 +7,7 @@ import { useAuthStore, roleHome } from "@/store/authStore";
 import { useSearchStore } from "../../store/searchStore";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { toast } from "sonner";
+import { getShortBranchName, getCleanDesktopBranchName } from "@/lib/branchUtils";
 
 interface NavEntry {
   label: string;
@@ -152,9 +153,14 @@ export default function TopBar({
   }, [branches, activeBranchId, user?.branchName, user?.branchId]);
 
   const displayBranchName = useMemo(() => {
-    if (!activeBranch?.name) return "";
-    return activeBranch.name.replace(/\s*\(.*?\)/g, "").trim();
-  }, [activeBranch?.name]);
+    return getCleanDesktopBranchName(activeBranch?.name || user?.branchName);
+  }, [activeBranch?.name, user?.branchName]);
+
+  const shortBranchName = useMemo(() => {
+    const raw = activeBranch?.name || user?.branchName;
+    const city = activeBranch?.city || (typeof activeBranch?.address === "object" ? activeBranch?.address?.city : null) || user?.city;
+    return getShortBranchName(raw, user?.gymName, city);
+  }, [activeBranch, user?.branchName, user?.gymName, user?.city]);
 
   const handleSelectBranch = (bId: string) => {
     const storageKey = user?._id ? `gymai.selected_branch_id.${user._id}` : 'gymai.selected_branch_id';
@@ -320,9 +326,16 @@ export default function TopBar({
           {/* Branch Selector or Member Branch Display */}
           {user?.role === "MEMBER" || user?.role === "BRANCH_MANAGER" || user?.role === "KIOSK" ? (
             displayBranchName || activeBranch?.name ? (
-              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-[11px] sm:text-xs font-semibold text-(--color-text) shrink-0 max-w-[140px] xs:max-w-[180px] sm:max-w-none shadow-2xs">
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-(--color-border) bg-(--color-surface-2) text-[11px] sm:text-xs font-semibold text-(--color-text) shrink-0 shadow-2xs">
                 <MapPin size={12} className="text-amber-500 shrink-0" />
-                <span className="truncate">{displayBranchName || activeBranch?.name}</span>
+                {/* Mobile & Tablet: Short Branch Name (e.g. "Pune Branch") */}
+                <span className="lg:hidden truncate max-w-[150px] xs:max-w-none">
+                  {shortBranchName || displayBranchName}
+                </span>
+                {/* Desktop: Full Branch Name (e.g. "Amar Fitness - Pune") */}
+                <span className="hidden lg:inline truncate">
+                  {displayBranchName || activeBranch?.name}
+                </span>
               </div>
             ) : null
           ) : (
