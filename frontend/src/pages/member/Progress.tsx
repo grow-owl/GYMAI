@@ -153,13 +153,27 @@ function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<stri
   });
 }
 
-function WeightLineChart({ data }: { data: Array<{ label: string; value: number }> }) {
+function WeightLineChart({
+  data,
+  onLogWeight,
+}: {
+  data: Array<{ label: string; value: number }>;
+  onLogWeight?: () => void;
+}) {
   if (data.length === 0) {
     return (
       <div className="w-full h-44 flex flex-col items-center justify-center text-center p-4 bg-(--color-surface-2)/30 rounded-xl border border-dashed border-(--color-border)">
         <Scale className="w-8 h-8 text-(--color-text-faint) mb-2" />
         <p className="text-xs font-semibold text-(--color-text-muted)">No weight entries recorded yet</p>
-        <p className="text-[11px] text-(--color-text-faint) mt-0.5">Click "+ Log Weight" to start tracking your weight journey.</p>
+        <p className="text-[11px] text-(--color-text-faint) mt-0.5 mb-2.5">Click "+ Log Weight" to start tracking your weight journey.</p>
+        {onLogWeight && (
+          <button
+            onClick={onLogWeight}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-(--color-accent) text-white text-xs font-semibold px-3.5 py-1.5 hover:opacity-90 transition-all shadow-xs cursor-pointer"
+          >
+            <Plus size={13} /> Log Weight
+          </button>
+        )}
       </div>
     );
   }
@@ -603,23 +617,8 @@ export default function Progress() {
       <PageHeader
         title="Progress Report"
         subtitle="Track weight changes, strength progression & body transformation timeline"
+        subtitleClassName="hidden lg:block"
         backTo="/member"
-        action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowWellnessModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 transition-all shadow-sm cursor-pointer"
-            >
-              <Moon size={14} /> Log Sleep & Wellness
-            </button>
-            <button
-              onClick={() => setShowLogModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent) text-white text-xs font-semibold px-3.5 py-2 hover:opacity-90 transition-all shadow-sm cursor-pointer"
-            >
-              <Plus size={14} /> Log Weight
-            </button>
-          </div>
-        }
       />
 
       {/* Dynamic Key Metrics Cards */}
@@ -684,9 +683,6 @@ export default function Progress() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-extrabold text-(--color-text)">Today's Wellness & Recovery</span>
-              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold uppercase tracking-wider">
-                {todayWellness?.mood ? todayWellness.mood : "Active Day"}
-              </span>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs mt-1.5 text-(--color-text-muted)">
               <span className="flex items-center gap-1.5">
@@ -718,7 +714,7 @@ export default function Progress() {
 
         <button
           onClick={() => openWellnessModal(getLocalDateKey())}
-          className="self-start sm:self-auto px-4 py-2 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) border border-(--color-border) text-xs font-bold text-(--color-text) hover:text-(--color-accent-text) transition-all cursor-pointer shadow-2xs shrink-0"
+          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-(--color-surface-2) hover:bg-(--color-surface-3) border border-(--color-border) text-xs font-bold text-(--color-text) hover:text-(--color-accent-text) transition-all cursor-pointer shadow-2xs shrink-0 text-center"
         >
           {todayWellness?.sleepHours !== undefined || todayWellness?.waterIntakeMl !== undefined ? "✏️ Update Today's Wellness" : "+ Log Today's Wellness"}
         </button>
@@ -726,9 +722,17 @@ export default function Progress() {
 
       {/* Analytics Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase mb-3">Weight Trend History</p>
-          <WeightLineChart data={weightLogs} />
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">Weight Trend History</p>
+            <button
+              onClick={() => setShowLogModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-(--color-accent) text-white text-xs font-bold px-3 py-1.5 hover:opacity-90 transition-all shadow-xs cursor-pointer shrink-0"
+            >
+              <Plus size={14} /> Log Weight
+            </button>
+          </div>
+          <WeightLineChart data={weightLogs} onLogWeight={() => setShowLogModal(true)} />
           {weightLogs.length > 0 && (
             <p className="text-xs text-(--color-text-muted) mt-3">
               Average weight: <span className="font-semibold text-(--color-text)">{avgWeight} kg</span>
@@ -756,30 +760,28 @@ export default function Progress() {
       </Card>
 
       {/* 7-Day Sleep, Hydration & Wellness Comparison Tracker */}
-      <Card className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-              <Moon size={20} />
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+              <Moon size={18} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-display text-sm sm:text-base font-bold text-(--color-text)">
                   Weekly Sleep & Recovery Tracker
                 </h3>
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold uppercase tracking-wider">
-                  Past 7 Days
-                </span>
               </div>
-              <p className="text-xs text-(--color-text-muted) mt-0.5">
+              <p className="hidden lg:block text-xs text-(--color-text-muted) mt-0.5">
                 Track your daily rest, water intake, and readiness day by day
               </p>
             </div>
           </div>
-          
+
+          {/* Log button placed cleanly below on mobile and tablet, aligned right on desktop */}
           <button
             onClick={() => openWellnessModal(getLocalDateKey())}
-            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+            className="w-full lg:w-auto py-2 sm:py-1.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
           >
             <Plus size={14} />
             <span>Log Wellness</span>
@@ -877,10 +879,10 @@ export default function Progress() {
         {/* Detailed 7-Day & Historical Table */}
         <div className="border-t border-(--color-border) pt-4">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-(--color-text-muted)">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-(--color-text-muted) whitespace-nowrap">
               Complete Daily Log History
             </h4>
-            <span className="text-[11px] text-(--color-text-faint)">
+            <span className="hidden lg:inline text-[11px] text-(--color-text-faint)">
               Showing recent logs ({wellnessHistory.length} recorded)
             </span>
           </div>
@@ -894,98 +896,193 @@ export default function Progress() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-(--color-border)">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-(--color-surface-2)/60 border-b border-(--color-border) text-(--color-text-muted) font-semibold uppercase tracking-wider text-[10px]">
-                    <th className="py-2.5 px-3">Date</th>
-                    <th className="py-2.5 px-3">Sleep Duration</th>
-                    <th className="py-2.5 px-3">Hydration</th>
-                    <th className="py-2.5 px-3">Energy & Mood</th>
-                    <th className="py-2.5 px-3">Recovery Status</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--color-border-soft)">
-                  {wellnessHistory.slice(0, 14).map((entry, idx) => {
-                    const moodInfo = entry.mood ? MOOD_META[entry.mood] || { label: entry.mood, emoji: "✨", badgeClass: "bg-gray-100 text-gray-700 border-gray-300" } : null;
-                    const sleepVal = typeof entry.sleepHours === "number" ? entry.sleepHours : undefined;
-                    const recScore = calculateQuickRecoveryScore(entry.sleepHours, entry.waterIntakeMl);
+            <>
+              {/* Mobile View: Clean Card List (< md) */}
+              <div className="md:hidden space-y-2.5">
+                {wellnessHistory.slice(0, 14).map((entry, idx) => {
+                  const moodInfo = entry.mood ? MOOD_META[entry.mood] || { label: entry.mood, emoji: "✨", badgeClass: "bg-gray-100 text-gray-700 border-gray-300" } : null;
+                  const sleepVal = typeof entry.sleepHours === "number" ? entry.sleepHours : undefined;
+                  const recScore = calculateQuickRecoveryScore(entry.sleepHours, entry.waterIntakeMl);
 
-                    return (
-                      <tr key={entry._id || entry.dayKey || idx} className="hover:bg-(--color-surface-2)/50 transition-colors">
-                        <td className="py-3 px-3 font-semibold text-(--color-text)">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar size={13} className="text-(--color-text-faint)" />
-                            <span>{formatWellnessDate(entry.dayKey, entry.createdAt)}</span>
-                            <span className="text-[10px] font-mono text-(--color-text-faint)">({entry.dayKey})</span>
+                  return (
+                    <div
+                      key={entry._id || entry.dayKey || idx}
+                      className="p-3.5 rounded-2xl bg-(--color-surface-2)/40 dark:bg-(--color-surface-2)/60 border border-(--color-border) shadow-2xs space-y-2.5"
+                    >
+                      {/* Header: Date + Recovery Badge + Edit Button */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Calendar size={13} className="text-indigo-500 shrink-0" />
+                          <span className="font-bold text-xs text-(--color-text)">
+                            {formatWellnessDate(entry.dayKey, entry.createdAt)}
+                          </span>
+                          <span className="text-[10px] font-mono text-(--color-text-faint)">
+                            ({entry.dayKey})
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${recScore.color}`}>
+                            {recScore.label}
+                          </span>
+                          <button
+                            onClick={() => openWellnessModal(entry.dayKey)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer"
+                          >
+                            <Edit3 size={11} />
+                            <span>Edit</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {/* Sleep */}
+                        <div className="p-2.5 rounded-xl bg-white dark:bg-(--color-surface) border border-(--color-border)/80 shadow-2xs">
+                          <div className="flex items-center gap-1 text-(--color-text-muted) mb-1">
+                            <Moon size={12} className="text-indigo-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Sleep</span>
                           </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold font-mono text-(--color-text) text-xs">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-mono font-bold text-xs text-(--color-text)">
                               {sleepVal !== undefined ? `${sleepVal} hrs` : "--"}
                             </span>
                             {sleepVal !== undefined && (
-                              sleepVal >= 7.5 ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                                  Optimal (8h)
-                                </span>
-                              ) : sleepVal >= 6.5 ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
-                                  Adequate
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                                  Sleep Deficit
-                                </span>
-                              )
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-1.5 text-(--color-text-muted)">
-                            <Droplets size={13} className="text-sky-500 shrink-0" />
-                            <span className="font-mono font-bold text-(--color-text)">
-                              {entry.waterIntakeMl !== undefined ? `${(entry.waterIntakeMl / 1000).toFixed(2)}L` : "--"}
-                            </span>
-                            {entry.waterIntakeMl !== undefined && (
-                              <span className="text-[10px] text-(--color-text-faint)">
-                                ({Math.round(entry.waterIntakeMl / 375)} glasses)
+                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                                {sleepVal >= 7.5 ? "Optimal" : sleepVal >= 6.5 ? "Adequate" : "Deficit"}
                               </span>
                             )}
                           </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          {moodInfo ? (
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${moodInfo.badgeClass}`}>
-                              <span>{moodInfo.emoji}</span>
-                              <span>{moodInfo.label}</span>
+                        </div>
+
+                        {/* Hydration */}
+                        <div className="p-2.5 rounded-xl bg-white dark:bg-(--color-surface) border border-(--color-border)/80 shadow-2xs">
+                          <div className="flex items-center gap-1 text-(--color-text-muted) mb-1">
+                            <Droplets size={12} className="text-sky-500 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Hydration</span>
+                          </div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-mono font-bold text-xs text-(--color-text)">
+                              {entry.waterIntakeMl !== undefined ? `${(entry.waterIntakeMl / 1000).toFixed(2)}L` : "--"}
                             </span>
-                          ) : (
-                            <span className="text-(--color-text-faint)">--</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${recScore.color}`}>
-                            {recScore.label}
+                            {entry.waterIntakeMl !== undefined && (
+                              <span className="text-[9px] text-(--color-text-faint)">
+                                ({Math.round(entry.waterIntakeMl / 375)} gl.)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Energy & Mood Row (if logged) */}
+                      {moodInfo && (
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-(--color-border)/60">
+                          <span className="text-[10px] text-(--color-text-faint) font-medium">Energy & Mood</span>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${moodInfo.badgeClass}`}>
+                            <span>{moodInfo.emoji}</span>
+                            <span>{moodInfo.label}</span>
                           </span>
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <button
-                            onClick={() => openWellnessModal(entry.dayKey)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer flex items-center gap-1 ml-auto"
-                          >
-                            <Edit3 size={12} />
-                            <span>Edit</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop / Tablet View: Table (md:block) */}
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-(--color-border)">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-(--color-surface-2)/60 border-b border-(--color-border) text-(--color-text-muted) font-semibold uppercase tracking-wider text-[10px]">
+                      <th className="py-2.5 px-3 whitespace-nowrap">Date</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Sleep Duration</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Hydration</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Energy & Mood</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Recovery Status</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--color-border-soft)">
+                    {wellnessHistory.slice(0, 14).map((entry, idx) => {
+                      const moodInfo = entry.mood ? MOOD_META[entry.mood] || { label: entry.mood, emoji: "✨", badgeClass: "bg-gray-100 text-gray-700 border-gray-300" } : null;
+                      const sleepVal = typeof entry.sleepHours === "number" ? entry.sleepHours : undefined;
+                      const recScore = calculateQuickRecoveryScore(entry.sleepHours, entry.waterIntakeMl);
+
+                      return (
+                        <tr key={entry._id || entry.dayKey || idx} className="hover:bg-(--color-surface-2)/50 transition-colors">
+                          <td className="py-3 px-3 font-semibold text-(--color-text) whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <Calendar size={13} className="text-(--color-text-faint) shrink-0" />
+                              <span>{formatWellnessDate(entry.dayKey, entry.createdAt)}</span>
+                              <span className="text-[10px] font-mono text-(--color-text-faint)">({entry.dayKey})</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold font-mono text-(--color-text) text-xs">
+                                {sleepVal !== undefined ? `${sleepVal} hrs` : "--"}
+                              </span>
+                              {sleepVal !== undefined && (
+                                sleepVal >= 7.5 ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                    Optimal (8h)
+                                  </span>
+                                ) : sleepVal >= 6.5 ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                                    Adequate
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                    Sleep Deficit
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 text-(--color-text-muted)">
+                              <Droplets size={13} className="text-sky-500 shrink-0" />
+                              <span className="font-mono font-bold text-(--color-text)">
+                                {entry.waterIntakeMl !== undefined ? `${(entry.waterIntakeMl / 1000).toFixed(2)}L` : "--"}
+                              </span>
+                              {entry.waterIntakeMl !== undefined && (
+                                <span className="text-[10px] text-(--color-text-faint)">
+                                  ({Math.round(entry.waterIntakeMl / 375)} glasses)
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {moodInfo ? (
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${moodInfo.badgeClass}`}>
+                                <span>{moodInfo.emoji}</span>
+                                <span>{moodInfo.label}</span>
+                              </span>
+                            ) : (
+                              <span className="text-(--color-text-faint)">--</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${recScore.color}`}>
+                              {recScore.label}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => openWellnessModal(entry.dayKey)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-all cursor-pointer flex items-center gap-1 ml-auto"
+                            >
+                              <Edit3 size={12} />
+                              <span>Edit</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </Card>
@@ -1045,9 +1142,9 @@ export default function Progress() {
       )}
 
       {/* Progress Photos Section */}
-      <Card className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div>
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="min-w-0">
             <p className="text-xs font-semibold tracking-wide text-(--color-text-faint) uppercase">
               Progress Photo Timeline {photos.length > 0 && `(${photos.length} Total)`}
             </p>
@@ -1060,7 +1157,7 @@ export default function Progress() {
             type="button"
             onClick={handlePickPhoto}
             disabled={!canUploadNow || uploading}
-            className="rounded-full bg-(--color-accent) text-white text-xs sm:text-sm font-semibold px-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-md hover:opacity-90 transition-all"
+            className="w-full sm:w-auto rounded-xl sm:rounded-full bg-(--color-accent) text-white text-xs sm:text-sm font-bold px-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-md hover:opacity-90 transition-all shrink-0 cursor-pointer"
           >
             {uploading ? (
               <>
@@ -1090,10 +1187,15 @@ export default function Progress() {
         )}
 
         {photos.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-(--color-border) bg-(--color-surface-2)/50 p-8 text-center">
+          <div
+            onClick={canUploadNow && !uploading ? handlePickPhoto : undefined}
+            className={`rounded-2xl border border-dashed border-(--color-border) bg-(--color-surface-2)/50 p-8 text-center transition-all ${
+              canUploadNow && !uploading ? "cursor-pointer hover:border-(--color-accent)/60 hover:bg-(--color-surface-2)/80" : ""
+            }`}
+          >
             <Upload size={24} className="mx-auto text-(--color-text-faint)" />
             <p className="mt-2 text-sm font-semibold text-(--color-text)">No Progress Photos Uploaded Yet</p>
-            <p className="text-xs text-(--color-text-muted) mt-0.5">Tap "Upload Photo" to capture your initial physique picture.</p>
+            <p className="text-xs text-(--color-text-muted) mt-0.5">Tap "Upload Photo" or click here to capture your physique picture.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import {
   Sparkles,
   Send,
@@ -246,6 +245,73 @@ export default function AICoach() {
       dietRec?.message ||
       null;
 
+  const sleepDisplay = (() => {
+    if (recoveryData?.todaySleepFormatted) {
+      return recoveryData.todaySleepFormatted;
+    }
+    if (recoveryData?.todaySleepHours !== undefined && recoveryData?.todaySleepHours !== null) {
+      const h = recoveryData.todaySleepHours;
+      const wholeHours = Math.floor(h);
+      const mins = Math.round((h - wholeHours) * 60);
+      return `${wholeHours}h ${mins.toString().padStart(2, "0")}m`;
+    }
+    if (recoveryData?.avgSleepFormatted && recoveryData.avgSleepFormatted !== "--") {
+      return `${recoveryData.avgSleepFormatted} (avg)`;
+    }
+    return "-- (8h target)";
+  })();
+
+  const sleepDisplayShort = (() => {
+    if (recoveryData?.todaySleepFormatted) {
+      return recoveryData.todaySleepFormatted;
+    }
+    if (recoveryData?.todaySleepHours !== undefined && recoveryData?.todaySleepHours !== null) {
+      const h = recoveryData.todaySleepHours;
+      const wholeHours = Math.floor(h);
+      const mins = Math.round((h - wholeHours) * 60);
+      return `${wholeHours}h${mins > 0 ? ` ${mins}m` : ""}`;
+    }
+    if (recoveryData?.avgSleepFormatted && recoveryData.avgSleepFormatted !== "--") {
+      return `${recoveryData.avgSleepFormatted}`;
+    }
+    return "--";
+  })();
+
+  const hydrationDisplay = (() => {
+    if (recoveryData?.todayWaterMl !== undefined && recoveryData?.todayWaterMl !== null) {
+      return `${(recoveryData.todayWaterMl / 1000).toFixed(1)}L logged`;
+    }
+    if (recoveryData?.todayHydrationFormatted) {
+      return `${recoveryData.todayHydrationFormatted} logged`;
+    }
+    if (recoveryData?.avgWaterMl && recoveryData.avgWaterMl > 0) {
+      return `${(recoveryData.avgWaterMl / 1000).toFixed(1)}L (avg)`;
+    }
+    return "0.0L logged";
+  })();
+
+  const hydrationDisplayShort = (() => {
+    if (recoveryData?.todayWaterMl !== undefined && recoveryData?.todayWaterMl !== null) {
+      return `${(recoveryData.todayWaterMl / 1000).toFixed(1)}L`;
+    }
+    if (recoveryData?.todayHydrationFormatted) {
+      return recoveryData.todayHydrationFormatted.replace(" logged", "");
+    }
+    if (recoveryData?.avgWaterMl && recoveryData.avgWaterMl > 0) {
+      return `${(recoveryData.avgWaterMl / 1000).toFixed(1)}L`;
+    }
+    return "0.0L";
+  })();
+
+  const trainingStatusShort = (() => {
+    const s = recoveryData?.trainingStatus;
+    if (!s) return "Ready";
+    if (s.toLowerCase().includes("baseline")) return "Baseline";
+    if (s.toLowerCase().includes("rest")) return "Rest";
+    if (s.toLowerCase().includes("moderate")) return "Moderate";
+    return s;
+  })();
+
   return (
     <div className="flex flex-col h-[calc(100vh-135px)] md:h-[calc(100vh-115px)] max-w-5xl mx-auto w-full">
       {/* Top Header with Live Daily Chat Quota Counter */}
@@ -277,111 +343,177 @@ export default function AICoach() {
 
       {/* Compact / Collapsible AI Insights & Recovery Bar */}
       <div className="mb-2 shrink-0">
-        <div className="p-3 px-4 rounded-2xl bg-white border border-(--color-border) flex items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto text-xs py-0.5 scrollbar-none min-w-0">
-            {recoveryLoading ? (
-              <div className="flex items-center gap-2 text-xs text-(--color-text-muted)">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-(--color-accent)" />
-                <span>Syncing recovery & readiness baseline...</span>
+        {/* MOBILE & TABLET VIEW (< lg) */}
+        <div className="lg:hidden p-3 rounded-2xl bg-white border border-(--color-border) shadow-xs space-y-2.5">
+          {recoveryLoading ? (
+            <div className="flex items-center gap-2 text-xs text-(--color-text-muted) py-1">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-(--color-accent)" />
+              <span>Syncing recovery & readiness baseline...</span>
+            </div>
+          ) : recoveryError ? (
+            <div className="flex items-center gap-1.5 text-xs text-(--color-danger) py-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Recovery unavailable</span>
+            </div>
+          ) : (
+            <>
+              {/* Row 1: Full Recovery Status (No clipping or truncation) */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-(--color-text-faint) uppercase text-[10px] font-extrabold tracking-wider shrink-0">
+                  Recovery:
+                </span>
+                <span className="font-bold text-(--color-text) tabular-nums text-xs shrink-0">
+                  {recoveryData?.recoveryScore !== null && recoveryData?.recoveryScore !== undefined
+                    ? `${recoveryData.recoveryScore}/100`
+                    : "--"}
+                </span>
+                <span
+                  className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shadow-2xs tracking-wide shrink-0 ${
+                    recoveryData?.recoveryCategory === "OPTIMAL" ||
+                    recoveryData?.recoveryCategory === "OPTIMAL RECOVERY"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                      : recoveryData?.recoveryCategory === "FATIGUED" ||
+                        recoveryData?.recoveryCategory === "RECOVERY NEEDED" ||
+                        recoveryData?.recoveryCategory?.includes("HIGH FATIGUE")
+                      ? "bg-rose-50 text-rose-800 border-rose-300"
+                      : "bg-amber-100 text-amber-900 border-amber-300"
+                  }`}
+                >
+                  {recoveryData?.recoveryCategory || "BASELINE BUILDING"}
+                </span>
               </div>
-            ) : recoveryError ? (
-              <div className="flex items-center gap-1.5 text-xs text-(--color-danger)">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Recovery unavailable</span>
-              </div>
-            ) : (
-              <>
-                {/* Recovery Score */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-(--color-text-faint) uppercase text-[10px] font-extrabold tracking-wider">
-                    Recovery:
-                  </span>
-                  <span className="font-bold text-(--color-text) tabular-nums">
-                    {recoveryData?.recoveryScore !== null && recoveryData?.recoveryScore !== undefined
-                      ? `${recoveryData.recoveryScore}/100`
-                      : "--"}
-                  </span>
-                  <span
-                    className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shadow-2xs tracking-wide ${
-                      recoveryData?.recoveryCategory === "OPTIMAL" ||
-                      recoveryData?.recoveryCategory === "OPTIMAL RECOVERY"
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                        : recoveryData?.recoveryCategory === "FATIGUED" ||
-                          recoveryData?.recoveryCategory === "RECOVERY NEEDED"
-                        ? "bg-rose-50 text-rose-800 border-rose-300"
-                        : "bg-amber-100 text-amber-900 border-amber-300"
-                    }`}
-                  >
-                    {recoveryData?.recoveryCategory || "GOOD TO TRAIN"}
-                  </span>
-                </div>
 
-                <span className="text-(--color-border) text-xs hidden sm:inline">|</span>
-
+              {/* Row 2: 3 Balanced Micro-Tiles (Sleep, Hydration, Training Status) */}
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 text-xs">
                 {/* Sleep */}
-                <div className="flex items-center gap-1 text-[11px] text-(--color-text-muted) shrink-0">
-                  <Moon className="w-3.5 h-3.5 text-indigo-500" />
-                  <span className="font-medium">
-                    {(() => {
-                      if (recoveryData?.todaySleepFormatted) {
-                        return recoveryData.todaySleepFormatted;
-                      }
-                      if (recoveryData?.todaySleepHours !== undefined && recoveryData?.todaySleepHours !== null) {
-                        const h = recoveryData.todaySleepHours;
-                        const wholeHours = Math.floor(h);
-                        const mins = Math.round((h - wholeHours) * 60);
-                        return `${wholeHours}h ${mins.toString().padStart(2, "0")}m`;
-                      }
-                      if (recoveryData?.avgSleepFormatted && recoveryData.avgSleepFormatted !== "--") {
-                        return `${recoveryData.avgSleepFormatted} (avg)`;
-                      }
-                      return "-- (8h target)";
-                    })()}
+                <div className="p-2 sm:p-2.5 rounded-xl bg-(--color-surface-2)/60 border border-(--color-border-soft) flex flex-col items-center justify-center text-center">
+                  <div className="flex items-center gap-1 text-[10px] font-semibold text-(--color-text-muted) mb-0.5">
+                    <Moon size={11} className="text-indigo-500 shrink-0" />
+                    <span>Sleep</span>
+                  </div>
+                  <span className="text-xs font-bold text-(--color-text) tabular-nums truncate max-w-full">
+                    {sleepDisplayShort}
                   </span>
                 </div>
-
-                <span className="text-(--color-border) text-xs hidden sm:inline">|</span>
 
                 {/* Hydration */}
-                <div className="flex items-center gap-1.5 text-[11px] text-(--color-text-muted) shrink-0">
-                  <Droplets className="w-3.5 h-3.5 text-sky-500 fill-sky-500/20" />
-                  <span className="font-semibold text-(--color-text)">
-                    {(() => {
-                      if (recoveryData?.todayWaterMl !== undefined && recoveryData?.todayWaterMl !== null) {
-                        return `${(recoveryData.todayWaterMl / 1000).toFixed(1)}L logged`;
-                      }
-                      if (recoveryData?.todayHydrationFormatted) {
-                        return `${recoveryData.todayHydrationFormatted} logged`;
-                      }
-                      if (recoveryData?.avgWaterMl && recoveryData.avgWaterMl > 0) {
-                        return `${(recoveryData.avgWaterMl / 1000).toFixed(1)}L (avg)`;
-                      }
-                      return "0.0L logged";
-                    })()}
+                <div className="p-2 sm:p-2.5 rounded-xl bg-(--color-surface-2)/60 border border-(--color-border-soft) flex flex-col items-center justify-center text-center">
+                  <div className="flex items-center gap-1 text-[10px] font-semibold text-(--color-text-muted) mb-0.5">
+                    <Droplets size={11} className="text-sky-500 shrink-0" />
+                    <span>Water</span>
+                  </div>
+                  <span className="text-xs font-bold text-(--color-text) tabular-nums truncate max-w-full">
+                    {hydrationDisplayShort}
                   </span>
-                  <span className="text-[10px] text-(--color-text-faint) hidden md:inline">(3.0L target)</span>
                 </div>
-
-                <span className="text-(--color-border) text-xs hidden sm:inline">|</span>
 
                 {/* Training Status */}
-                <div className="flex items-center gap-1 text-[11px] text-(--color-text-muted) shrink-0">
-                  <Activity className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="font-bold text-(--color-text)">
-                    {recoveryData?.trainingStatus || "Ready"}
+                <div className="p-2 sm:p-2.5 rounded-xl bg-(--color-surface-2)/60 border border-(--color-border-soft) flex flex-col items-center justify-center text-center">
+                  <div className="flex items-center gap-1 text-[10px] font-semibold text-(--color-text-muted) mb-0.5">
+                    <Activity size={11} className="text-emerald-600 shrink-0" />
+                    <span>Status</span>
+                  </div>
+                  <span className="text-xs font-bold text-(--color-text) truncate max-w-full">
+                    {trainingStatusShort}
                   </span>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+
+              {/* Row 3: AI Insights Button (Full width on mobile/tablet) */}
+              <button
+                type="button"
+                onClick={() => setShowInsights(!showInsights)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-(--color-text) hover:text-(--color-accent-text) bg-(--color-surface-2) hover:bg-(--color-surface-3) px-3 py-2 rounded-xl border border-(--color-border) transition-all cursor-pointer shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>{showInsights ? "Hide AI Insights" : "AI Insights & Recommendations"}</span>
+                {showInsights ? <ChevronUp size={14} className="text-(--color-text-muted)" /> : <ChevronDown size={14} className="text-(--color-text-muted)" />}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* DESKTOP VIEW (>= lg) */}
+        <div className="hidden lg:flex p-3 px-4 rounded-2xl bg-white border border-(--color-border) items-center justify-between gap-4 shadow-xs">
+          {recoveryLoading ? (
+            <div className="flex items-center gap-2 text-xs text-(--color-text-muted)">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-(--color-accent)" />
+              <span>Syncing recovery & readiness baseline...</span>
+            </div>
+          ) : recoveryError ? (
+            <div className="flex items-center gap-1.5 text-xs text-(--color-danger)">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Recovery unavailable</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 text-xs py-0.5 min-w-0">
+              {/* Recovery Score */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-(--color-text-faint) uppercase text-[10px] font-extrabold tracking-wider">
+                  Recovery:
+                </span>
+                <span className="font-bold text-(--color-text) tabular-nums">
+                  {recoveryData?.recoveryScore !== null && recoveryData?.recoveryScore !== undefined
+                    ? `${recoveryData.recoveryScore}/100`
+                    : "--"}
+                </span>
+                <span
+                  className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shadow-2xs tracking-wide ${
+                    recoveryData?.recoveryCategory === "OPTIMAL" ||
+                    recoveryData?.recoveryCategory === "OPTIMAL RECOVERY"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                      : recoveryData?.recoveryCategory === "FATIGUED" ||
+                        recoveryData?.recoveryCategory === "RECOVERY NEEDED" ||
+                        recoveryData?.recoveryCategory?.includes("HIGH FATIGUE")
+                      ? "bg-rose-50 text-rose-800 border-rose-300"
+                      : "bg-amber-100 text-amber-900 border-amber-300"
+                  }`}
+                >
+                  {recoveryData?.recoveryCategory || "GOOD TO TRAIN"}
+                </span>
+              </div>
+
+              <span className="text-(--color-border) text-xs">|</span>
+
+              {/* Sleep */}
+              <div className="flex items-center gap-1.5 text-[11px] text-(--color-text-muted) shrink-0">
+                <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                <span className="font-medium text-(--color-text)">
+                  {sleepDisplay}
+                </span>
+              </div>
+
+              <span className="text-(--color-border) text-xs">|</span>
+
+              {/* Hydration */}
+              <div className="flex items-center gap-1.5 text-[11px] text-(--color-text-muted) shrink-0">
+                <Droplets className="w-3.5 h-3.5 text-sky-500 fill-sky-500/20" />
+                <span className="font-semibold text-(--color-text)">
+                  {hydrationDisplay}
+                </span>
+                <span className="text-[10px] text-(--color-text-faint)">(3.0L target)</span>
+              </div>
+
+              <span className="text-(--color-border) text-xs">|</span>
+
+              {/* Training Status */}
+              <div className="flex items-center gap-1.5 text-[11px] text-(--color-text-muted) shrink-0">
+                <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="font-bold text-(--color-text)">
+                  {recoveryData?.trainingStatus || "Ready"}
+                </span>
+              </div>
+            </div>
+          )}
 
           <button
             type="button"
             onClick={() => setShowInsights(!showInsights)}
             className="shrink-0 flex items-center gap-1 text-xs font-bold text-(--color-text) hover:text-(--color-accent-text) bg-(--color-surface-2) hover:bg-(--color-surface-3) px-3 py-1.5 rounded-xl border border-(--color-border) transition-all cursor-pointer shadow-2xs"
           >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span>{showInsights ? "Hide Insights" : "AI Insights"}</span>
-            {showInsights ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {showInsights ? <ChevronUp size={14} className="text-(--color-text-muted)" /> : <ChevronDown size={14} className="text-(--color-text-muted)" />}
           </button>
         </div>
 
@@ -449,13 +581,7 @@ export default function AICoach() {
 
             {recoveryData?.insufficientData && (
               <div className="p-3 rounded-xl bg-white border border-(--color-border) flex items-center justify-between text-[11px] text-(--color-text-muted) shadow-2xs">
-                <span>📊 Baseline is building. Log daily sleep & water in Progress tab to refine score.</span>
-                <Link
-                  to="/member/progress"
-                  className="text-(--color-accent-text) font-bold hover:underline"
-                >
-                  Log Wellness &rarr;
-                </Link>
+                <span>Baseline is building. Log daily sleep & water in Progress tab to refine score.</span>
               </div>
             )}
           </div>

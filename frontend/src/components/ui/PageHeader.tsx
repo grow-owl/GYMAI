@@ -4,11 +4,13 @@ import { ChevronLeft } from "lucide-react";
 export default function PageHeader({
   title,
   subtitle,
+  subtitleClassName,
   backTo,
   action,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
+  subtitleClassName?: string;
   backTo?: string;
   action?: React.ReactNode;
 }) {
@@ -25,7 +27,11 @@ export default function PageHeader({
         )}
         <div className="min-w-0">
           <h1 className="font-display text-lg sm:text-xl font-semibold text-(--color-text) truncate">{title}</h1>
-          {subtitle && <p className="text-xs sm:text-sm text-(--color-text-muted) mt-0.5">{subtitle}</p>}
+          {subtitle && (
+            <p className={`text-xs sm:text-sm text-(--color-text-muted) mt-0.5 ${subtitleClassName || ""}`}>
+              {subtitle}
+            </p>
+          )}
         </div>
       </div>
       {action}
