@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ShieldCheck, AlertCircle, CreditCard, ChevronRight, QrCode, Camera, MapPin, Lock } from "lucide-react";
-import { memberApi, progressApi, attendanceApi, paymentApi, workoutApi, feedbackApi, gamificationApi } from "@/lib/endpoints";
+import { ShieldCheck, AlertCircle, QrCode, Camera, MapPin, Lock } from "lucide-react";
+import { memberApi, progressApi, attendanceApi, workoutApi, feedbackApi, gamificationApi } from "@/lib/endpoints";
 import { useAuthStore } from "@/store/authStore";
 import { useAttendanceStore } from "@/store/attendanceStore";
 import { showApiErrorToast } from "@/lib/api";
@@ -31,7 +31,6 @@ export default function MemberHome() {
   const [attendanceStats, setAttendanceStats] = useState<any | null>(null);
   const [completedWorkoutsCount, setCompletedWorkoutsCount] = useState<number>(0);
   const [workoutVolumeLogs, setWorkoutVolumeLogs] = useState<any[]>([]);
-  const [myPayments, setMyPayments] = useState<any[]>([]);
   const [activePlanName, setActivePlanName] = useState<string | null>(null);
   const [activePlanDescription, setActivePlanDescription] = useState<string | null>(null);
   const [trainerFeedbacks, setTrainerFeedbacks] = useState<any[]>([]);
@@ -57,10 +56,9 @@ export default function MemberHome() {
       }
 
       // 2. Fetch parallel endpoints
-      const [weightRes, attStatsRes, payRes, workoutStatsRes, feedbackRes, gameProfRes] = await Promise.all([
+      const [weightRes, attStatsRes, workoutStatsRes, feedbackRes, gameProfRes] = await Promise.all([
         memberId ? progressApi.getHistory(memberId).catch(() => null) : null,
         attendanceApi.getMyStats().catch(() => null),
-        gymId ? paymentApi.getMyPayments(gymId).catch(() => null) : null,
         memberId ? workoutApi.getCompletionStats(memberId).catch(() => null) : null,
         memberId ? feedbackApi.list(memberId).catch(() => null) : null,
         gamificationApi.getMyProfile().catch(() => null),
@@ -74,10 +72,6 @@ export default function MemberHome() {
       if (gameProfRes) {
         const gProf = (gameProfRes as any)?.profile || (gameProfRes as any)?.gameProfile || gameProfRes;
         setGameProfile(gProf);
-      }
-      if (payRes) {
-        const pList = Array.isArray(payRes) ? payRes : payRes?.payments || [];
-        setMyPayments(pList);
       }
       if (workoutStatsRes) {
         const stats = workoutStatsRes?.stats || workoutStatsRes;
@@ -495,38 +489,6 @@ export default function MemberHome() {
         </div>
       </div>
 
-      {/* Membership & Payment Quick Status */}
-      {myPayments.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-500/10 via-(--color-surface-2) to-emerald-500/10 p-3.5 sm:p-4 rounded-2xl border border-(--color-border) flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-(--color-surface) border border-(--color-border) flex items-center justify-center text-(--color-accent) shrink-0">
-              <CreditCard size={18} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-(--color-text)">
-                  Membership: {memberProfile?.membershipPlan || "Active Plan"}
-                </span>
-                {memberProfile?.membershipEndDate && (
-                  <span className="text-[11px] text-(--color-text-muted)">
-                    (Valid till {new Date(memberProfile.membershipEndDate).toLocaleDateString()})
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-(--color-text-muted) mt-0.5">
-                Last payment of ₹{myPayments[0]?.amount} recorded on {new Date(myPayments[0]?.paidAt || myPayments[0]?.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          <Link
-            to="/member/payments"
-            className="inline-flex items-center gap-1 font-semibold text-(--color-accent) hover:underline shrink-0"
-          >
-            View Receipts & Invoices <ChevronRight size={14} />
-          </Link>
-        </div>
-      )}
-
       {/* SECTION 1: Today's Workout & Active Diet Plan Overview (HERO SECTION) */}
       <WorkoutDietOverview memberId={memberId} />
 
@@ -542,17 +504,13 @@ export default function MemberHome() {
       />
 
       {/* SECTION 3: Consistency Tracker & Leaderboard */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-7">
-          <ConsistencyProgressTracker
-            attendanceStats={attendanceStats}
-            workoutVolumeLogs={workoutVolumeLogs}
-            completedWorkoutsCount={completedWorkoutsCount}
-          />
-        </div>
-        <div className="lg:col-span-5">
-          <LeaderboardCard gymId={gymId} currentUserId={memberId} />
-        </div>
+      <div className="space-y-6">
+        <ConsistencyProgressTracker
+          attendanceStats={attendanceStats}
+          workoutVolumeLogs={workoutVolumeLogs}
+          completedWorkoutsCount={completedWorkoutsCount}
+        />
+        <LeaderboardCard gymId={gymId} currentUserId={memberId} />
       </div>
 
       {/* Quick Action Drawer Modal */}

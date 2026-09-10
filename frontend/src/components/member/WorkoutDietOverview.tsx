@@ -142,14 +142,12 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
     : "-- g";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-      {/* Left: Active Today's Workout Checklist */}
-      <div className="lg:col-span-7">
-        <TodayWorkoutChecklist memberId={memberId} compact={true} />
-      </div>
+    <div className="space-y-5">
+      {/* Active Today's Workout Checklist */}
+      <TodayWorkoutChecklist memberId={memberId} compact={true} />
 
-      {/* Right: Diet Plan & Water Tracker */}
-      <Card className="lg:col-span-5 relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">
+      {/* Diet Plan & Water Tracker */}
+      <Card className="relative overflow-hidden border border-(--color-border) bg-(--color-surface) p-5 shadow-xl space-y-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
@@ -238,9 +236,9 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
           </div>
 
           {/* Action Section: Status Line + Fits-within-Card Stepper Buttons */}
-          <div className="pt-2.5 border-t border-(--color-border-soft) space-y-2.5">
+          <div className="pt-2.5 border-t border-(--color-border-soft) space-y-2.5 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
             {/* Status Line: "X glasses left" (No "to reach 3.0L") */}
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between lg:justify-start lg:gap-3 text-xs">
               {waterGlasses >= 8 ? (
                 <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
                   🎉 Daily Goal Reached!
@@ -256,7 +254,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
             </div>
 
             {/* Stepper Buttons: Strictly Fits Inside Card Without Any Overflow */}
-            <div className="flex items-center gap-2 w-full">
+            <div className="flex items-center gap-2 w-full lg:w-auto shrink-0">
               <button
                 type="button"
                 onClick={() => handleWaterAdd(-1)}
@@ -272,7 +270,7 @@ export default function WorkoutDietOverview({ memberId }: WorkoutDietProps) {
                 type="button"
                 onClick={() => handleWaterAdd(1)}
                 disabled={waterGlasses >= 12}
-                className="flex-1 min-w-0 h-9 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-extrabold shadow-sm shadow-sky-500/25 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+                className="flex-1 lg:flex-none lg:w-auto h-9 px-3 lg:px-5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-extrabold shadow-sm shadow-sky-500/25 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
                 title="Add glass"
                 aria-label="Add glass"
               >
