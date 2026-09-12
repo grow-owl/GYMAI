@@ -300,13 +300,13 @@ export class AuthService {
       throw AppError.conflict('An active user account with this email address already exists');
     }
 
-    const tempPassword = `${crypto.randomBytes(6).toString('hex')}A1!`;
+    const finalPassword = input.password?.trim() || 'Owner@123';
 
     const user = new User({
       fullName: input.fullName,
       email: input.email.toLowerCase(),
       phone: input.phone,
-      password: tempPassword,
+      password: finalPassword,
       role: Role.GYM_OWNER,
       isActive: true,
     });
@@ -322,7 +322,7 @@ export class AuthService {
     });
 
     logger.info(`👑 Gym Owner created by SuperAdmin: [Owner ID: ${user._id}] [Gym: ${gym.name}]`);
-    return { user, gym, primaryBranch, tempPassword };
+    return { user, gym, primaryBranch, tempPassword: finalPassword };
   }
 
   /**
@@ -360,18 +360,20 @@ export class AuthService {
   public static async registerStaff(
     gymId: string,
     branchId: string,
-    input: { fullName: string; email: string; phone: string; password: string; role?: Role }
+    input: { fullName: string; email: string; phone: string; password?: string; role?: Role }
   ): Promise<IUser> {
     const existing = await User.findOne({ email: input.email.toLowerCase(), isDeleted: false });
     if (existing) {
       throw AppError.conflict('An active user account with this email address already exists');
     }
 
+    const staffPassword = input.password?.trim() || 'Staff@123';
+
     const user = new User({
       fullName: input.fullName,
       email: input.email.toLowerCase(),
       phone: input.phone,
-      password: input.password,
+      password: staffPassword,
       role: input.role || Role.BRANCH_MANAGER,
       gymId: new mongoose.Types.ObjectId(gymId),
       branchId: new mongoose.Types.ObjectId(branchId),

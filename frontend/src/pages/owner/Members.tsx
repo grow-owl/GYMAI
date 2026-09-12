@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2, MoreVertical, CreditCard, IndianRupee } from "lucide-react";
+import { Search, Plus, Snowflake, CalendarPlus, XCircle, User, Loader2, RefreshCw, Users, KeyRound, Trash2, MoreVertical, CreditCard, IndianRupee, Eye, EyeOff, Copy, Check } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -212,6 +212,23 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
     password: "Member@123",
     referralCode: "",
   });
+  const [showMemberPassword, setShowMemberPassword] = useState(false);
+  const [createdMemberCreds, setCreatedMemberCreds] = useState<{
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    planName: string;
+  } | null>(null);
+  const [showCreatedMemberPassword, setShowCreatedMemberPassword] = useState(true);
+  const [copiedCreds, setCopiedCreds] = useState<string | null>(null);
+
+  const copyCredsToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCreds(text);
+    toast.success(`${label} copied to clipboard!`);
+    setTimeout(() => setCopiedCreds(null), 2000);
+  };
 
   // Membership Plan Selection states
   const [selectedPlanId, setSelectedPlanId] = useState<string>("monthly");
@@ -340,6 +357,13 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
       }
 
       setShowAddModal(false);
+      setCreatedMemberCreds({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password || "Member@123",
+        planName: effectivePlanName,
+      });
       setFormData({
         fullName: "",
         email: "",
@@ -779,15 +803,28 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
                   />
                 </div>
                 <div>
-                  <label className="block text-(--color-text-muted) mb-1 font-medium">Account Password *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Member@123"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-(--color-text-muted) font-medium">Account Password *</label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showMemberPassword ? "text" : "password"}
+                      required
+                      placeholder="e.g. Member@123"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full rounded-xl bg-(--color-surface-2) p-2.5 pr-10 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent) font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMemberPassword(!showMemberPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-text-muted) hover:text-(--color-text)"
+                      tabIndex={-1}
+                      title={showMemberPassword ? "Hide password" : "Show password"}
+                    >
+                      {showMemberPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -969,6 +1006,85 @@ export default function Members({ overrideGymId, overrideBranchId, backTo: _back
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Newly Registered Member Credentials Modal */}
+      {createdMemberCreds && (
+        <Modal
+          onClose={() => setCreatedMemberCreds(null)}
+          maxWidth="md"
+          title="Member Enrolled Successfully 🎉"
+          subtitle="Share these login credentials directly with the member."
+        >
+          <div className="space-y-4 text-xs">
+            <div className="bg-(--color-surface-2) p-4 rounded-xl border border-white/10 space-y-2.5">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Member Name:</span>
+                <span className="font-bold text-(--color-text)">{createdMemberCreds.fullName}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Login Email:</span>
+                <span className="font-bold text-sky-400">{createdMemberCreds.email}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Phone:</span>
+                <span className="font-semibold text-(--color-text)">{createdMemberCreds.phone}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Membership Plan:</span>
+                <Badge tone="good">{createdMemberCreds.planName}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-(--color-text-muted)">Password:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-amber-400 font-mono">
+                    {showCreatedMemberPassword ? createdMemberCreds.password : "••••••••••••"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatedMemberPassword(!showCreatedMemberPassword)}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-text)"
+                    title={showCreatedMemberPassword ? "Hide password" : "Show password"}
+                  >
+                    {showCreatedMemberPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyCredsToClipboard(createdMemberCreds.password, "Password")}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-accent)"
+                    title="Copy Password"
+                  >
+                    {copiedCreds === createdMemberCreds.password ? (
+                      <Check size={14} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = `Welcome to our Gym!\nName: ${createdMemberCreds.fullName}\nPlan: ${createdMemberCreds.planName}\nEmail: ${createdMemberCreds.email}\nPassword: ${createdMemberCreds.password}\nLogin URL: https://gymai-one.vercel.app/login`;
+                  copyCredsToClipboard(summary, "Member Credentials");
+                }}
+                className="py-2.5 px-4 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center gap-1.5"
+              >
+                <Copy size={14} /> Copy All Credentials
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatedMemberCreds(null)}
+                className="py-2.5 px-4 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 

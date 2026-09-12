@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, KeyRound, Loader2, RefreshCw, Trash2, Mail, Phone, MapPin } from "lucide-react";
+import { Plus, Users, KeyRound, Loader2, RefreshCw, Trash2, Mail, Phone, MapPin, Eye, EyeOff, Copy, Check } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -34,6 +34,24 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
   // Add Staff Modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
+  const [createdStaffCreds, setCreatedStaffCreds] = useState<{
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    role: string;
+  } | null>(null);
+  const [showCreatedStaffPassword, setShowCreatedStaffPassword] = useState(true);
+  const [copiedCreds, setCopiedCreds] = useState<string | null>(null);
+
+  const copyCredsToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCreds(text);
+    toast.success(`${label} copied to clipboard!`);
+    setTimeout(() => setCopiedCreds(null), 2000);
+  };
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -109,6 +127,13 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
       });
       toast.success(`Staff member ${formData.fullName} created successfully!`);
       setShowAddModal(false);
+      setCreatedStaffCreds({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password || "Staff@123",
+        role: formData.role,
+      });
       setFormData({
         fullName: "",
         email: "",
@@ -419,13 +444,25 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
 
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Initial Password</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) font-mono"
-                />
+                <div className="relative">
+                  <input
+                    type={showStaffPassword ? "text" : "password"}
+                    required
+                    placeholder="e.g. Staff@123"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 pr-10 text-sm text-(--color-text) border border-(--color-border) font-mono focus:outline-none focus:border-(--color-accent)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffPassword(!showStaffPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-text-muted) hover:text-(--color-text)"
+                    tabIndex={-1}
+                    title={showStaffPassword ? "Hide password" : "Show password"}
+                  >
+                    {showStaffPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
 
               <CustomSelect
@@ -456,6 +493,87 @@ export default function Staff({ overrideGymId, overrideBranchId, backTo: _backTo
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Newly Registered Staff Credentials Modal */}
+      {createdStaffCreds && (
+        <Modal
+          onClose={() => setCreatedStaffCreds(null)}
+          maxWidth="md"
+          title="Staff Account Created Successfully 🎉"
+          subtitle="Share these login credentials directly with the staff member."
+        >
+          <div className="space-y-4 text-xs">
+            <div className="bg-(--color-surface-2) p-4 rounded-xl border border-white/10 space-y-2.5">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Staff Name:</span>
+                <span className="font-bold text-(--color-text)">{createdStaffCreds.fullName}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Login Email:</span>
+                <span className="font-bold text-sky-400">{createdStaffCreds.email}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Phone:</span>
+                <span className="font-semibold text-(--color-text)">{createdStaffCreds.phone}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Role:</span>
+                <Badge tone="accent">
+                  {createdStaffCreds.role === "BRANCH_MANAGER" ? "Branch Manager" : "Front Desk / Kiosk Staff"}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-(--color-text-muted)">Password:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-amber-400 font-mono">
+                    {showCreatedStaffPassword ? createdStaffCreds.password : "••••••••••••"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatedStaffPassword(!showCreatedStaffPassword)}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-text)"
+                    title={showCreatedStaffPassword ? "Hide password" : "Show password"}
+                  >
+                    {showCreatedStaffPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyCredsToClipboard(createdStaffCreds.password, "Password")}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-accent)"
+                    title="Copy Password"
+                  >
+                    {copiedCreds === createdStaffCreds.password ? (
+                      <Check size={14} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = `Staff Name: ${createdStaffCreds.fullName}\nRole: ${createdStaffCreds.role}\nEmail: ${createdStaffCreds.email}\nPassword: ${createdStaffCreds.password}\nLogin URL: https://gymai-one.vercel.app/login`;
+                  copyCredsToClipboard(summary, "Staff Credentials");
+                }}
+                className="py-2.5 px-4 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center gap-1.5"
+              >
+                <Copy size={14} /> Copy All Credentials
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatedStaffCreds(null)}
+                className="py-2.5 px-4 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 

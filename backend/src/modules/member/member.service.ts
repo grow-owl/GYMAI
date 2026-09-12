@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { Member } from './member.model';
 import { User } from '../user/user.model';
@@ -57,7 +56,7 @@ export class MemberService {
     const resolvedGymId = branch.gymId;
     const resolvedBranchId = branch._id;
 
-    const generatedPassword = memberData.password || `Mem@${crypto.randomBytes(4).toString('hex')}1`;
+    const generatedPassword = memberData.password?.trim() || 'Member@123';
 
     let referredByMemberId: mongoose.Types.ObjectId | undefined = memberData.referredByMemberId
       ? new mongoose.Types.ObjectId(memberData.referredByMemberId)

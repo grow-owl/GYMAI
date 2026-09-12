@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap, UserPlus, KeyRound, Copy, Check, Rocket, PhoneCall, Sparkles, Inbox } from "lucide-react";
+import { Plus, Loader2, RefreshCw, CreditCard, Building2, TrendingUp, Zap, UserPlus, KeyRound, Copy, Check, Rocket, PhoneCall, Sparkles, Inbox, Eye, EyeOff } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -21,6 +21,8 @@ export default function AdminPanel() {
 
   // Newly Provisioned Gym Modal State
   const [createdGymDetails, setCreatedGymDetails] = useState<any | null>(null);
+  const [showCreatedPassword, setShowCreatedPassword] = useState(true);
+  const [showOwnerPassword, setShowOwnerPassword] = useState(false);
 
   // Manual Platform Payment Modal
   const [showRecordModal, setShowRecordModal] = useState(false);
@@ -55,7 +57,7 @@ function generateStrongPassword(length: number = 14): string {
     fullName: "",
     email: "",
     phone: "",
-    password: "",
+    password: "Owner@123",
     gymName: "",
     branchName: "Main Branch",
     plan: "TRIAL",
@@ -94,7 +96,7 @@ function generateStrongPassword(length: number = 14): string {
         ownerName: ownerFormData.fullName,
         ownerEmail: ownerFormData.email,
         ownerPhone: ownerFormData.phone,
-        password: ownerFormData.password,
+        password: res.tempPassword || ownerFormData.password,
         plan: ownerFormData.plan,
         trialDays: ownerFormData.trialDays,
       });
@@ -103,7 +105,7 @@ function generateStrongPassword(length: number = 14): string {
         fullName: "",
         email: "",
         phone: "",
-        password: "",
+        password: "Owner@123",
         gymName: "",
         branchName: "Main Branch",
         plan: "TRIAL",
@@ -629,7 +631,31 @@ function generateStrongPassword(length: number = 14): string {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-(--color-text-muted)">Initial Password:</span>
-                <span className="font-bold text-amber-400">{createdGymDetails.password}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-amber-400 font-mono">
+                    {showCreatedPassword ? createdGymDetails.password : "••••••••••••"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatedPassword(!showCreatedPassword)}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-text)"
+                    title={showCreatedPassword ? "Hide password" : "Show password"}
+                  >
+                    {showCreatedPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(createdGymDetails.password, "Password")}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-accent)"
+                    title="Copy Password"
+                  >
+                    {copiedId === createdGymDetails.password ? (
+                      <Check size={14} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -792,15 +818,35 @@ function generateStrongPassword(length: number = 14): string {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-(--color-text-muted)">Initial Password</label>
-              <input
-                type="password"
-                required
-                value={ownerFormData.password}
-                onChange={(e) => setOwnerFormData({ ...ownerFormData, password: e.target.value })}
-                placeholder="At least 8 chars (letters & numbers)"
-                className="w-full mt-1 p-2.5 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent)"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-(--color-text-muted)">Initial Password</label>
+                <button
+                  type="button"
+                  onClick={() => setOwnerFormData({ ...ownerFormData, password: generateStrongPassword(12) })}
+                  className="text-[11px] text-(--color-accent) hover:underline font-medium"
+                >
+                  Generate Strong
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showOwnerPassword ? "text" : "password"}
+                  required
+                  value={ownerFormData.password}
+                  onChange={(e) => setOwnerFormData({ ...ownerFormData, password: e.target.value })}
+                  placeholder="e.g. Owner@123"
+                  className="w-full p-2.5 pr-10 rounded-xl bg-(--color-surface-2) border border-(--color-border) text-sm text-(--color-text) outline-none focus:border-(--color-accent) font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOwnerPassword(!showOwnerPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-text-muted) hover:text-(--color-text)"
+                  tabIndex={-1}
+                  title={showOwnerPassword ? "Hide password" : "Show password"}
+                >
+                  {showOwnerPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3 border-t border-(--color-border-soft) pt-3">

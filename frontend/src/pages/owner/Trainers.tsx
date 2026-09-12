@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search, KeyRound, Mail, Phone } from "lucide-react";
+import { Award, Loader2, Plus, UserPlus, RefreshCw, Dumbbell, Trash2, Search, KeyRound, Mail, Phone, Eye, EyeOff, Copy, Check } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Modal from "@/components/ui/Modal";
@@ -93,13 +93,24 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
     password: "Trainer@123",
     specializations: "Strength & Conditioning",
   });
+  const [showTrainerPassword, setShowTrainerPassword] = useState(false);
+  const [createdTrainerCreds, setCreatedTrainerCreds] = useState<{
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+  } | null>(null);
+  const [showCreatedTrainerPassword, setShowCreatedTrainerPassword] = useState(true);
+  const [copiedCreds, setCopiedCreds] = useState<string | null>(null);
+
+  const copyCredsToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCreds(text);
+    toast.success(`${label} copied to clipboard!`);
+    setTimeout(() => setCopiedCreds(null), 2000);
+  };
 
   const fetchTrainers = async () => {
-    if (!gymId || !branchId) {
-      setTrainers([]);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -155,6 +166,12 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
       await trainerApi.create(activeGymId, activeBranchId, payload);
       toast.success(`Trainer ${newTrainer.fullName} registered successfully!`);
       setShowAddModal(false);
+      setCreatedTrainerCreds({
+        fullName: newTrainer.fullName,
+        email: newTrainer.email,
+        phone: newTrainer.phone,
+        password: newTrainer.password || "Trainer@123",
+      });
       setNewTrainer({ fullName: "", email: "", phone: "", password: "Trainer@123", specializations: "Strength & Conditioning" });
       fetchTrainers();
     } catch (err: any) {
@@ -511,14 +528,25 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
               </div>
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Account Password</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Trainer@123"
-                  value={newTrainer.password}
-                  onChange={(e) => setNewTrainer({ ...newTrainer, password: e.target.value })}
-                  className="w-full rounded-xl bg-(--color-surface-2) p-2.5 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent)"
-                />
+                <div className="relative">
+                  <input
+                    type={showTrainerPassword ? "text" : "password"}
+                    required
+                    placeholder="e.g. Trainer@123"
+                    value={newTrainer.password}
+                    onChange={(e) => setNewTrainer({ ...newTrainer, password: e.target.value })}
+                    className="w-full rounded-xl bg-(--color-surface-2) p-2.5 pr-10 text-sm text-(--color-text) border border-(--color-border) focus:outline-none focus:border-(--color-accent) font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTrainerPassword(!showTrainerPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-text-muted) hover:text-(--color-text)"
+                    tabIndex={-1}
+                    title={showTrainerPassword ? "Hide password" : "Show password"}
+                  >
+                    {showTrainerPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-(--color-text-muted) mb-1 font-medium">Specializations</label>
@@ -550,6 +578,81 @@ export default function Trainers({ overrideGymId, overrideBranchId, backTo: _bac
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Newly Registered Trainer Credentials Modal */}
+      {createdTrainerCreds && (
+        <Modal
+          onClose={() => setCreatedTrainerCreds(null)}
+          maxWidth="md"
+          title="Trainer Account Created Successfully 🎉"
+          subtitle="Share these login credentials directly with the trainer."
+        >
+          <div className="space-y-4 text-xs">
+            <div className="bg-(--color-surface-2) p-4 rounded-xl border border-white/10 space-y-2.5">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Trainer Name:</span>
+                <span className="font-bold text-(--color-text)">{createdTrainerCreds.fullName}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Login Email:</span>
+                <span className="font-bold text-sky-400">{createdTrainerCreds.email}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-(--color-text-muted)">Phone:</span>
+                <span className="font-semibold text-(--color-text)">{createdTrainerCreds.phone}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-(--color-text-muted)">Password:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-amber-400 font-mono">
+                    {showCreatedTrainerPassword ? createdTrainerCreds.password : "••••••••••••"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatedTrainerPassword(!showCreatedTrainerPassword)}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-text)"
+                    title={showCreatedTrainerPassword ? "Hide password" : "Show password"}
+                  >
+                    {showCreatedTrainerPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyCredsToClipboard(createdTrainerCreds.password, "Password")}
+                    className="p-1 text-(--color-text-muted) hover:text-(--color-accent)"
+                    title="Copy Password"
+                  >
+                    {copiedCreds === createdTrainerCreds.password ? (
+                      <Check size={14} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = `Trainer Name: ${createdTrainerCreds.fullName}\nEmail: ${createdTrainerCreds.email}\nPassword: ${createdTrainerCreds.password}\nLogin URL: https://gymai-one.vercel.app/login`;
+                  copyCredsToClipboard(summary, "Trainer Credentials");
+                }}
+                className="py-2.5 px-4 rounded-xl bg-(--color-accent) text-white font-bold shadow-md flex items-center gap-1.5"
+              >
+                <Copy size={14} /> Copy All Credentials
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatedTrainerCreds(null)}
+                className="py-2.5 px-4 rounded-xl bg-(--color-surface-2) font-semibold text-(--color-text)"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 
